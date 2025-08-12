@@ -1,9 +1,9 @@
-import ChatUi from "./components/ChatPageUi/ChatPageUi"
+import Auth from "./components/user/Auth/Auth"
 
 function App() {
   return (
     <div>
-       <ChatUi/>
+       <Auth/>
     </div>
   )
 }

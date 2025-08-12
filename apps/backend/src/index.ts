@@ -32,21 +32,24 @@ io.on("connection", (socket) => {
         console.log(`User ${userId} joined their private room`);
     })
 
-    socket.on("send message", (data: MessagePayload) => {
-        const {receiverId, message} = data
-        io.to(receiverId).emit("recieve message", {message, senderId: socket.id})
+    socket.on("joinGroup", (chatId) => {
+        socket.join(chatId)
+        console.log(`User joined group chat ${chatId}`);
     })
 
-    socket.on("typing",({ receiverId }) => {
-        socket.to(receiverId).emit("typing", {senderId: socket.id})
+    socket.on("typing",({ roomId, userId, username }) => { 
+        socket.to(roomId).emit("typing", {
+            userId,
+            username
+        })
     })
 
-    socket.on("stop typing", ({ receiverId }) => {
-        socket.to(receiverId).emit("stop typing", {senderId: socket.id})
+    socket.on("stopTyping", ({ roomId, userId }) => {
+        socket.to(roomId).emit("stopTyping", { userId });
     })
 
-    socket.on("diconnect", () => {
-        console.log(`Socket diconnected: ${socket.id}`); 
+    socket.on("disconnect", () => {
+        console.log(`Socket disconnected: ${socket.id}`); 
     })
 })
 
@@ -59,6 +62,6 @@ app.get("/", (_, res) => {
     res.send("Backend working")
 })
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 })

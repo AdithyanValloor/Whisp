@@ -37,7 +37,7 @@ export const fetchChats = async (req:Request, res:Response) => {
         .populate("members", "-password")
         .populate("admin", "-password")
         .populate("lastMessage")
-        .sort({updateAt: -1})
+        .sort({updatedAt: -1})
 
         res.json(chats)
     } catch (err) {

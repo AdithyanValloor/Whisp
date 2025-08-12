@@ -3,7 +3,7 @@ import { SendMessageBody } from "./message.types";
 import { Request, Response } from "express";
 import { Message } from "./message.model";
 
-export const sendMessage = async (req: Request<{}, {}, SendMessageBody>, res: Response) => {
+export const sendPersonalMessage = async (req: Request<{}, {}, SendMessageBody>, res: Response) => {
     const { receiverId, content, chatId } = req.body
     const senderId = req.user?.id
 
@@ -15,6 +15,24 @@ export const sendMessage = async (req: Request<{}, {}, SendMessageBody>, res: Re
     })
 
     io.to(receiverId).emit("recieve message", {
+        message,
+        senderId,
+    })
+
+    return res.status(201).json(message)
+}
+
+export const sendGroupMessage = async (req: Request<{}, {}, SendMessageBody>, res: Response) => {
+    const { content, chatId } = req.body
+    const senderId = req.user?.id
+
+    const message = await Message.create({
+        sender: senderId,
+        content,
+        chat: chatId
+    })
+
+    io.to(chatId).emit("recieve message", {
         message,
         senderId,
     })

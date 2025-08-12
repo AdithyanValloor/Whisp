@@ -1,5 +1,4 @@
 import mongoose, { Schema, model } from "mongoose";
-import { ref } from "process";
 
 const messageSchema = new Schema(
     {
@@ -9,11 +8,6 @@ const messageSchema = new Schema(
             required: true
         },
         sender: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-            required: true
-        },
-        receiver: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             required: true

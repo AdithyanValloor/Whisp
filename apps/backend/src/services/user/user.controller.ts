@@ -21,6 +21,7 @@ export const register = async (req: Request, res: Response) => {
     })
 
     res.status(201).json({accessToken, user: safeUser});
+    
   } catch (error) {
     res.status(400).json({ error: (error as Error).message });
   }

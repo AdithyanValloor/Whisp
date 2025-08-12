@@ -21,7 +21,13 @@ const ChatSchema = new Schema(
             type: mongoose.Schema.Types.ObjectId,
             ref: "Message",
         },
-        admin: {
+        admin: [
+            {   
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User"
+            }
+        ],
+        createdBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User"
         }
