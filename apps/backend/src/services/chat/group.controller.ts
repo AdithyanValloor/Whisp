@@ -6,7 +6,8 @@ export const createGroupChat = async (req:Request, res:Response) => {
     const { name, userIds } = req.body
 
     if(!userIds || !Array.isArray(userIds) || !name || userIds.length < 1){
-        return res.status(400).json({ message: "Group name is required"})
+        res.status(400).json({ message: "Group name is required"})
+        return 
     }
 
     try {
@@ -44,10 +45,14 @@ export const addMembers = async (req:Request, res:Response) => {
         const userId = req.user?.id
     
         const chat = await Chat.findById(chatId)
-        if(!chat) return res.status(404).json({ message: "Chat not found" })
+        if(!chat){ 
+            res.status(404).json({ message: "Chat not found" })
+            return 
+        }
     
         if(!chat?.admin.some((id) => id.toString() === userId?.toString()) && chat.createdBy?.toString() !== userId?.toString()){
-            return res.status(403).json({ message: "Only admins can add new members"})
+            res.status(403).json({ message: "Only admins can add new members"})
+            return 
         }
     
         const newMembers = members.filter(
@@ -73,14 +78,19 @@ export const removeMembers = async (req:Request, res:Response) => {
         const userId = req.user?.id
     
         const chat = await Chat.findById(chatId)
-        if(!chat) return res.status(404).json({ message: "Chat not found" })
+        if(!chat){ 
+            res.status(404).json({ message: "Chat not found" })
+            return 
+        }
     
         if(!chat?.admin.some((id) => id.toString() === userId?.toString()) && chat.createdBy?.toString() !== userId?.toString()){
-            return res.status(403).json({ message: "Only admins can remove members"})
+            res.status(403).json({ message: "Only admins can remove members"})
+            return 
         }
     
         if(member === chat.createdBy?._id){
-            return  res.status(400).json({message: "Creator can't be removed"})
+            res.status(400).json({message: "Creator can't be removed"})
+            return 
         }
     
         chat.members = chat.members.filter(
@@ -104,11 +114,15 @@ export const toggleAdmin = async (req: Request, res: Response) => {
     const { chatId, member, makeAdmin } = req.body
 
     const chat = await Chat.findById(chatId);
-    if (!chat) return res.status(404).json({ message: "Chat not found" })
+    if (!chat){ 
+        res.status(404).json({ message: "Chat not found" })
+        return 
+    }
 
     
     if (chat.createdBy?.toString() !== req.user?.id) {
-      return res.status(403).json({ message: "Only creator can manage admins" })
+        res.status(403).json({ message: "Only creator can manage admins" })
+        return 
     }
 
     if (makeAdmin) {
@@ -133,7 +147,10 @@ export const leaveGroup = async (req:Request, res:Response) => {
         const userId = req.user?.id
         
         const chat = await Chat.findById(chatId)
-        if (!chat) return res.status(404).json({ message: "Chat not found" })
+        if (!chat){ 
+            res.status(404).json({ message: "Chat not found" })
+            return 
+        }
 
         chat.members = chat.members.filter(id => id.toString() !== userId);
         chat.admin = chat.admin.filter(id => id.toString() !== userId);
@@ -145,12 +162,12 @@ export const leaveGroup = async (req:Request, res:Response) => {
                 chat.createdBy = chat.members[0];
             } else {
                 await Chat.findByIdAndDelete(chatId);
-                return res.json({ message: "Group deleted as no members left" });
+                res.json({ message: "Group deleted as no members left" });
+                return 
             }
         }
 
         await chat.save()
-
         res.json({ message: "You left the group", chat });
 
     } catch (error) {

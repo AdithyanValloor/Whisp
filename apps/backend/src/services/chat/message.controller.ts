@@ -19,7 +19,7 @@ export const sendPersonalMessage = async (req: Request<{}, {}, SendMessageBody>,
         senderId,
     })
 
-    return res.status(201).json(message)
+    res.status(201).json(message)
 }
 
 export const sendGroupMessage = async (req: Request<{}, {}, SendMessageBody>, res: Response) => {
@@ -37,7 +37,7 @@ export const sendGroupMessage = async (req: Request<{}, {}, SendMessageBody>, re
         senderId,
     })
 
-    return res.status(201).json(message)
+    res.status(201).json(message)
 }
 
 export const getMessage = async (req: Request, res: Response) => {
@@ -55,7 +55,7 @@ export const getMessage = async (req: Request, res: Response) => {
 
     const total = await Message.countDocuments({ chat: chatId })
 
-    return res.json({
+    res.json({
         messages,
         totalPages: Math.ceil(total/ limit),
         currentPage: page,

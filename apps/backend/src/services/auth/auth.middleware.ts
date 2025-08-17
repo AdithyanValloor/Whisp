@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express"
-import { verifyAccessToken,  verifyRefreshToken, generateAccessToken } from "../utils/jwt"
-import { DecodedUser } from "../services/user/user.types"
+import { verifyAccessToken,  verifyRefreshToken, generateAccessToken } from "../../utils/jwt"
+import { DecodedUser } from "../user/user.types"
 
 declare global {
     namespace Express {
@@ -10,7 +10,7 @@ declare global {
     }
 }
 
-export const protect = (req: Request, res: Response, next: NextFunction) => {
+export const protect = (req: Request, res: Response, next: NextFunction):void => {
     try {
         let accessToken = 
         req.cookies?.accessToken || 
@@ -19,18 +19,24 @@ export const protect = (req: Request, res: Response, next: NextFunction) => {
         : undefined)
 
         if (!accessToken) {
-            return res.status(401).json({ error: "No token provided" });
+            res.status(401).json({ error: "No token provided" });
+            return 
         }
 
         try {
             const decoded = verifyAccessToken(accessToken) as DecodedUser
+            
+            console.log("Decoded :", decoded);
+            
             req.user = decoded;
-            return next();
+            next();
+            return 
         } catch (accessErr) {
             const refreshToken = req.cookies?.refreshToken
 
             if(!refreshToken){
-                return res.status(401).json({error: "Access token expired. No refresh token found"})
+                res.status(401).json({error: "Access token expired. No refresh token found"})
+                return 
             }
 
             try {
@@ -46,15 +52,18 @@ export const protect = (req: Request, res: Response, next: NextFunction) => {
                 })
 
                 req.user = decodedRefresh; 
-                return next();
+                next();
+                return 
 
             } catch (refreshError) {
-                return res.status(403).json({ error: "Invalid or expired refresh token" });
+                res.status(403).json({ error: "Invalid or expired refresh token" });
+                return 
             }
         }
 
     } catch (error) {
-        return res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({ error: "Internal server error" });
+        return 
     }
 }
 

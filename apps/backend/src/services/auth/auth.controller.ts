@@ -1,4 +1,4 @@
-import { UserModel } from "../../models/user.model";
+import { UserModel } from "../user/models/user.model";
 import bcrypt from "bcrypt"
 import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
 
@@ -25,8 +25,8 @@ export const registerUser = async (username:string, email: string, password: str
     })
 
     // Generate Token
-    const accessToken = generateAccessToken({ userId: newUser._id, email: newUser.email })
-    const refreshToken = generateRefreshToken({ userId: newUser._id, email: newUser.email })
+    const accessToken = generateAccessToken({ id: newUser._id, email: newUser.email })
+    const refreshToken = generateRefreshToken({ id: newUser._id, email: newUser.email })
 
     // Remove password from the user object
     const {password:_, ...safeUser} = newUser.toObject()
@@ -55,14 +55,13 @@ export const loginUser = async (email: string, password: string) => {
     }
 
     // Generate token
-    const accessToken = generateAccessToken({ userId: user._id, email: user.email })
-    const refreshToken = generateRefreshToken({ userId: user._id, email: user.email })
+    const accessToken = generateAccessToken({ id: user._id, email: user.email })
+    const refreshToken = generateRefreshToken({ id: user._id, email: user.email })
 
     // Remove password from the user object
     const {password:_, ...safeUser} = user.toObject()
 
     // Return token & user object
     return {accessToken, refreshToken, safeUser}
-
 
 }

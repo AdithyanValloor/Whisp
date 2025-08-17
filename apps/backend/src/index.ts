@@ -1,12 +1,13 @@
 import express from "express";
 import dotenv from 'dotenv'
 import { connectDb } from "./config/db.js";
-import { userRouter } from "./services/user/user.routes.js";
+import { userRouter } from "./services/user/routers/user.routes.js";
 import http from "http"
 import { Server as socketIOServer } from "socket.io";
 import cors from "cors"
 import cookieParser from "cookie-parser";
 import { MessagePayload } from "./services/chat/message.types.js";
+import { profileRouter } from "./services/user/routers/profile.routes.js";
 
 dotenv.config()
 connectDb()
@@ -54,9 +55,8 @@ io.on("connection", (socket) => {
 })
 
 
-console.log("PORT : ", PORT);
-
 app.use("/api/user", userRouter)
+app.use("/api/profile", profileRouter)
 
 app.get("/", (_, res) => {
     res.send("Backend working")

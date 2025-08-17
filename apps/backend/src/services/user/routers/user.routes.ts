@@ -1,15 +1,14 @@
 import express from "express";
-import { login, logout, register } from "./user.controller";
-import { protect } from "../../middleware/auth.middleware";
+import { login, logout, register } from "../controllers/user.controller";
 
-const router = express.Router();
+const router = express.Router()
 
 /**
  * @route POST /api/user/signup
  * @desc Register a new user
  * @access Public
  */
-router.post("/signup", register);
+router.post("/signup", register)
 
 /**
  * @route POST /api/user/login
@@ -23,6 +22,6 @@ router.post("/login", login);
  * @desc Logout session
  * @access Public
  */
-router.post("/logout", logout);
+router.post("/logout", logout)
 
 export { router as userRouter };

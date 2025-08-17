@@ -1,4 +1,4 @@
-import { registerUser, loginUser } from "../auth/auth.controller";
+import { registerUser, loginUser } from "../../auth/auth.controller";
 import { Request, Response } from "express";
 
 /**
@@ -69,3 +69,5 @@ export const logout = async (req: Request, res: Response) => {
     secure: process.env.NODE_ENV === "production"
   }).status(200).json({ message: "Logged out successfully"})
 }
+
+
