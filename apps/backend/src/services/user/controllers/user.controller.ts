@@ -1,4 +1,4 @@
-import { registerUser, loginUser } from "../../auth/auth.controller";
+import { registerUser, loginUser } from "../../auth/auth.controller.js";
 import { Request, Response } from "express";
 
 /**

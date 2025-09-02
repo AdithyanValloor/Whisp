@@ -1,6 +1,6 @@
 import express from "express"
-import { protect } from "../../auth/auth.middleware"
-import { editProfile, viewProfile } from "../controllers/profile.controller"
+import { protect } from "../../auth/auth.middleware.js"
+import { editProfile, viewProfile } from "../controllers/profile.controller.js"
 
 /**
  * @route GET /api/user/profile
@@ -11,6 +11,14 @@ import { editProfile, viewProfile } from "../controllers/profile.controller"
 const router = express.Router()
 
 router.get("/", protect, viewProfile)
+
+/**
+ * @route PUT /api/user/profile
+ * @desc EDIT user profile
+ * @access user
+ */
+
+
 router.put("/", protect, editProfile)
 
 export { router as profileRouter }

@@ -12,11 +12,25 @@ export const handleProfileError = (res: Response, error: Error) => {
 
 export const handleFriendError = (res: Response, error: Error) => {
   const message = error.message;
-  if (message === "Unauthorized") res.status(401).json({ message })
-  else if (message === "User not found") res.status(404).json({ message })
-  else if (message === "Already friends") res.status(400).json({ message })
-  else if (message === "Request already sent") res.status(400).json({ message })
-  else if (message === "Request not found") res.status(404).json({ message })
-  else if (message === "Not authorized to accept this request") res.status(401).json({ message })
-  else res.status(500).json({ message: "Server error" }) //console.error(error) && 
+
+  if (message === "Unauthorized") {
+    res.status(401).json({ message });
+  } else if (message === "User not found") {
+    res.status(404).json({ message });
+  } else if (message === "Already friends") {
+    res.status(400).json({ message });
+  } else if (message === "Request already exits" || message === "Request already sent") {
+    res.status(400).json({ message });
+  } else if (message === "Request not found") {
+    res.status(404).json({ message });
+  } else if (message === "Not authorized to accept this request") {
+    res.status(401).json({ message });
+  } else if (message === "Not authorized to reject this request") {
+    res.status(401).json({ message });
+  } else if (message === "Not friends") {
+    res.status(400).json({ message });
+  } else {
+    res.status(500).json({ message: "Server error" });
+  }
 };
+

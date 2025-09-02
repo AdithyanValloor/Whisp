@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Chat } from "./chat.model";
+import { Chat } from "./chat.model.js";
 
 export const accessChat = async (req:Request, res: Response) => {
     const { userId } = req.body

@@ -1,7 +1,7 @@
-import { io } from "../../index";
-import { SendMessageBody } from "./message.types";
+import { io } from "../../index.js";
+import { SendMessageBody } from "./message.types.js";
 import { Request, Response } from "express";
-import { Message } from "./message.model";
+import { Message } from "./message.model.js";
 
 export const sendPersonalMessage = async (req: Request<{}, {}, SendMessageBody>, res: Response) => {
     const { receiverId, content, chatId } = req.body

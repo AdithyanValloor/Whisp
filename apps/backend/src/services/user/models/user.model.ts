@@ -109,8 +109,6 @@ const userSchema: Schema<IUser> = new Schema (
             type: Date, 
             default: null,  
         },
-            
-
     },
     {
         timestamps: true

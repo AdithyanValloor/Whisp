@@ -1,6 +1,6 @@
-import { UserModel } from "../user/models/user.model";
+import { UserModel } from "../user/models/user.model.js";
 import bcrypt from "bcrypt"
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
+import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 
 const HASH_SALT = 10
 

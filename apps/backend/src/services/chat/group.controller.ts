@@ -1,5 +1,5 @@
 import { Request, Response } from "express"
-import { Chat } from "./chat.model"
+import { Chat } from "./chat.model.js"
 
 // CREATE A GROUP CHAT
 export const createGroupChat = async (req:Request, res:Response) => {
