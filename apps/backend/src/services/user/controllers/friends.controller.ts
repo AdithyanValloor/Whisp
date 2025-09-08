@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { acceptFriendRequest, fetchRequests, getFriendList, rejectFriendRequest, removeFriend as removeFriendService, sendFriendRequest } from "../services/friend.services.js";
-import { handleFriendError } from "../errors/ProfileError.js";
+import { handleFriendError } from "../errors/ProfileErrors.js";
 
 /**
  * @desc Fetch friends list

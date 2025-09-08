@@ -1,14 +1,14 @@
 import express from "express";
 import dotenv from 'dotenv'
 import { connectDb } from "./config/db.js";
-import { userRouter } from "./services/user/routers/user.routes.js";
+import { userRouter } from "./services/user/routes/user.routes.js";
 import http from "http"
 import { Server, Socket } from "socket.io";
 import cors from "cors"
 import cookieParser from "cookie-parser";
 // import { MessagePayload } from "./services/chat/message.types.js";
-import { profileRouter } from "./services/user/routers/profile.routes.js";
-import { friendRouter } from "./services/user/routers/friend.routes.js";
+import { profileRouter } from "./services/user/routes/profile.routes.js";
+import { friendRouter } from "./services/user/routes/friend.routes.js";
 
 dotenv.config()
 connectDb()

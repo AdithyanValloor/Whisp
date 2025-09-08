@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { getProfileByUserId } from "../services/user.services.js";
-import { handleProfileError } from "../errors/ProfileError.js";
+import { handleProfileError } from "../errors/ProfileErrors.js";
 
 /**
  * @desc Handles user profile view

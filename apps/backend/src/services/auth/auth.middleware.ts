@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express"
 import { verifyAccessToken,  verifyRefreshToken, generateAccessToken } from "../../utils/jwt.js"
-import { DecodedUser } from "../user/user.types.js"
+import { DecodedUser } from "../user/types/user.types.js"
 
 declare global {
     namespace Express {
