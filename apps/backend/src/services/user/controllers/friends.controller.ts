@@ -1,115 +1,226 @@
-import { Request, Response } from "express";
-import { acceptFriendRequest, fetchRequests, getFriendList, rejectFriendRequest, removeFriend as removeFriendService, sendFriendRequest } from "../services/friend.services.js";
-import { handleFriendError } from "../errors/ProfileErrors.js";
+import { Response, NextFunction } from "express";
+import { AuthRequest } from "../types/authRequest.js";
+import {
+  acceptFriendRequest,
+  cancelFriendRequest,
+  fetchRequests,
+  getFriendList,
+  rejectFriendRequest,
+  removeFriend as removeFriendService,
+  sendFriendRequest,
+} from "../services/friend.services.js";
+import {
+  BadRequest,
+  Unauthorized,
+} from "../../../utils/errors/httpErrors.js";
 
 /**
- * @desc Fetch friends list
- * @route get /api/friends/
- * @access Private (User)
+ * ------------------------------------------------------------------
+ * Fetch Friend List
+ * ------------------------------------------------------------------
+ * @desc    Retrieves the authenticated user's friend list
+ * @route   GET /api/friends
+ * @access  Private
  */
+export const getAllFriends = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-export const getAllFriends = async (req:Request, res:Response):Promise<void> => {
-    try {
-        const userId = req.user?.id
-        const friendList = await getFriendList(userId!)
-        
-        res.status(200).json({message: "Friend list fetched", friendList })
+    const friendList = await getFriendList(userId);
 
-    } catch (error) {
-        handleFriendError(res, error as Error)
-    }
-}
+    res.status(200).json({
+      message: "Friend list fetched",
+      friendList,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
- * @desc Send a friend request
- * @route POST /api/friends
- * @access Private (User)
+ * ------------------------------------------------------------------
+ * Send Friend Request
+ * ------------------------------------------------------------------
+ * @desc    Sends a friend request to another user by username
+ * @route   POST /api/friends
+ * @access  Private
  */
+export const addFriend = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { username }: { username?: string } = req.body;
+    const userId = req.user?.id;
 
-export const addFriend = async (req:Request, res:Response):Promise<void> => {
-    try {
-        const { friendId } = req.body
-        const userId = req.user?.id
+    if (!userId) throw Unauthorized();
+    if (!username) throw BadRequest("Username is required");
 
-        const request = await sendFriendRequest(userId!, friendId)
-        res.status(200).json({message: "Friend request sent", request })
+    const request = await sendFriendRequest(userId, username);
 
-    } catch (error) {
-        handleFriendError(res, error as Error)
-    }
-}
+    res.status(200).json({
+      message: "Friend request sent",
+      request,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
- * @desc Fetch all friend requests
- * @route GET /api/friends/requests
- * @access Private (User)
+ * ------------------------------------------------------------------
+ * Fetch Incoming & Outgoing Friend Requests
+ * ------------------------------------------------------------------
+ * @desc    Retrieves all pending friend requests
+ * @route   GET /api/friends/requests
+ * @access  Private
  */
+export const getAllRequests = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-export const getAllRequests = async (req:Request, res:Response):Promise<void> => {
-    try {
-        const userId = req.user?.id
-        const { incoming, outgoing } = await fetchRequests(userId!)
-        res.status(200).json({message:"All incoming and outgoing requests fetched", incoming, outgoing})
-    } catch (error) {
-        handleFriendError(res, error as Error)
-    }
-}
+    const { incoming, outgoing } = await fetchRequests(userId);
+
+    res.status(200).json({
+      message: "Friend requests fetched",
+      incoming,
+      outgoing,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
- * @desc Accept a friend request
- * @route POST /api/friends/accept
- * @access Private (User)
+ * ------------------------------------------------------------------
+ * Accept Friend Request
+ * ------------------------------------------------------------------
+ * @desc    Accepts a pending friend request
+ * @route   POST /api/friends/accept
+ * @access  Private
  */
+export const acceptReq = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id }: { id?: string } = req.body;
+    const userId = req.user?.id;
 
-export const acceptReq = async (req:Request, res:Response):Promise<void> => {
-    try {
-        const { requestId } = req.body
-        const userId = req.user?.id
-        const request = await acceptFriendRequest(requestId, userId!)
-        res.status(200).json({message: "Friend request accepted", request })
+    if (!userId) throw Unauthorized();
+    if (!id) throw BadRequest("Request ID is required");
 
-    } catch (error) {
-        handleFriendError(res, error as Error)
-    }
-}
+    const request = await acceptFriendRequest(id, userId);
+
+    res.status(200).json({
+      message: "Friend request accepted",
+      request,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
- * @desc Reject a friend request
- * @route POST /api/friends/reject
- * @access Private (User)
+ * ------------------------------------------------------------------
+ * Reject Friend Request
+ * ------------------------------------------------------------------
+ * @desc    Rejects a pending friend request
+ * @route   POST /api/friends/reject
+ * @access  Private
  */
+export const rejectReq = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id }: { id?: string } = req.body;
+    const userId = req.user?.id;
 
-export const rejectReq = async (req:Request, res:Response):Promise<void> => {
-    try {
-        const { requestId } = req.body
-        const userId = req.user?.id
+    if (!userId) throw Unauthorized();
+    if (!id) throw BadRequest("Request ID is required");
 
-        const request = await rejectFriendRequest(requestId, userId!)
-        res.status(200).json({message: "Friend request rejected", request })
+    const request = await rejectFriendRequest(id, userId);
 
-    } catch (error) {
-        handleFriendError(res, error as Error)
-    }
-}
+    res.status(200).json({
+      message: "Friend request rejected",
+      request,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
 /**
- * @desc Remove a friend
- * @route DELETE /api/friends/:friendId
- * @access Private (User)
+ * ------------------------------------------------------------------
+ * Remove Friend
+ * ------------------------------------------------------------------
+ * @desc    Removes an existing friend relationship
+ * @route   DELETE /api/friends
+ * @access  Private
  */
+export const removeFriend = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id }: { id?: string } = req.body;
+    const userId = req.user?.id;
 
-export const removeFriend = async (req:Request, res:Response):Promise<void> => {
-    try {
-        const { friendId } = req.body
-        const userId = req.user?.id
+    if (!userId) throw Unauthorized();
+    if (!id) throw BadRequest("Friend ID is required");
 
-        const response = await removeFriendService(userId!, friendId)
+    await removeFriendService(userId, id);
 
-        if(response){
-            res.status(200).json({message: "Friend removed successfully" })
-        }
+    res.status(200).json({
+      message: "Friend removed successfully",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
 
-    } catch (error) {
-        handleFriendError(res, error as Error)
-    }
-}
+/**
+ * ------------------------------------------------------------------
+ * Cancel Sent Friend Request
+ * ------------------------------------------------------------------
+ * @desc    Cancels a previously sent friend request
+ * @route   POST /api/friends/cancel
+ * @access  Private
+ */
+export const cancelReq = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id }: { id?: string } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) throw Unauthorized();
+    if (!id) throw BadRequest("Request ID is required");
+
+    const response = await cancelFriendRequest(id, userId);
+
+    res.status(200).json({
+      message: "Friend request canceled",
+      response,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

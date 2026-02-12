@@ -1,6 +1,6 @@
 import express, { Router } from 'express'
 import { protect } from '../../auth/auth.middleware.js'
-import { acceptReq, addFriend, getAllFriends, getAllRequests, rejectReq, removeFriend } from '../controllers/friends.controller.js'
+import { acceptReq, addFriend, cancelReq, getAllFriends, getAllRequests, rejectReq, removeFriend } from '../controllers/friends.controller.js'
 
 const router = express.Router()
 
@@ -48,10 +48,21 @@ router.post("/reject", protect, rejectReq)
 
 /**
  * @desc Remove a friend
- * @route DELETE /api/friends/:friendId
+ * @route DELETE /api/friends/remove
  * @access Private (User)
  */
 
 router.post("/remove", protect, removeFriend)
+
+
+/**
+ * @desc Cancel sent friend request
+ * @route post /api/friends/cancel
+ * @access Private (User)
+ */
+
+
+router.post("/cancel", protect, cancelReq);
+
 
 export { router as friendRouter}

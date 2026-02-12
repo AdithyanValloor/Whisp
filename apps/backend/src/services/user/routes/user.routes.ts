@@ -1,5 +1,6 @@
 import express from "express";
-import { login, logout, register } from "../controllers/user.controller.js";
+import { currentUser, login, logout, register } from "../controllers/user.controller.js";
+import { protect } from "../../auth/auth.middleware.js";
 
 const router = express.Router()
 
@@ -8,7 +9,7 @@ const router = express.Router()
  * @desc Register a new user
  * @access Public
  */
-router.post("/signup", register)
+router.post("/register", register);
 
 /**
  * @route POST /api/user/login
@@ -22,6 +23,13 @@ router.post("/login", login);
  * @desc Logout session
  * @access Public
  */
-router.post("/logout", logout)
+router.post("/logout", logout);
 
-export { router as userRouter };
+/**
+ * @route GET /api/user/me
+ * @desc Current user info
+ * @access Protected
+ */
+router.get("/me", protect, currentUser);
+
+export { router as userRouter }

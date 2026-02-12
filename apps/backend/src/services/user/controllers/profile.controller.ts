@@ -1,57 +1,88 @@
-import { Request, Response } from "express";
-import { getProfileByUserId } from "../services/user.services.js";
-import { handleProfileError } from "../errors/ProfileErrors.js";
+import { Response, NextFunction } from "express";
+import { AuthRequest } from "../types/authRequest.js";
+import {
+  getProfileByUserId,
+  updateProfileByUserId,
+} from "../services/user.services.js";
+import { Unauthorized, BadRequest } from "../../../utils/errors/httpErrors.js";
 
 /**
- * @desc Handles user profile view
- * @route GET /api/profile
- * @access User
+ * ------------------------------------------------------------------
+ * View Current User Profile
+ * ------------------------------------------------------------------
+ * @desc    Fetches the authenticated user's profile
+ * @route   GET /api/profile
+ * @access  Private (Requires valid access token)
+ *
+ * Notes:
+ * - Relies on `protect` middleware to attach `req.user`
+ * - Does NOT expose sensitive fields (password excluded at service level)
+ * - Errors are forwarded to global error handler
  */
-
-export const viewProfile = async (req: Request, res: Response): Promise<void> => {
+export const viewProfile = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
+    const userId = req.user?.id;
 
-    const userId = req.user?.id
-    const profile = await getProfileByUserId(userId!)
+    // Safety check in case auth middleware is bypassed/misconfigured
+    if (!userId) throw Unauthorized();
 
-    res.status(200).json(profile)
+    const profile = await getProfileByUserId(userId);
 
-  } catch (error) {
-    handleProfileError(res, error as Error)
+    res.status(200).json(profile);
+  } catch (err) {
+    next(err);
   }
+};
+
+/**
+ * Shape of allowed profile update fields
+ * - All fields are optional to allow partial updates
+ * - Validation is kept minimal here; business rules live in services
+ */
+interface EditProfileBody {
+  displayName?: string;
+  username?: string;
+  pronouns?: string;
+  bio?: string;
+  status?: string;
 }
 
 /**
- * @desc Handles user profile edit
- * @route GET /api/profile
- * @access User
+ * ------------------------------------------------------------------
+ * Edit Current User Profile
+ * ------------------------------------------------------------------
+ * @desc    Updates editable fields of the authenticated user's profile
+ * @route   PATCH /api/profile
+ * @access  Private (Requires valid access token)
+ *
+ * Notes:
+ * - Only provided fields are updated (PATCH semantics)
+ * - Empty body is rejected to prevent no-op updates
+ * - Business logic is delegated to service layer
  */
+export const editProfile = async (
+  req: AuthRequest<{}, {}, EditProfileBody>,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
 
-export const editProfile = async (req:Request, res:Response): Promise<void> => {
-    try {
-        const { username, pronouns, bio, status } = req.body
-        
-        const userId = req.user?.id
-        const profile = await getProfileByUserId(userId!)
+    if (!userId) throw Unauthorized();
 
-        if(username){
-            profile.username = username 
-        }
-        if(pronouns){
-            profile.pronouns = pronouns
-        }
-        if(bio){
-            profile.bio = bio
-        }
-        if(status){
-            profile.status = status
-        }
-
-        await profile.save()
-        res.status(200).json(profile)
-
-    } catch (error) {  
-        handleProfileError(res, error as Error)
+    // Prevent accidental empty PATCH requests
+    if (!Object.keys(req.body).length) {
+      throw BadRequest("No fields provided to update");
     }
-}
 
+    const updatedProfile = await updateProfileByUserId(userId, req.body);
+
+    res.status(200).json(updatedProfile);
+  } catch (err) {
+    next(err);
+  }
+};
