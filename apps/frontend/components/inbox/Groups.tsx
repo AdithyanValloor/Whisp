@@ -1,0 +1,65 @@
+'use client';
+
+import { useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import FriendCard from "../Message/FriendCard";
+import { fetchChats } from "@/redux/features/chatSlice";
+
+interface GroupChatProps {
+  onOpenChat: (chatId: string) => void;
+  selectedChatId?: string;
+}
+
+export default function GroupChat({ onOpenChat, selectedChatId }: GroupChatProps) {
+  const dispatch = useAppDispatch();
+
+  const { chats, listLoading } = useAppSelector((state) => state.chat);
+  const { user, sessionLoading } = useAppSelector((state) => state.auth);
+  const perChatUnread = useAppSelector((state) => state.unread.perChat);
+
+  /* -------- Fetch chats once -------- */
+  useEffect(() => {
+    if (user?._id && !sessionLoading) {
+      dispatch(fetchChats());
+    }
+  }, [dispatch, user?._id, sessionLoading]);
+
+  if (sessionLoading || (listLoading && chats.length === 0)) {
+    return <p className="p-3">Loading groups...</p>;
+  }
+
+  const groupChats = chats.filter((chat) => chat.isGroup);
+
+  if (!groupChats.length) {
+    return (
+      <p className="p-3 text-center opacity-70">
+        No groups yet
+      </p>
+    );
+  }
+
+  return (
+    <div className="h-full w-full flex flex-col gap-1">
+      {groupChats.map((chat) => {
+        const unreadCount = perChatUnread[chat._id] || 0;
+
+        return (
+          <FriendCard
+            key={chat._id}
+            user={{
+              name: chat.chatName,
+              profilePic: chat.members[0]?.profilePicture?.url || "",
+              status: "online",
+              lastMessage: chat.lastMessage?.content || "",
+            }}
+            msgId={chat._id}
+            chatType="group"
+            unread={unreadCount}
+            onClick={() => onOpenChat(chat._id)}
+            selectedChat={selectedChatId}
+          />
+        );
+      })}
+    </div>
+  );
+}

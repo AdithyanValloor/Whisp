@@ -1,0 +1,130 @@
+"use client";
+
+import { ArrowLeft, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import type { MessageType } from "@/redux/features/messageSlice";
+import SearchInput from "../GlobalComponents/SearchInput";
+import IconButton from "../GlobalComponents/IconButtons";
+import DateFilter from "./DatePicker";
+import dayjs from "dayjs";
+import type { Dayjs } from "dayjs";
+
+interface ChatSearchComponentProps {
+  messages: MessageType[];
+  onClose: () => void;
+  currentUser: { _id: string; username: string; displayName?: string; profilePic?: string };
+  chatId: string;
+  onSelectMessage: (id: string) => void;
+}
+
+export default function ChatSearchComponent({
+  messages,
+  onClose,
+  currentUser,
+  chatId,
+  onSelectMessage
+}: ChatSearchComponentProps) {
+  const [query, setQuery] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
+
+  const results = useMemo(() => {
+    const hasQuery = query.trim().length > 0;
+    const hasDate = !!selectedDate;
+
+    if (!hasQuery && !hasDate) return [];
+
+    const q = query.toLowerCase();
+
+    return messages.filter((m) => {
+      if (m.deleted || typeof m.content !== "string") return false;
+
+      const matchesText = hasQuery
+        ? m.content.toLowerCase().includes(q)
+        : true;
+
+      const matchesDate = hasDate
+        ? dayjs(m.createdAt).isSame(selectedDate, "day")
+        : true;
+
+      return matchesText && matchesDate;
+    });
+  }, [query, selectedDate, messages]);
+
+  const getSenderLabel = (msg: MessageType) => {
+    if (msg.sender._id === currentUser._id) {
+      return "You";
+    }
+
+    return msg.sender.displayName || msg.sender.username;
+  };
+
+  return (
+    <div className="h-full w-full flex flex-col bg-base-200 shadow">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-base-content/8 bg-base-200">
+        <IconButton ariaLabel="Close search" onClick={onClose}>
+          <ArrowLeft size={18} />
+        </IconButton>
+
+        <div className="relative flex-1">
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60"
+          />
+          <SearchInput
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search messages"
+            autoFocus
+          />
+        </div>
+
+        {/* Date picker here */}
+        <DateFilter
+          value={selectedDate}
+          onChange={setSelectedDate}
+        />
+      </div>
+
+      {/* Results */}
+      <div className="flex-1 overflow-y-auto px-3 py-2">
+        {!query && (
+          <p className="text-sm opacity-60 text-center mt-6">
+            Type to search messages
+          </p>
+        )}
+
+        {query && results.length === 0 && (
+          <p className="text-sm opacity-60 text-center mt-6">
+            No messages found
+          </p>
+        )}
+
+        <div className="flex flex-col gap-1">
+          {results.map((msg) => (
+            
+            <div
+              key={msg._id}
+              onClick={() => onSelectMessage(msg._id)}
+              className="p-2 rounded-lg hover:bg-base-content/10 cursor-pointer transition"
+            >
+              <p className="text-sm line-clamp-2">
+                <span className="opacity-60">{getSenderLabel(msg)}:</span> {msg.content}
+              </p>
+              <p className="text-[11px] opacity-60 mt-0.5">
+                {/* {new Date(msg.createdAt).toLocaleString()} */}
+                {new Date(msg.createdAt).toLocaleString('en-US', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
