@@ -1,36 +1,71 @@
-import mongoose, {Schema, model} from "mongoose";
+import mongoose, {Schema, model, Document, Types} from "mongoose";
 
-const ChatSchema = new Schema(
-    {
-        members: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "User"
-            }
-        ],
-        isGroup: {
-            type: Boolean,
-            default: false
-        },
-        chatName: {
-            type: String,
-        },
-        lastMessage: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Message",
-        },
-        admin: [
-            {   
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "User"
-            }
-        ],
-        createdBy: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User"
-        }
+export interface IChat extends Document {
+ _id: Types.ObjectId;  
+  members: Types.ObjectId[];
+
+  isGroup: boolean;
+  chatName?: string;
+
+  lastMessage?: Types.ObjectId;
+
+  admin: Types.ObjectId[];
+  createdBy?: Types.ObjectId;
+
+  unreadCounts: Map<string, number>;
+
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+
+const ChatSchema:Schema<IChat> = new Schema(
+ {
+    members: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+    ],
+
+    isGroup: {
+      type: Boolean,
+      default: false,
     },
-    {   timestamps: true    }
+
+    chatName: {
+      type: String,
+      trim: true,
+    },
+
+    lastMessage: {
+      type: Schema.Types.ObjectId,
+      ref: "Message",
+    },
+
+    admin: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    unreadCounts: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
+  },
+  {
+    timestamps: true,
+  }
 )
 
-export const Chat = model("Chat", ChatSchema)
+export const Chat = model<IChat>("Chat", ChatSchema);
+

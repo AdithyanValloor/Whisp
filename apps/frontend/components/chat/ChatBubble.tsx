@@ -24,8 +24,7 @@ interface ChatBubbleProps {
     position: 'top' | 'bottom';
   }
   isLastMessage: boolean;
-  isHighlighted: boolean;
-  scrollTargetId?: string | null;
+  highlightedMessageId: string | null;
 }
 
 export default function ChatBubble({
@@ -40,8 +39,7 @@ export default function ChatBubble({
   profilePic,
   handleReaction,
   contextMenu,
-  isHighlighted,
-  scrollTargetId
+  highlightedMessageId,
 }: ChatBubbleProps) {
 
   return (
@@ -51,13 +49,12 @@ export default function ChatBubble({
         ${isMe ? "chat-end" : "chat-start"} 
         hover:bg-base-content/10
           px-4 transition-colors
-          ${isHighlighted ? "bg-base-content/10" : ""}
+          ${highlightedMessageId === msg._id && "bg-cyan-900/30"}
           ${editingMessage?._id === msg._id && "bg-base-content/10"}
           ${replyingTo?._id === msg._id && "bg-base-content/10"}
           ${contextMenu.msg?._id === msg._id && !msg.deleted && "bg-base-content/10"}
-          ${scrollTargetId === msg._id && "bg-base-content/10"}
-      `}
-    >
+          `}
+          >
       {!grouped && (
         <div className="chat-image avatar">
           <div className="w-10 h-10 rounded-full overflow-hidden">
@@ -105,7 +102,11 @@ export default function ChatBubble({
       >
         {msg.replyTo && (
           <div 
-            onClick={() => scrollToMessage(msg.replyTo?._id || "")}
+            onClick={() => {
+              if (msg.replyTo?._id) {
+                scrollToMessage(msg.replyTo._id);
+              }
+            }}
             className={`bg-base-content/10 cursor-default 
               ${grouped 
                 ? (isMe ? "!rounded-r-lg" : "!rounded-l-lg") 

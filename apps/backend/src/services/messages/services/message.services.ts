@@ -406,3 +406,270 @@ export const deleteMessageFunction = async (
   );
   return populated;
 };
+
+/**
+ * ------------------------------------------------------------------
+ * Search Messages (Scalable)
+ * ------------------------------------------------------------------
+ * @desc    Searches messages in a chat with text and/or date filters
+ *
+ * @param   chatId - Chat ID
+ * @param   userId - Authenticated user
+ * @param   query  - Optional text search
+ * @param   date   - Optional ISO date string
+ * @param   page   - Page number
+ * @param   limit  - Results per page
+ *
+ * @returns {
+ *   messages,
+ *   totalPages,
+ *   currentPage,
+ *   hasMore
+ * }
+ */
+export const searchMessagesFunction = async (
+  chatId: string,
+  userId: string,
+  query?: string,
+  date?: string,
+  page: number = 1,
+  limit: number = 20
+) => {
+  if (!chatId) throw BadRequest("ChatId is required");
+  if (!userId) throw Unauthorized();
+
+  const chat = await Chat.findOne({
+    _id: chatId,
+    members: userId,
+  });
+
+  if (!chat) throw Forbidden("Not allowed to search this chat");
+
+  const filter: any = {
+    chat: chatId,
+    deleted: false,
+  };
+
+  // -------------------------
+  // TEXT SEARCH
+  // -------------------------
+  if (query && query.trim() !== "") {
+    filter.$text = { $search: query };
+  }
+
+  // -------------------------
+  // DATE FILTER
+  // -------------------------
+  if (date) {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+
+    filter.createdAt = {
+      $gte: start,
+      $lte: end,
+    };
+  }
+
+  const skip = (page - 1) * limit;
+
+  const messages = await Message.find(
+    filter,
+    query ? { score: { $meta: "textScore" } } : {}
+  )
+    .sort(
+      query
+        ? { score: { $meta: "textScore" }, createdAt: -1 }
+        : { createdAt: -1 }
+    )
+    .skip(skip)
+    .limit(limit)
+    .populate("sender", "displayName username profilePicture")
+    .populate({
+      path: "replyTo",
+      select: "content sender createdAt",
+      populate: {
+        path: "sender",
+        select: "username displayName profilePicture",
+      },
+    })
+    .populate("reactions.user", "username displayName profilePicture");
+
+  const total = await Message.countDocuments(filter);
+
+  return {
+    messages,
+    totalPages: Math.ceil(total / limit),
+    currentPage: page,
+    hasMore: skip + messages.length < total,
+  };
+};
+
+/**
+ * ------------------------------------------------------------------
+ * Get Message Context (Jump-to-Message System)
+ * ------------------------------------------------------------------
+ * @desc    Fetches a message along with surrounding context messages.
+ *          Used for dynamic jump-to-message from:
+ *            • Search results
+ *            • Reply click
+ *            • Deep links
+ *
+ *          Instead of loading the entire chat history, this function
+ *          retrieves a limited window of messages:
+ *            - `limit` messages BEFORE the target
+ *            - The target message itself
+ *            - `limit` messages AFTER the target
+ *
+ *          This ensures:
+ *            ✓ Efficient loading
+ *            ✓ Smooth scroll anchoring
+ *            ✓ Scalable chat performance
+ *
+ * @param   messageId - Target message ID
+ * @param   userId    - Authenticated user ID (must belong to chat)
+ * @param   limit     - Number of messages before/after (default: 20)
+ *
+ * @returns {
+ *   target:  Message,
+ *   before:  Message[],   // chronological (older → newer)
+ *   after:   Message[]    // chronological (older → newer)
+ * }
+ *
+ * @security
+ *   - Verifies user belongs to the chat before returning data
+ *
+ * @performance
+ *   - Uses compound index: 
+ *       messageSchema.index({ chat: 1, createdAt: -1 });
+ *   - Queries efficiently using:
+ *       chat + createdAt
+ *
+ * @use-case
+ *   - Search result jump
+ *   - Reply-to jump
+ *   - Message permalink
+ * ------------------------------------------------------------------
+ */
+
+export const getMessageContextFunction = async (
+  messageId: string,
+  userId: string,
+  limit: number = 20
+) => {
+
+  // --------------------------------------------------
+  // Common populate configuration
+  // This ensures returned messages match Redux MessageType
+  // --------------------------------------------------
+  const populateConfig = [
+    {
+      path: "sender",
+      select: "username displayName profilePicture",
+    },
+    {
+      path: "replyTo",
+      select: "content sender createdAt",
+      populate: {
+        path: "sender",
+        select: "username displayName profilePicture",
+      },
+    },
+    {
+      path: "reactions.user",
+      select: "username displayName profilePicture",
+    },
+  ];
+
+  // --------------------------------------------------
+  // 1️⃣ Get target message (with populate)
+  // --------------------------------------------------
+  const target = await Message.findById(messageId)
+    .populate(populateConfig);
+
+  if (!target) throw NotFound("Message not found");
+
+  // --------------------------------------------------
+  // 2️⃣ Validate user belongs to the chat
+  // --------------------------------------------------
+  const chat = await Chat.findOne({
+    _id: target.chat,
+    members: userId,
+  });
+
+  if (!chat) throw Forbidden("Not allowed");
+
+  // --------------------------------------------------
+  // 3️⃣ Fetch messages BEFORE the target
+  // We sort descending first for efficiency,
+  // then reverse later to keep chronological order.
+  // --------------------------------------------------
+  const before = await Message.find({
+    chat: target.chat,
+    createdAt: { $lt: target.createdAt },
+    deleted: false,
+  })
+    .sort({ createdAt: -1 }) // newest first
+    .limit(limit)
+    .populate(populateConfig);
+
+  // --------------------------------------------------
+  // 4️⃣ Fetch messages AFTER the target
+  // These are naturally chronological (ascending)
+  // --------------------------------------------------
+  const after = await Message.find({
+    chat: target.chat,
+    createdAt: { $gt: target.createdAt },
+    deleted: false,
+  })
+    .sort({ createdAt: 1 }) // oldest first
+    .limit(limit)
+    .populate(populateConfig);
+
+  // --------------------------------------------------
+  // 5️⃣ Return structured context
+  // before is reversed so final order becomes:
+  // [older → newer] → target → [newer]
+  // --------------------------------------------------
+  return {
+    target,
+    before: before.reverse(),
+    after,
+  };
+};
+
+export const getNewerMessagesFunction = async (
+  chatId: string,
+  after: string,
+  limit: number = 20
+) => {
+  if (!chatId) throw BadRequest("ChatId is required");
+
+  const afterDate = new Date(after);
+
+  const messages = await Message.find({
+    chat: chatId,
+    createdAt: { $gt: afterDate },
+  })
+    .sort({ createdAt: 1 }) 
+    .limit(limit)
+    .populate("sender", "displayName username profilePicture")
+    .populate({
+      path: "replyTo",
+      select: "content sender createdAt",
+      populate: { path: "sender", select: "username displayName profilePicture" },
+    })
+    .populate("reactions.user", "username displayName profilePicture");
+
+  const totalNewer = await Message.countDocuments({
+    chat: chatId,
+    createdAt: { $gt: afterDate },
+  });
+
+  return {
+    messages,
+    hasMore: messages.length < totalNewer,
+  };
+};

@@ -1,16 +1,15 @@
 "use client";
 
 import { ArrowLeft, Search } from "lucide-react";
-import { useMemo, useState } from "react";
-import type { MessageType } from "@/redux/features/messageSlice";
+import { useEffect, useMemo, useState } from "react";
+import { searchMessagesApi, type MessageType } from "@/redux/features/messageSlice";
 import SearchInput from "../GlobalComponents/SearchInput";
 import IconButton from "../GlobalComponents/IconButtons";
 import DateFilter from "./DatePicker";
-import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 
 interface ChatSearchComponentProps {
-  messages: MessageType[];
   onClose: () => void;
   currentUser: { _id: string; username: string; displayName?: string; profilePic?: string };
   chatId: string;
@@ -18,7 +17,6 @@ interface ChatSearchComponentProps {
 }
 
 export default function ChatSearchComponent({
-  messages,
   onClose,
   currentUser,
   chatId,
@@ -27,28 +25,62 @@ export default function ChatSearchComponent({
   const [query, setQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
 
-  const results = useMemo(() => {
+  const dispatch = useAppDispatch();
+
+  const searchResults = useAppSelector(
+    (state) => state.messages.search.results
+  );
+
+  const searchLoading = useAppSelector(
+    (state) => state.messages.search.loading
+  );
+
+  const searchMessages = useAppSelector((state) =>
+    searchResults.map((id) => state.messages.byId[id])
+  );
+
+  console.log("SEARCH RES :", searchMessages);
+  
+  
+  useEffect(() => {
     const hasQuery = query.trim().length > 0;
     const hasDate = !!selectedDate;
 
-    if (!hasQuery && !hasDate) return [];
+    if (!hasQuery && !hasDate) return;
 
-    const q = query.toLowerCase();
+    const timeout = setTimeout(() => {
+      dispatch(
+        searchMessagesApi({
+          chatId,
+          query,
+          date: selectedDate?.toISOString(),
+          page: 1,
+        })
+      );
+    }, 400); // debounce
 
-    return messages.filter((m) => {
-      if (m.deleted || typeof m.content !== "string") return false;
+    return () => clearTimeout(timeout);
+  }, [query, selectedDate]);
 
-      const matchesText = hasQuery
-        ? m.content.toLowerCase().includes(q)
-        : true;
+  useEffect(() => {
+    const hasQuery = query.trim().length > 0;
+    const hasDate = !!selectedDate;
 
-      const matchesDate = hasDate
-        ? dayjs(m.createdAt).isSame(selectedDate, "day")
-        : true;
+    if (!hasQuery && !hasDate) return;
 
-      return matchesText && matchesDate;
-    });
-  }, [query, selectedDate, messages]);
+    const timeout = setTimeout(() => {
+      dispatch(
+        searchMessagesApi({
+          chatId,
+          query,
+          date: selectedDate?.toISOString(),
+          page: 1,
+        })
+      );
+    }, 400); 
+
+    return () => clearTimeout(timeout);
+  }, [query, selectedDate]);
 
   const getSenderLabel = (msg: MessageType) => {
     if (msg.sender._id === currentUser._id) {
@@ -94,14 +126,14 @@ export default function ChatSearchComponent({
           </p>
         )}
 
-        {query && results.length === 0 && (
+        {!searchLoading && searchMessages.length === 0 && query && (
           <p className="text-sm opacity-60 text-center mt-6">
             No messages found
           </p>
         )}
 
         <div className="flex flex-col gap-1">
-          {results.map((msg) => (
+          {searchMessages.map((msg) => (
             
             <div
               key={msg._id}

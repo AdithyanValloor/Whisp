@@ -42,6 +42,8 @@ export interface ChatMeta {
   page: number;
   totalPages: number;
   hasMore: boolean;
+  hasMoreNewer?: boolean;
+  newestLoadedAt?: string; 
 }
 
 /**
@@ -49,9 +51,17 @@ export interface ChatMeta {
  * Uses normalized storage for efficient updates and lookups.
  */
 interface MessagesState {
-  byId: Record<string, MessageType>;      // messageId → message
-  messages: Record<string, string[]>;     // chatId → ordered messageIds
+  byId: Record<string, MessageType>;    
+  messages: Record<string, string[]>;
   meta: Record<string, ChatMeta | undefined>;
+  jumpTo: { chatId: string; messageId: string } | null;
+  search: {
+    results: string[];
+    loading: boolean;
+    hasMore: boolean;
+    page: number;
+  };
+
   listLoading: boolean;
   sendLoading: boolean;
   error: string | null;
@@ -61,6 +71,13 @@ const initialState: MessagesState = {
   byId: {},
   messages: {},
   meta: {},
+  jumpTo: null,   
+  search: {
+    results: [],
+    loading: false,
+    hasMore: false,
+    page: 1,
+  },
   listLoading: false,
   sendLoading: false,
   error: null,
@@ -225,6 +242,95 @@ export const deleteMessageApi = createAsyncThunk<
   }
 });
 
+/**
+ * Message Search query in a chat.
+ */
+
+export const searchMessagesApi = createAsyncThunk<
+  {
+    messages: MessageType[];
+    page: number;
+    hasMore: boolean;
+  },
+  {
+    chatId: string;
+    query?: string;
+    date?: string;
+    page?: number;
+    limit?: number;
+  },
+  { rejectValue: string }
+>("messages/search", async (params, { rejectWithValue }) => {
+  try {
+    const { chatId, query, date, page = 1, limit = 20 } = params;
+
+    const res = await api.get("/message/search", {
+      params: {
+        chatId,
+        query,
+        date,
+        page,
+        limit,
+      },
+    });
+
+    return {
+      messages: res.data.messages,
+      page: res.data.currentPage,
+      hasMore: res.data.hasMore,
+    };
+  } catch {
+    return rejectWithValue("Search failed");
+  }
+});
+
+/**
+ * Fetch Message contex
+ */
+
+export const fetchMessageContext = createAsyncThunk<
+  {
+    chatId: string;
+    target: MessageType;
+    before: MessageType[];
+    after: MessageType[];
+  },
+  { messageId: string; chatId: string },
+  { rejectValue: string }
+>("messages/fetchContext", async ({ messageId, chatId }, { rejectWithValue }) => {
+  try {
+    const res = await api.get(`/message/context/${messageId}`);
+    return {
+      chatId,
+      target: res.data.target,
+      before: res.data.before,
+      after: res.data.after,
+    };
+  } catch {
+    return rejectWithValue("Failed to fetch message context");
+  }
+});
+
+// New thunk — fetches messages created AFTER a given timestamp (downward scroll)
+export const fetchNewerMessages = createAsyncThunk<
+  { chatId: string; messages: MessageType[]; hasMore: boolean },
+  { chatId: string; after: string; limit?: number },
+  { rejectValue: string }
+>("messages/fetchNewer", async ({ chatId, after, limit = 20 }, { rejectWithValue }) => {
+  try {
+    const res = await api.get(
+      `/message/${chatId}/newer?after=${encodeURIComponent(after)}&limit=${limit}`
+    );
+    return {
+      chatId,
+      messages: res.data.messages ?? res.data,
+      hasMore: res.data.hasMore ?? false,
+    };
+  } catch {
+    return rejectWithValue("Failed to fetch newer messages");
+  }
+});
+
 /* -------------------- HELPERS -------------------- */
 
 
@@ -354,6 +460,21 @@ const messagesSlice = createSlice({
         msg.deliveredTo = msg.deliveredTo?.filter((id) => id !== userId);
       });
     },
+    /**
+     * Jumps to Message
+     */
+    clearJumpTo: (state) => {
+      state.jumpTo = null;
+    },
+    /**
+     * Jump to Message State
+     */
+    setJumpTo: (
+      state,
+      action: PayloadAction<{ chatId: string; messageId: string }>
+    ) => {
+      state.jumpTo = { chatId: action.payload.chatId, messageId: action.payload.messageId };
+    },
   },
 
   extraReducers: (builder) => {
@@ -408,7 +529,64 @@ const messagesSlice = createSlice({
       })
       .addCase(toggleReaction.fulfilled, (state, action) => {
         state.byId[action.payload._id] = action.payload;
-      });
+      })
+
+      /* -------- SEARCH -------- */
+      .addCase(searchMessagesApi.pending, (state) => {
+        state.search.loading = true;
+      })
+      .addCase(searchMessagesApi.fulfilled, (state, action) => {
+        state.search.loading = false;
+
+        const { messages, page, hasMore } = action.payload;
+
+        // Insert messages into byId store
+        messages.forEach((msg) => {
+          state.byId[msg._id] = msg;
+        });
+
+        state.search.results =
+          page === 1
+            ? messages.map((m) => m._id)
+            : [...state.search.results, ...messages.map((m) => m._id)];
+
+        state.search.page = page;
+        state.search.hasMore = hasMore;
+      })
+      .addCase(searchMessagesApi.rejected, (state) => {
+        state.search.loading = false;
+      })
+      
+      .addCase(fetchMessageContext.fulfilled, (state, action) => {
+        const { chatId, before, target, after } = action.payload;
+
+        const allMessages = [...before, target, ...after];
+        allMessages.forEach((msg) => {
+          insertMessageSorted(state, chatId, msg);
+        });
+
+        state.jumpTo = { chatId, messageId: target._id };
+
+        if (!state.meta[chatId]) {
+          state.meta[chatId] = {
+            page: 1,
+            totalPages: 1,
+            hasMore: true,
+            hasMoreNewer: after.length >= 20,
+          };
+        } else {
+          state.meta[chatId].hasMoreNewer = after.length >= 20;
+          state.meta[chatId].hasMore = true;
+        }
+      })
+
+      .addCase(fetchNewerMessages.fulfilled, (state, action) => {
+        const { chatId, messages, hasMore } = action.payload;
+        messages.forEach((msg) => insertMessageSorted(state, chatId, msg));
+        if (state.meta[chatId]) {
+          state.meta[chatId]!.hasMoreNewer = hasMore;
+        }
+      })
   },
 });
 
@@ -419,6 +597,8 @@ export const {
   updateMessageSeen,
   markAllMessagesSeen,
   insertMessage,
+  clearJumpTo,
+  setJumpTo,
 } = messagesSlice.actions;
 
 export default messagesSlice.reducer;

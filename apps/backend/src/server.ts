@@ -1,3 +1,13 @@
+/**
+ * Server bootstrap.
+ *
+ * Initializes infrastructure (env, database, HTTP, sockets)
+ * and starts the application listener.
+ *
+ * Exported instead of auto-executed to allow controlled startup
+ * (e.g., testing, CLI tools, worker processes).
+ */
+
 import dotenv from "dotenv";
 import http from "http";
 
@@ -9,26 +19,20 @@ dotenv.config();
 
 const PORT = Number(process.env.PORT) || 9000;
 
-const bootstrap = async () => {
-  // DB
-  await connectDb();
+export const startServer = async (): Promise<void> => {
+  try {
+    await connectDb();
 
-  // App
-  const app = createApp();
+    const app = createApp();
+    const server = http.createServer(app);
 
-  // HTTP server
-  const server = http.createServer(app);
+    initSocket(server);
 
-  // Socket.IO
-  initSocket(server);
-
-  // Start listening
-  server.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-  });
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
 };
-
-bootstrap().catch((err) => {
-  console.error("❌ Server failed to start", err);
-  process.exit(1);
-});

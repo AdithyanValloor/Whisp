@@ -1,3 +1,5 @@
+'use client';
+
 import { MessageType } from "@/redux/features/messageSlice";
 import { SmilePlus, Reply, Pencil, Trash2, Copy } from "lucide-react";
 import { motion } from "framer-motion";

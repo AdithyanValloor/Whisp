@@ -16,6 +16,8 @@ import {
   editMessageApi,
   markChatAsRead,
   markMessagesAsSeen,
+  fetchMessageContext,
+  setJumpTo,
 } from "@/redux/features/messageSlice";
 import { 
   addMembers, 
@@ -85,7 +87,8 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [scrollTargetId, setScrollTargetId] = useState<string | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  
 
   console.log("CHAT:", chat);
   console.log("MESSAGES COUNT:", messages.length);
@@ -279,9 +282,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     dispatch,
   ]);
 
-
   // Socket event listeners
-
   const handleTyping = () => {
     if (!socket?.connected) return;
 
@@ -344,10 +345,48 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
       console.error("Send message failed:", err);
     }
   };
+
+  const scrollToMessage = async (messageId: string) => {
+    setHighlightedMessageId(messageId);
+
+    const exists = messages.find((m) => m._id === messageId);
+
+    if (!exists) {
+      await dispatch(fetchMessageContext({ messageId, chatId: chat._id })).unwrap();
+    } else {
+      // Route through jumpTo so the Messages effect handles centering — no double-click
+      dispatch(setJumpTo({ chatId: chat._id, messageId }));
+    }
+  };
+
+  // const scrollToMessage = async (messageId: string) => {
+  //   const exists = messages.find((m) => m._id === messageId);
+
+  //   if (!exists) {
+  //     // fetchMessageContext.fulfilled now merges + sets jumpTo in Redux
+  //     // The Messages component listens to jumpTo and scrolls automatically
+  //     await dispatch(
+  //       fetchMessageContext({ messageId, chatId: chat._id })
+  //     ).unwrap();
+  //     // No manual scroll needed — jumpTo effect in Messages handles it
+  //   } else {
+  //     // Message already in DOM — scroll directly and highlight
+  //     setHighlightedMessageId(messageId);
+  //     const el = document.getElementById(`msg-${messageId}`);
+  //     if (el) {
+  //       el.scrollIntoView({ behavior: "smooth", block: "center" });
+  //     }
+  //   }
+  // };
   
-  setTimeout(() => {
-    setScrollTargetId(null);
-  }, 1000);
+  useEffect(()=>{
+    if(!highlightedMessageId) return
+    
+    setTimeout(() => {
+      setHighlightedMessageId(null)
+    }, 1500);
+
+  },[highlightedMessageId])
   
   return (
     <div className="flex h-full w-full overflow-hidden">
@@ -382,7 +421,8 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
             setEditingMessage(msg);
           }}
           onDelete={(msg) => setShowDeleteModal({ open: true, msg })}
-          scrollTargetId={scrollTargetId}
+          scrollToMessage={scrollToMessage}
+          highlightedMessageId={highlightedMessageId}
         />
 
         {/* Delete Modal */}
@@ -446,11 +486,10 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
               {sidebarMode === "search" && (
                 <ChatSearchComponent
                   chatId={chat._id}
-                  messages={messages}
                   currentUser={currentUser}
                   onClose={() => setSidebarMode(null)}
                   onSelectMessage={(id) => {
-                    setScrollTargetId(id);
+                    scrollToMessage(id);
                   }}
                 />
               )}

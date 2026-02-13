@@ -1,67 +1,184 @@
 import { UserModel } from "../user/models/user.model.js";
-import bcrypt from "bcrypt"
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
+import bcrypt from "bcrypt";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from "../../utils/jwt.js";
+import {
+  BadRequest,
+  Unauthorized,
+  NotFound,
+} from "../../utils/errors/httpErrors.js";
 
-const HASH_SALT = 10
+/**
+ * ------------------------------------------------------------------
+ * Constants
+ * ------------------------------------------------------------------
+ */
 
-export const registerUser = async (username:string, email: string, password: string) => {
+/**
+ * Number of salt rounds used for hashing passwords.
+ * Higher values increase security but also CPU cost.
+ */
+const HASH_SALT = 10;
 
-    // Check if user with the email already exist
-    const existingUser = await UserModel.findOne({email})
+/**
+ * ------------------------------------------------------------------
+ * Helpers
+ * ------------------------------------------------------------------
+ */
 
-    // Throw error if email already exists
-    if(existingUser){
-        throw new Error("Email already exists")
-    }
+/**
+ * Builds a minimal JWT payload from a user entity.
+ *
+ * Why minimal?
+ * - Keeps tokens small
+ * - Reduces risk if token is leaked
+ * - Avoids coupling JWTs to database schema changes
+ */
+const buildJwtPayload = (user: { _id: any; email: string }) => ({
+  id: user._id.toString(),
+  email: user.email,
+});
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, HASH_SALT)
+/**
+ * ------------------------------------------------------------------
+ * Register User
+ * ------------------------------------------------------------------
+ * @desc    Creates a new user account
+ * @throws  400 BadRequest  - Missing fields / duplicate email / username
+ *
+ * Flow:
+ * 1. Validate required fields
+ * 2. Enforce unique email & username
+ * 3. Hash password securely
+ * 4. Persist user in database
+ * 5. Generate access & refresh tokens
+ * 6. Return safe user object (password removed)
+ */
+export const registerUser = async (
+  displayName: string,
+  username: string,
+  email: string,
+  password: string
+) => {
+  // Validate required inputs early (fail fast)
+  if (!displayName || !username || !email || !password) {
+    throw BadRequest("Missing required fields");
+  }
 
-    // Create new user
-    const newUser = await UserModel.create({
-        username,
-        email,
-        password: hashedPassword
-    })
+  // Enforce unique email
+  if (await UserModel.findOne({ email })) {
+    throw BadRequest("Email already exists");
+  }
 
-    // Generate Token
-    const accessToken = generateAccessToken({ id: newUser._id, email: newUser.email })
-    const refreshToken = generateRefreshToken({ id: newUser._id, email: newUser.email })
+  // Enforce unique username
+  if (await UserModel.findOne({ username })) {
+    throw BadRequest("Username already exists");
+  }
 
-    // Remove password from the user object
-    const {password:_, ...safeUser} = newUser.toObject()
+  // Hash password before storing
+  const hashedPassword = await bcrypt.hash(password, HASH_SALT);
 
-    // Return token & user object
-    return {accessToken, refreshToken, safeUser}
+  // Persist new user
+  const user = await UserModel.create({
+    username,
+    displayName,
+    email,
+    password: hashedPassword,
+  });
 
-}
+  // Return tokens + sanitized user object
+  return {
+    accessToken: generateAccessToken(buildJwtPayload(user)),
+    refreshToken: generateRefreshToken(buildJwtPayload(user)),
+    safeUser: user.toObject({
+      versionKey: false,
+      transform: (_, ret) => {
+        delete ret.password; // Ensure password never leaves backend
+        return ret;
+      },
+    }),
+  };
+};
 
+/**
+ * ------------------------------------------------------------------
+ * Login User
+ * ------------------------------------------------------------------
+ * @desc    Authenticates user credentials
+ * @throws  400 BadRequest  - Missing credentials
+ * @throws  401 Unauthorized - Invalid email or password
+ *
+ * Notes:
+ * - Uses identical error message for email & password mismatch
+ *   to prevent account enumeration attacks
+ */
 export const loginUser = async (email: string, password: string) => {
+  // Validate request
+  if (!email || !password) {
+    throw BadRequest("Email and password required");
+  }
 
-    // Check if user exists
-    const user = await UserModel.findOne({email})
+  // Fetch user by email
+  const user = await UserModel.findOne({ email });
+  if (!user) {
+    throw Unauthorized("Invalid email or password");
+  }
 
-    // Throw error if user doesn't exists
-    if(!user){
-        throw new Error("Invalid email or password")
-    }
+  // Compare hashed password
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) {
+    throw Unauthorized("Invalid email or password");
+  }
 
-    // Compare password
-    const isPasswordMatch = bcrypt.compare(password, user.password)
+  // Successful authentication
+  return {
+    accessToken: generateAccessToken(buildJwtPayload(user)),
+    refreshToken: generateRefreshToken(buildJwtPayload(user)),
+    safeUser: user.toObject({
+      versionKey: false,
+      transform: (_, ret) => {
+        delete ret.password;
+        return ret;
+      },
+    }),
+  };
+};
 
-    // Throw error if password doesn't match
-    if(!isPasswordMatch){
-        throw new Error("Invalid email or password")
-    }
+/**
+ * ------------------------------------------------------------------
+ * Refresh Access Token
+ * ------------------------------------------------------------------
+ * @desc    Issues a new access token using a valid refresh token
+ * @throws  401 Unauthorized - Missing or invalid refresh token
+ * @throws  404 NotFound     - User no longer exists
+ *
+ * Notes:
+ * - Refresh tokens are long-lived and stored securely (httpOnly cookie)
+ * - Access tokens are short-lived and returned to the client
+ */
+export const refreshTokenFunction = async (token: string) => {
+  if (!token) {
+    throw Unauthorized("Refresh token missing");
+  }
 
-    // Generate token
-    const accessToken = generateAccessToken({ id: user._id, email: user.email })
-    const refreshToken = generateRefreshToken({ id: user._id, email: user.email })
+  // Validate refresh token signature & expiry
+  const decoded = verifyRefreshToken(token);
+  if (!decoded?.id) {
+    throw Unauthorized("Invalid refresh token");
+  }
 
-    // Remove password from the user object
-    const {password:_, ...safeUser} = user.toObject()
+  // Ensure user still exists
+  const user = await UserModel.findById(decoded.id).select("-password");
+  if (!user) {
+    throw NotFound("User not found");
+  }
 
-    // Return token & user object
-    return {accessToken, refreshToken, safeUser}
-
-}
+  // Issue fresh access token
+  return {
+    accessToken: generateAccessToken(buildJwtPayload(user)),
+    user,
+  };
+};

@@ -7,7 +7,10 @@ import {
     markChatAsRead,
     getUnreadCounts,
     markMessagesAsSeen,
-    toggleReaction
+    toggleReaction,
+    searchMessages,
+    getMessageContext,
+    getNewerMessages
 } from "../controllers/message.controller.js"
 import { protect } from "../../auth/auth.middleware.js"
 
@@ -21,6 +24,9 @@ router.post("/mark-read/:chatId", protect, markChatAsRead)
 
 // Mark messages as seen
 router.post("/mark-seen/:chatId", protect, markMessagesAsSeen);
+
+// Search messages
+router.get("/search", protect, searchMessages);
 
 // Fetch all messages for a chat (dynamic)
 router.get("/:chatId", protect, getAllMessages)
@@ -36,5 +42,11 @@ router.post("/react/:messageId", protect, toggleReaction);
 
 // Delete a message by id
 router.delete("/:messageId", protect, deleteMessage)
+
+// Get message context
+router.get("/context/:messageId", protect, getMessageContext);
+
+// Get newer messages (downward fetching)
+router.get("/:chatId/newer", protect, getNewerMessages);
 
 export { router as messageRouter }

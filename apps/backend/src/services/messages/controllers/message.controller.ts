@@ -4,9 +4,12 @@ import {
   deleteMessageFunction,
   editMessageFunction,
   getAllMessagesFunction,
+  getMessageContextFunction,
+  getNewerMessagesFunction,
   getUnreadCountsFunction,
   markChatAsReadFunction,
   markMessagesAsSeenFunction,
+  searchMessagesFunction,
   sendMessageFunction,
   toggleReactionFunction,
 } from "../services/message.services.js";
@@ -290,4 +293,92 @@ export const deleteMessage = async (
   } catch (err) {
     next(err);
   }
+};
+
+/**
+ * ------------------------------------------------------------------
+ * Search Messages
+ * ------------------------------------------------------------------
+ * @route   GET /api/message/search
+ * @access  Private
+ *
+ * Query:
+ * - chatId
+ * - query?
+ * - date?
+ * - page?
+ * - limit?
+ */
+export const searchMessages = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { chatId, query, date } = req.query;
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+
+    if (!chatId) throw BadRequest("ChatId is required");
+
+    const result = await searchMessagesFunction(
+      chatId as string,
+      userId,
+      query as string,
+      date as string,
+      page,
+      limit
+    );
+
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getMessageContext = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { messageId } = req.params;
+    if (!messageId) throw BadRequest("MessageId is required");
+
+    const limit = Number(req.query.limit) || 20;
+
+    const result = await getMessageContextFunction(
+      messageId,
+      userId,
+      limit
+    );
+
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const getNewerMessages = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+    const { chatId } = req.params;
+    const after = req.query.after as string;
+    const limit = Number(req.query.limit) || 20;
+    if (!after) throw BadRequest("'after' timestamp is required");
+    const result = await getNewerMessagesFunction(chatId, after, limit);
+    res.status(200).json(result);
+  } catch (err) { next(err); }
 };

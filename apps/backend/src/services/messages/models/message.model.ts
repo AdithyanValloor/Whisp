@@ -81,4 +81,11 @@ const messageSchema:Schema<IMessage> = new Schema(
   { timestamps: true }
 );
 
+// For chat pagination 
+messageSchema.index({ chat: 1, createdAt: -1 });
+
+// Optional
+messageSchema.index({ chat: 1, content: "text" });
+
+
 export const Message = model<IMessage>("Message", messageSchema);

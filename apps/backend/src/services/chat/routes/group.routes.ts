@@ -4,7 +4,8 @@ import {
     addMembers, 
     removeMembers, 
     toggleAdmin, 
-    leaveGroup 
+    leaveGroup, 
+    getGroupById
 } from "../controllers/group.controller.js"
 import { protect } from "../../auth/auth.middleware.js"
 
@@ -13,6 +14,9 @@ const router = Router()
 
 // Create a new group chat
 router.post("/", protect, createGroupChat)
+
+// Fetch single group
+router.get("/:id", protect, getGroupById);
 
 // Add members to a group
 router.post("/members", protect, addMembers)

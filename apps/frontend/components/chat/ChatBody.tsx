@@ -10,7 +10,8 @@ interface ChatBodyProps {
   onEdit: (msg: MessageType | null) => void;
   onDelete: (msg: MessageType) => void;
   setReplyingTo: (m: MessageType | null) => void;
-  scrollTargetId: string | null;
+  scrollToMessage: (id: string) => void;
+  highlightedMessageId: string | null;
 }
 
 export function ChatBody({
@@ -22,7 +23,8 @@ export function ChatBody({
   onEdit,
   onDelete,
   setReplyingTo,
-  scrollTargetId,
+  scrollToMessage,
+  highlightedMessageId,
 }: ChatBodyProps) {
   return (
     <>
@@ -36,7 +38,8 @@ export function ChatBody({
           onDelete={onDelete}
           setReplyingTo={setReplyingTo}
           typingUsers={typingUsers}
-          scrollTargetId={scrollTargetId}
+          scrollToMessage={scrollToMessage}
+          highlightedMessageId={highlightedMessageId}
         />
       </div>
     </>

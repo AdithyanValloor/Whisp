@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
-import { useAppDispatch } from "@/redux/hooks";
-import { fetchMessages, MessageType, toggleReaction } from "@/redux/features/messageSlice";
+import { fetchMessageContext, fetchMessages, MessageType, toggleReaction } from "@/redux/features/messageSlice";
 import { ChevronDown, ChevronsDown } from "lucide-react";
-import { useAppSelector } from "@/redux/hooks";
+import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { selectMessagesByChat } from "@/redux/features/messageSelectors"
 import ReactionPicker from "./ReactionPicker";
 import ChatBubble from "./ChatBubble";
 import ContextMenu from "./ContextMenu";
 import { motion, AnimatePresence } from "framer-motion";
+
+import { clearJumpTo, fetchNewerMessages } from "@/redux/features/messageSlice";
 
 
 interface MessagesProps {
@@ -22,6 +23,8 @@ interface MessagesProps {
   editingMessage: MessageType | null;
   typingUsers: Record<string, string>;
   scrollTargetId?: string | null;
+  scrollToMessage: (id: string) => void;
+  highlightedMessageId: string | null;
 }
 
 export default function Messages({
@@ -33,7 +36,8 @@ export default function Messages({
   replyingTo,
   typingUsers,
   editingMessage,
-  scrollTargetId,
+  scrollToMessage,
+  highlightedMessageId
 }: MessagesProps) {
   const dispatch = useAppDispatch();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -43,19 +47,21 @@ export default function Messages({
   const prevChatIdRef = useRef(chatId);
   const isInitialLoadRef = useRef(true);
   const prevMessagesLengthRef = useRef(0);
-  // Stores the _id of the one message that should play its enter animation.
-  // It is set exactly once per genuinely new message and cleared after the
-  // animation completes, so re-renders never re-trigger the animation.
   const animatedMessageIdRef = useRef<string | null>(null);
   const isScrollingToBottomRef = useRef(false);
+  const jumpLockRef = useRef(false);
 
-  const [hasMore, setHasMore] = useState(true);
+  const jumpTo = useAppSelector((s) => s.messages.jumpTo);
+  const chatMeta = useAppSelector((s) => s.messages.meta[chatId]);
+  const loadingNewerRef = useRef(false);
+  const loadNewerDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [hasMore, setHasMore] = useState(() => chatMeta?.hasMore ?? true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [showNewMsgBadge, setShowNewMsgBadge] = useState(false);
   const [unreadDividerIndex, setUnreadDividerIndex] = useState<number | null>(null);
-  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ 
     x: number; 
     y: number; 
@@ -126,7 +132,7 @@ export default function Messages({
   useEffect(() => {
     if (prevChatIdRef.current !== chatId) {
       pageRef.current = 1;
-      setHasMore(true);
+      setHasMore(chatMeta?.hasMore ?? true);
       setLoadingMore(false);
       setIsInitialLoading(true);
       setShowScrollBtn(false);
@@ -138,6 +144,11 @@ export default function Messages({
       prevMessagesLengthRef.current = 0;
       animatedMessageIdRef.current = null;
       prevChatIdRef.current = chatId;
+      jumpLockRef.current = false;
+    }
+    if (loadNewerDebounceRef.current) {
+      clearTimeout(loadNewerDebounceRef.current);
+      loadNewerDebounceRef.current = null;
     }
   }, [chatId]);
 
@@ -147,78 +158,161 @@ export default function Messages({
     return c.scrollHeight - c.scrollTop - c.clientHeight < 150;
   };
 
+  const isNearTop = () => {
+    const c = containerRef.current;
+    if (!c) return false;
+    return c.scrollTop < 400;
+  };
+
   const scrollToBottom = (smooth = true) => {
     if (!containerRef.current) return;
-    
-    if (smooth && isScrollingToBottomRef.current) {
-      // Smooth scroll with deceleration near the bottom
-      const container = containerRef.current;
-      const targetScroll = container.scrollHeight - container.clientHeight;
-      const currentScroll = container.scrollTop;
-      const distance = targetScroll - currentScroll;
-      
-      if (distance < 100) {
-        // Slow down when near bottom for smooth landing
-        container.scrollTo({
-          top: targetScroll,
-          behavior: "smooth",
-        });
-      } else {
-        // Fast scroll to near bottom, then slow down
-        const nearBottom = targetScroll - 100;
-        container.scrollTop = nearBottom;
-        setTimeout(() => {
-          container.scrollTo({
-            top: targetScroll,
-            behavior: "smooth",
-          });
-        }, 50);
-      }
-    } else {
-      containerRef.current.scrollTo({
-        top: containerRef.current.scrollHeight,
-        behavior: smooth ? "smooth" : "auto",
-      });
-    }
+    containerRef.current.scrollTo({
+      top: containerRef.current.scrollHeight,
+      behavior: smooth ? "smooth" : "auto",
+    });
   };
 
   const scrollToBottomInstant = () => {
     setShowScrollBtn(false);
     setShowNewMsgBadge(false);
     setUnreadDividerIndex(null);
-    isScrollingToBottomRef.current = true;
-    scrollToBottom(true);
-    
-    // Reset flag after scroll completes
-    setTimeout(() => {
-      isScrollingToBottomRef.current = false;
-    }, 1000);
+    scrollToBottomEased();
   };
 
-  const scrollToMessage = (id: string) => {
-    const el = document.getElementById(`msg-${id}`);
-    if (!el || !containerRef.current) return;
+  // Eased scroll: fast start, decelerates near the bottom (like iOS momentum)
+  const scrollToBottomEased = () => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    el.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
+    const start = container.scrollTop;
+    const end = container.scrollHeight - container.clientHeight;
+    const distance = end - start;
 
-    // Delay highlight slightly so scroll finishes
-    setTimeout(() => {
-      setHighlightedMessageId(id);
-    }, 300);
+    if (distance <= 0) return;
+
+    // For short distances just snap — no point animating 5px
+    if (distance < 80) {
+      container.scrollTop = end;
+      return;
+    }
+
+    const duration = Math.min(500, Math.max(200, distance * 0.3)); // scale with distance, cap at 500ms
+    let startTime: number | null = null;
+
+    // Ease-out cubic: fast start, slow landing
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutCubic(progress);
+
+      container.scrollTop = start + distance * eased;
+
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // Final snap to guarantee we land exactly at bottom
+        container.scrollTop = end;
+      }
+    };
+    requestAnimationFrame(step);
   };
 
   useEffect(() => {
-    if (!highlightedMessageId) return;
+    if (!jumpTo || jumpTo.chatId !== chatId) return;
 
-    const timeout = setTimeout(() => {
-      setHighlightedMessageId(null);
-    }, 1200);
+    jumpLockRef.current = true;
 
-    return () => clearTimeout(timeout);
-  }, [highlightedMessageId]);
+    const attemptCenter = (attemptsLeft: number) => {
+      const el = document.getElementById(`msg-${jumpTo.messageId}`);
+      if (!el) {
+        if (attemptsLeft > 0) setTimeout(() => attemptCenter(attemptsLeft - 1), 80);
+        else { jumpLockRef.current = false; dispatch(clearJumpTo()); }
+        return;
+      }
+
+      dispatch(clearJumpTo());
+
+      // Calculate center position manually — avoids fighting with pagination scroll adjustments
+      const container = containerRef.current!;
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const elOffsetTop = elRect.top - containerRect.top + container.scrollTop;
+      const target = Math.max(0, elOffsetTop - container.clientHeight / 2 + elRect.height / 2);
+
+      container.scrollTo({ top: target, behavior: "smooth" });
+
+      // Hold lock so pagination doesn't fire while scroll is settling
+      setTimeout(() => { jumpLockRef.current = false; }, 800);
+    };
+
+    requestAnimationFrame(() => attemptCenter(8));
+  }, [jumpTo, chatId, dispatch]);
+
+  const loadNewer = async () => {
+    if (loadingNewerRef.current) return;
+    if (!chatMeta?.hasMoreNewer) return;
+    if (jumpLockRef.current) return;
+
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg) return;
+
+    loadingNewerRef.current = true;
+
+    const container = containerRef.current;
+    const scrollHeightBefore = container?.scrollHeight ?? 0;
+    const scrollTopBefore = container?.scrollTop ?? 0;
+    const clientHeight = container?.clientHeight ?? 0;
+    const distanceFromBottom = scrollHeightBefore - scrollTopBefore - clientHeight;
+
+    try {
+      await dispatch(
+        fetchNewerMessages({ chatId, after: lastMsg.createdAt, limit: 20 })
+      ).unwrap();
+
+      // Preserve scroll position after new messages appended at bottom
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!containerRef.current) return;
+          const newHeight = containerRef.current.scrollHeight;
+          containerRef.current.scrollTop = newHeight - distanceFromBottom - containerRef.current.clientHeight;
+        });
+      });
+    } catch (e) {
+      console.error("Failed to load newer messages", e);
+    } finally {
+      setTimeout(() => { loadingNewerRef.current = false; }, 150);
+    }
+  };
+
+  const handleScroll = () => {
+    if (!containerRef.current) return;
+
+    const nearBottom = isNearBottom();
+
+    if (nearBottom) {
+      setShowScrollBtn(false);
+      setShowNewMsgBadge(false);
+      setUnreadDividerIndex(null);
+
+    // Load newer messages when scrolling down past the context window
+    if (chatMeta?.hasMoreNewer) {
+      if (loadNewerDebounceRef.current) clearTimeout(loadNewerDebounceRef.current);
+      loadNewerDebounceRef.current = setTimeout(() => {
+        loadNewer();
+      }, 200);
+    }
+    } else {
+      setShowScrollBtn(true);
+    }
+
+    // Load older messages when scrolling up
+    if (isNearTop() && hasMore && !loadingMore && !loadingOlderRef.current) {
+      loadMore();
+    }
+  };
 
   // Scroll to bottom on initial load
   useEffect(() => {
@@ -339,6 +433,8 @@ export default function Messages({
   // Telegram-style pagination with improved scroll preservation
   const loadMore = async () => {
     if (!containerRef.current || loadingOlderRef.current || !hasMore) return;
+    if (loadingNewerRef.current || jumpLockRef.current) return;
+    // if (loadingNewerRef.current) return;
     
     loadingOlderRef.current = true;
     setLoadingMore(true);
@@ -362,6 +458,10 @@ export default function Messages({
         setHasMore(false);
       } else {
         pageRef.current = nextPage;
+        // If Redux tells us we've reached the end, trust it
+        if (chatMeta && !chatMeta.hasMore) {
+          setHasMore(false);
+        }
       }
       
       // Only adjust scroll if we got messages
@@ -397,25 +497,6 @@ export default function Messages({
         setLoadingMore(false);
         loadingOlderRef.current = false;
       }, 100);
-    }
-  };
-
-  const handleScroll = () => {
-    if (!containerRef.current) return;
-
-    const nearBottom = isNearBottom();
-
-    if (nearBottom) {
-      setShowScrollBtn(false);
-      setShowNewMsgBadge(false);
-      setUnreadDividerIndex(null);
-    } else {
-      setShowScrollBtn(true);
-    }
-
-    // Trigger pagination earlier (400px from top) for smoother loading
-    if (containerRef.current.scrollTop < 400 && hasMore && !loadingMore && !loadingOlderRef.current) {
-      loadMore();
     }
   };
 
@@ -552,22 +633,6 @@ export default function Messages({
   let groupStart: MessageType | null = null;
   const GROUP_INTERVAL = 300; // 5 minutes
 
-  useEffect(() => {
-    if (!scrollTargetId) return;
-
-    const el = document.getElementById(`msg-${scrollTargetId}`);
-    if (!el || !containerRef.current) return;
-
-    el.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
-
-    setTimeout(() => {
-      setHighlightedMessageId(scrollTargetId);
-    }, 300);
-  }, [scrollTargetId]);
-
   return (
     <div className="relative flex-1 flex flex-col h-full">
       <div
@@ -702,8 +767,7 @@ export default function Messages({
                   handleReaction={handleReaction}
                   contextMenu={contextMenu}
                   isLastMessage={isLastMessage}
-                  isHighlighted={highlightedMessageId === msg._id}
-                  scrollTargetId={scrollTargetId}
+                  highlightedMessageId={highlightedMessageId }
                 />
                 
                 {contextMenu.msg?._id === msg._id && !msg.deleted && (

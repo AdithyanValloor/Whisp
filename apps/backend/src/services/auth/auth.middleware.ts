@@ -1,69 +1,108 @@
-import { Request, Response, NextFunction } from "express"
-import { verifyAccessToken,  verifyRefreshToken, generateAccessToken } from "../../utils/jwt.js"
-import { DecodedUser } from "../user/types/user.types.js"
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
 
-declare global {
-    namespace Express {
-        interface Request {
-            user?: DecodedUser
-        }
+import {
+  verifyAccessToken,
+  verifyRefreshToken,
+  generateAccessToken,
+} from "../../utils/jwt.js";
+
+import { Unauthorized, Forbidden } from "../../utils/errors/httpErrors.js";
+import { authCookieOptions } from "../../config/cookies.js";
+
+const { JsonWebTokenError, TokenExpiredError } = jwt;
+
+/**
+ * ------------------------------------------------------------------
+ * Authentication Guard Middleware
+ * ------------------------------------------------------------------
+ *
+ * Protects private routes by validating JWT-based authentication.
+ * Automatically refreshes expired access tokens when a valid
+ * refresh token is present.
+ *
+ * High-level flow:
+ * 1. Read access & refresh tokens from HTTP-only cookies
+ * 2. If access token is valid → allow request
+ * 3. If access token is missing or expired → attempt refresh
+ * 4. If refresh succeeds → issue new access token and continue
+ * 5. Otherwise → reject request as unauthenticated
+ *
+ * Security guarantees:
+ * - No request proceeds without a verified token
+ * - Refresh tokens are the single authority for session recovery
+ * - Tokens are never trusted blindly
+ */
+export const protect = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void => {
+  try {
+    // Extract credentials from cookies
+    const accessToken = req.cookies?.accessToken;
+    const refreshToken = req.cookies?.refreshToken;
+
+    /**
+     * No credentials at all → unauthenticated request
+     */
+    if (!accessToken && !refreshToken) {
+      throw Unauthorized("Unauthenticated");
     }
-}
 
-export const protect = (req: Request, res: Response, next: NextFunction):void => {
-    try {
-        let accessToken = 
-        req.cookies?.accessToken || 
-        (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")
-        ? req.headers.authorization.split(" ")[1]
-        : undefined)
-
-        if (!accessToken) {
-            res.status(401).json({ error: "No token provided" });
-            return 
+    /**
+     * Attempt access-token authentication first
+     * (fast path for valid sessions)
+     */
+    if (accessToken) {
+      try {
+        const decoded = verifyAccessToken(accessToken);
+        req.user = decoded;
+        return next();
+      } catch (err) {
+        // Any failure other than expiry is a hard auth failure
+        if (!(err instanceof TokenExpiredError)) {
+          throw Unauthorized("Invalid access token");
         }
-
-        try {
-            const decoded = verifyAccessToken(accessToken) as DecodedUser
-            
-            console.log("Decoded :", decoded);
-            
-            req.user = decoded;
-            next();
-            return 
-        } catch (accessErr) {
-            const refreshToken = req.cookies?.refreshToken
-
-            if(!refreshToken){
-                res.status(401).json({error: "Access token expired. No refresh token found"})
-                return 
-            }
-
-            try {
-                const decodedRefresh = verifyRefreshToken(refreshToken) as DecodedUser
-
-                const newAccessToken = generateAccessToken(decodedRefresh);
-
-                res.cookie("accessToken", newAccessToken , {
-                    httpOnly: true,
-                    secure: process.env.NODE_ENV === "production",
-                    sameSite: "lax",
-                    maxAge: 15 * 60 * 1000,
-                })
-
-                req.user = decodedRefresh; 
-                next();
-                return 
-
-            } catch (refreshError) {
-                res.status(403).json({ error: "Invalid or expired refresh token" });
-                return 
-            }
-        }
-
-    } catch (error) {
-        res.status(500).json({ error: "Internal server error" });
-        return 
+        // Access token expired → fall through to refresh logic
+      }
     }
-}
 
+    /**
+     * Access token missing or expired → require refresh token
+     */
+    if (!refreshToken) {
+      throw Unauthorized("Session expired");
+    }
+
+    /**
+     * Refresh flow:
+     * - Verify refresh token
+     * - Issue new access token
+     * - Persist it in secure HTTP-only cookie
+     */
+    const decodedRefresh = verifyRefreshToken(refreshToken);
+    const newAccessToken = generateAccessToken({
+      id: decodedRefresh.id,
+      email: decodedRefresh.email,
+      username: decodedRefresh.username,
+    });
+
+    res.cookie("accessToken", newAccessToken, {
+      ...authCookieOptions,
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    /**
+     * Attach refreshed user payload and continue
+     */
+    req.user = decodedRefresh;
+    next();
+  } catch (err) {
+    /**
+     * Forward all authentication failures
+     * to the global error handler
+     */
+    next(err);
+  }
+};
