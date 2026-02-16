@@ -1,6 +1,6 @@
 "use client";
 
-import ThemeToggle from "../ThemeSelector";
+import ThemeToggle from "./Settings Subpages/ThemeSelector";
 
 export default function ThemeSettings() {
   return (
@@ -8,7 +8,7 @@ export default function ThemeSettings() {
       {/* Header */}
 
       {/* Theme Toggle */}
-      <div className="flex items-center justify-between gap-4 mt-2">
+      <div className="flex items-center justify-between gap-4 p-4 mt-2">
         <span className="text-sm font-medium opacity-70">Switch Theme</span>
         <ThemeToggle />
       </div>

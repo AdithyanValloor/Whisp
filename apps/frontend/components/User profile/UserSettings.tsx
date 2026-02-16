@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { logoutUser } from "@/redux/features/authSlice"; // <-- async thunk for logout
+import { logoutUser } from "@/redux/features/authSlice";
 import {
   ArrowLeft,
   Bell,
@@ -16,6 +16,7 @@ import EditProfileForm from "./EditProfilePage";
 import ThemeSettings from "./ThemeSettings";
 import { useAppDispatch } from "@/redux/hooks";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
+import IconButton from "../GlobalComponents/IconButtons";
 
 interface UserSettingsProps {
   onBack: () => void;
@@ -23,14 +24,48 @@ interface UserSettingsProps {
 
 export default function UserSettings({ onBack }: UserSettingsProps) {
   const [activePage, setActivePage] = useState<string | null>(null);
-  const dispatch = useAppDispatch();
   const [showLogout, setShowLogout] = useState(false);
+  const dispatch = useAppDispatch();
 
-  // Handle logout confirm
   const handleLogout = async () => {
     await dispatch(logoutUser());
-    window.location.href = "/login"; 
+    window.location.href = "/login";
   };
+
+  // 🔥 Settings config array
+  const settingsItems = [
+    {
+      label: "Profile",
+      icon: UserPen,
+      action: () => setActivePage("Profile"),
+    },
+    {
+      label: "Account",
+      icon: UserCog,
+      action: () => setActivePage("Account"),
+    },
+    {
+      label: "Theme",
+      icon: Palette,
+      action: () => setActivePage("Theme"),
+    },
+    {
+      label: "Notifications",
+      icon: Bell,
+      action: () => setActivePage("Notifications"),
+    },
+    {
+      label: "Privacy",
+      icon: UserLock,
+      action: () => setActivePage("Privacy"),
+    },
+    {
+      label: "Logout",
+      icon: LogOut,
+      action: () => setShowLogout(true),
+      danger: true,
+    },
+  ];
 
   if (activePage) {
     return (
@@ -39,7 +74,10 @@ export default function UserSettings({ onBack }: UserSettingsProps) {
           <EditProfileForm onBack={() => setActivePage(null)} />
         )}
         {activePage === "Account" && <p>Manage account settings…</p>}
-        {activePage === "Theme" && <ThemeSettings onBack={() => setActivePage(null)} />}
+        {activePage === "Theme" && (
+          // <ThemeSettings onBack={() => setActivePage(null)} />
+          <ThemeSettings />
+        )}
         {activePage === "Notifications" && <p>Notification preferences…</p>}
         {activePage === "Privacy" && <p>Privacy controls…</p>}
       </SubPage>
@@ -51,93 +89,44 @@ export default function UserSettings({ onBack }: UserSettingsProps) {
       <div className="w-full h-full relative">
         {/* Header */}
         <div className="flex items-center gap-2 p-3 border-b border-base-300">
-          <button
+          <IconButton
             onClick={onBack}
-            className="p-2 cursor-pointer rounded-full hover:bg-base-200 transition-colors"
+            ariaLabel="Go back"
           >
             <ArrowLeft size={18} />
-          </button>
+          </IconButton>
           <h2 className="text-lg font-semibold">Settings</h2>
         </div>
 
         {/* Sections */}
-        <div className="p-4 flex flex-col gap-1">
-          <div
-            onClick={() => setActivePage("Profile")}
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm font-medium opacity-70">Profile</h3>
-            <UserPen size={20} />
-          </div>
+        <div className="p-3 flex flex-col gap-1">
+          {settingsItems.map((item) => {
+            const Icon = item.icon;
 
-          <div
-            onClick={() => setActivePage("Account")}
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm font-medium opacity-70">Account</h3>
-            <UserCog size={20} />
-          </div>
-
-          <div
-            onClick={() => setActivePage("Theme")}
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm font-medium opacity-70">Theme</h3>
-            <Palette size={20} />
-          </div>
-
-          <div
-            onClick={() => setActivePage("Notifications")}
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm font-medium opacity-70">Notifications</h3>
-            <Bell size={20} />
-          </div>
-
-          <div
-            onClick={() => setActivePage("Privacy")}
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm font-medium opacity-70">Privacy</h3>
-            <UserLock size={20} />
-          </div>
-
-          {/* Logout */}
-          {/* <div
-            onClick={() =>
-              (document.getElementById("logout_modal") as HTMLDialogElement)?.showModal()
-            }
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm text-[#D22B2B] font-medium opacity-70">
-              Logout
-            </h3>
-            <LogOut color="#D22B2B" size={20} />
-          </div> */}
-
-          {/* <div
-            onClick={() =>
-              (document.getElementById("logout_modal") as HTMLDialogElement)?.showModal()
-            }
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm text-[#D22B2B] font-medium opacity-70">Logout</h3>
-            <LogOut color="#D22B2B" size={20} />
-          </div> */}
-
-          <div
-            onClick={() => setShowLogout(true)}
-            className="p-3 rounded-lg flex justify-between hover:bg-base-200 items-center cursor-pointer"
-          >
-            <h3 className="text-sm text-[#D22B2B] font-medium opacity-70">Logout</h3>
-            <LogOut color="#D22B2B" size={20} />
-          </div>
-
-          {/* Logout Modal */}
-          
+            return (
+              <div
+                key={item.label}
+                onClick={item.action}
+                className="p-3 py-4 rounded-lg flex justify-between hover:bg-base-content/10 items-center cursor-pointer"
+              >
+                <h3
+                  className={`text-sm font-medium opacity-70 ${
+                    item.danger ? "text-[#D22B2B]" : ""
+                  }`}
+                >
+                  {item.label}
+                </h3>
+                <Icon
+                  size={20}
+                  color={item.danger ? "#D22B2B" : undefined}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
-     {showLogout && (
+
+      {showLogout && (
         <ConfirmModal
           open
           title="Confirm Logout"

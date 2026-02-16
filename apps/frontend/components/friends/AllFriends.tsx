@@ -79,8 +79,6 @@ export default function AllFriends({ setActiveTab }: AllFriendsProps) {
   return (
     <div className="flex flex-col gap-1">
       {friends.map((friend) => {
-        const status = onlineUsers[friend._id] || "offline";
-
         return (
           <FriendCard
             key={friend._id}
@@ -89,7 +87,6 @@ export default function AllFriends({ setActiveTab }: AllFriendsProps) {
               name: friend.username,
               displayName: friend.displayName ?? friend.username,
               profilePic: friend.profilePicture?.url || "/default-pfp.png",
-              status,
             }}
             forceActive={activeMenuId === friend._id}
             chatType="personal"

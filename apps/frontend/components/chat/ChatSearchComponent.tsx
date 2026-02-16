@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { searchMessagesApi, type MessageType } from "@/redux/features/messageSlice";
 import SearchInput from "../GlobalComponents/SearchInput";
 import IconButton from "../GlobalComponents/IconButtons";
@@ -41,7 +41,6 @@ export default function ChatSearchComponent({
 
   console.log("SEARCH RES :", searchMessages);
   
-  
   useEffect(() => {
     const hasQuery = query.trim().length > 0;
     const hasDate = !!selectedDate;
@@ -58,26 +57,6 @@ export default function ChatSearchComponent({
         })
       );
     }, 400); // debounce
-
-    return () => clearTimeout(timeout);
-  }, [query, selectedDate]);
-
-  useEffect(() => {
-    const hasQuery = query.trim().length > 0;
-    const hasDate = !!selectedDate;
-
-    if (!hasQuery && !hasDate) return;
-
-    const timeout = setTimeout(() => {
-      dispatch(
-        searchMessagesApi({
-          chatId,
-          query,
-          date: selectedDate?.toISOString(),
-          page: 1,
-        })
-      );
-    }, 400); 
 
     return () => clearTimeout(timeout);
   }, [query, selectedDate]);

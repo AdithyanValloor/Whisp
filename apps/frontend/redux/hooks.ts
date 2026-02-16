@@ -12,3 +12,7 @@ export const useAppDispatch = () => useDispatch<AppDispatch>();
  * Provides type-safe access to the Redux store state.
  */
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
+
+export const selectUserStatus = (userId: string) =>
+  (state: RootState) =>
+    state.presence.users[userId] ?? "offline";

@@ -1,12 +1,13 @@
-'use client';
+"use client";
 
 import { MessageType } from "@/redux/features/messageSlice";
-import { SmilePlus, Reply, Pencil, Trash2, Copy } from "lucide-react";
+import { SmilePlus, Reply, Pencil, Trash2, Copy, Forward } from "lucide-react";
 import { motion } from "framer-motion";
+import { createPortal } from "react-dom";
+import { AnimatePresence } from "framer-motion";
 
 interface ContextMenuProps {
   contextMenuRef: React.RefObject<HTMLDivElement | null>;
-
   contextMenu: {
     x: number;
     y: number;
@@ -33,100 +34,129 @@ export default function ContextMenu({
   closeContextMenu,
   setReplyingTo,
   onEdit,
-  onDelete
+  onDelete,
 }: ContextMenuProps) {
-  return (
-    <motion.div
-      ref={contextMenuRef}
-      initial={{ 
-        opacity: 0, 
-        scale: 0.95, 
-        y: contextMenu.position === "top" ? 10 : -10 
-      }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.15 }}
-      className="fixed z-50 border border-base-content/10 bg-base-100 shadow-lg rounded-lg w-40"
-      style={{
-        left: `${contextMenu.x}px`,
-        top: `${contextMenu.y}px`,
-      }}
-    >
-      <ul className="menu menu-compact w-full">
-        
-        {/* React */}
-        <li>
-          <button
-            className="my-[2px] rounded-md hover:bg-base-200 w-full flex justify-between items-center px-3"
-            onClick={() => {
-              openFullPicker(msg._id);
+  const menuItems = [
+    {
+      label: "React",
+      icon: SmilePlus,
+      action: () => {
+        openFullPicker(msg._id);
+      },
+      show: true,
+    },
+    {
+      label: "Reply",
+      icon: Reply,
+      action: () => {
+        handleReply(msg);
+        closeContextMenu();
+      },
+      show: true,
+    },
+    {
+      label: "Foreward",
+      icon: Forward,
+      action: () => {
+        handleReply(msg);
+        closeContextMenu();
+      },
+      show: true,
+    },
+    {
+      label: "Edit",
+      icon: Pencil,
+      action: () => {
+        setReplyingTo(null);
+        onEdit?.(msg);
+        closeContextMenu();
+      },
+      show: isMe,
+    },
+    {
+      label: "Copy",
+      icon: Copy,
+      action: () => {
+        navigator.clipboard.writeText(msg.content);
+        closeContextMenu();
+      },
+      show: true,
+    },
+    {
+      label: "Delete",
+      icon: Trash2,
+      action: () => {
+        onDelete?.(msg);
+        closeContextMenu();
+      },
+      show: isMe,
+      danger: true,
+    },
+  ];
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {contextMenu.msg && (
+        <>
+          {/* Backdrop Layer */}
+          <div
+            className="fixed inset-0 z-[99998]"
+            onClick={closeContextMenu}
+            onContextMenu={closeContextMenu}
+          />
+
+          {/* Menu */}
+          <motion.div
+            ref={contextMenuRef}
+            initial={{
+              opacity: 0,
+              scale: 0.96,
+              y: contextMenu.position === "top" ? 6 : -6,
+            }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.14, ease: "easeOut" }}
+            className="fixed z-[99999] bg-base-100 border border-base-content/10 shadow-xl rounded-xl w-48 p-1.5 backdrop-blur-sm"
+            style={{
+              left: contextMenu.x,
+              top: contextMenu.y,
             }}
           >
-            <span>React</span>
-            <SmilePlus size={18} className="ml-2" />
-          </button>
-        </li>
+            <ul className="flex flex-col gap-1">
+              {menuItems
+                .filter((item) => item.show)
+                .map((item) => {
+                  const Icon = item.icon;
 
-        {/* Reply */}
-        <li>
-          <button
-            className="my-[2px] rounded-md hover:bg-base-200 w-full flex justify-between items-center px-3"
-            onClick={() => {
-              handleReply(msg);
-              closeContextMenu();
-            }}
-          >
-            <span>Reply</span>
-            <Reply size={18} className="ml-2" />
-          </button>
-        </li>
-
-        {/* Edit / Delete (Only for Me) */}
-        {isMe && (
-          <>
-            <li>
-              <button
-                className="my-[2px] rounded-md hover:bg-base-200 w-full flex justify-between items-center px-3"
-                onClick={() => {
-                  setReplyingTo(null);
-                  onEdit?.(msg);
-                  closeContextMenu();
-                }}
-              >
-                <span>Edit</span>
-                <Pencil size={18} className="ml-2" />
-              </button>
-            </li>
-
-            <li>
-              <button
-                className="my-[2px] rounded-md hover:bg-base-200 w-full flex justify-between items-center px-3"
-                onClick={() => {
-                  onDelete?.(msg);
-                  closeContextMenu();
-                }}
-              >
-                <span>Delete</span>
-                <Trash2 size={18} className="ml-2" />
-              </button>
-            </li>
-          </>
-        )}
-
-        {/* Copy */}
-        <li>
-          <button
-            className="my-[2px] rounded-md hover:bg-base-200 w-full flex justify-between items-center px-3"
-            onClick={() => {
-              navigator.clipboard.writeText(msg.content);
-              closeContextMenu();
-            }}
-          >
-            <span>Copy</span>
-            <Copy size={18} className="ml-2" />
-          </button>
-        </li>
-      </ul>
-    </motion.div>
+                  return (
+                    <button
+                      key={item.label}
+                      className={`
+                      flex items-center justify-between 
+                      w-full px-3 py-2 
+                      rounded-lg 
+                      text-sm 
+                      transition-colors duration-150
+                      cursor-pointer
+                      ${
+                        item.danger
+                          ? "text-red-400 hover:bg-red-400/10"
+                          : "text-base-content hover:bg-base-content/10"
+                      }`}
+                      onClick={item.action}
+                    >
+                      <span>{item.label}</span>
+                      <Icon size={16} className="opacity-70" />
+                    </button>
+                  );
+                })}
+            </ul>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>,
+    document.body,
   );
 }

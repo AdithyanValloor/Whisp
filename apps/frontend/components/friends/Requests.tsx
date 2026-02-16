@@ -41,7 +41,6 @@ export default function Requests() {
           name: user.username,
           displayName: user.displayName ?? user.username,
           profilePic: user.profilePicture?.url || "/default-pfp.png",
-          status: "offline",
         }}
         chatType="other"
         hideLastMessage

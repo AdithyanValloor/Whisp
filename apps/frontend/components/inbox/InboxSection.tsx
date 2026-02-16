@@ -53,13 +53,15 @@ export default function InboxSection() {
 
   const sections: Record<ChatType, JSX.Element> = {
     personal: (
-      <Personal
-        onOpenChat={openChat}
-        selectedChatId={selectedChatId}
+      <Personal 
+        ifInbox 
+        onOpenChat={openChat} 
+        selectedChatId={selectedChatId} 
       />
     ),
     group: (
       <GroupChat
+        ifInbox
         onOpenChat={openChat}
         selectedChatId={selectedChatId}
       />
@@ -82,7 +84,7 @@ export default function InboxSection() {
       createGroupChat({
         name: groupName.trim(),
         userIds: Array.from(selectedUsers),
-      })
+      }),
     ).unwrap();
 
     setShowCreateModal(false);
@@ -94,7 +96,6 @@ export default function InboxSection() {
   };
 
   return (
-
     <div className="h-full w-full relative">
       <div className="h-full w-full p-3 flex flex-col gap-3">
         {/* Header */}
@@ -104,14 +105,13 @@ export default function InboxSection() {
           <IconButton
             ariaLabel="Create group chat"
             onClick={() => setShowCreateModal(true)}
-
           >
-            <MessageCirclePlus aria-hidden/>
+            <MessageCirclePlus aria-hidden />
           </IconButton>
         </div>
 
         {/* Search */}
-        <SearchInput/>
+        <SearchInput />
 
         {/* Tabs */}
         <div className="relative flex border-b border-base-content/10">
@@ -149,19 +149,15 @@ export default function InboxSection() {
               transition-transform duration-300 ease-out"
             style={{
               transform:
-                chatType === "personal"
-                  ? "translateX(0%)"
-                  : "translateX(100%)",
+                chatType === "personal" ? "translateX(0%)" : "translateX(100%)",
             }}
           />
         </div>
 
         {/* Chat list */}
-        <div className="flex-1 overflow-y-auto">
-          {sections[chatType]}
-        </div>
+        <div className="flex-1 overflow-y-auto">{sections[chatType]}</div>
       </div>
-    
+
       {/* Create group modal */}
       {showCreateModal && (
         <NewChat

@@ -44,7 +44,8 @@ interface ChatViewProps {
       username: string;
       displayName?: string;
       profilePicture?: { url: string | null };
-      status?: string | null;
+      status?: "online" | "offline";
+  
     }[]
   };
   currentUser: { _id: string; username: string; displayName?: string; profilePic?: string };
@@ -113,7 +114,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         username: chat.chatName,
         displayName: chat.chatName,
         profilePicture: { url: null },
-        status: "online",
       }
     : chat.members.find((m) => m._id !== currentUser._id) ?? {
         _id: "unknown",
@@ -122,7 +122,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         profilePicture: {
           url: currentUser.profilePic ?? null,
         },
-        status: "offline",
       };
 
   let displayStatus: "online" | "offline" = "offline";
@@ -137,6 +136,9 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   } else {
     displayStatus = "online";
   }
+
+  console.log(displayStatus);
+  
 
   const displayName = displayUser.displayName;
   const name = displayUser.username;
@@ -359,26 +361,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     }
   };
 
-  // const scrollToMessage = async (messageId: string) => {
-  //   const exists = messages.find((m) => m._id === messageId);
-
-  //   if (!exists) {
-  //     // fetchMessageContext.fulfilled now merges + sets jumpTo in Redux
-  //     // The Messages component listens to jumpTo and scrolls automatically
-  //     await dispatch(
-  //       fetchMessageContext({ messageId, chatId: chat._id })
-  //     ).unwrap();
-  //     // No manual scroll needed — jumpTo effect in Messages handles it
-  //   } else {
-  //     // Message already in DOM — scroll directly and highlight
-  //     setHighlightedMessageId(messageId);
-  //     const el = document.getElementById(`msg-${messageId}`);
-  //     if (el) {
-  //       el.scrollIntoView({ behavior: "smooth", block: "center" });
-  //     }
-  //   }
-  // };
-  
   useEffect(()=>{
     if(!highlightedMessageId) return
     
@@ -533,7 +515,9 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
                       }
                     />
                   ) : (
-                    <ProfileView user={displayUser} status={displayStatus} />
+                    <ProfileView
+                      user={displayUser}
+                    />
                   )}
                 </>
               )}

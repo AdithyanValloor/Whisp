@@ -51,7 +51,7 @@ export default function AddFriendInput() {
             if (statusMsg) setStatusMsg("");
           }}
           placeholder="Enter friend's Whip username"
-          className="w-full h-12 pl-5 focus:outline-1 hover:outline-1 outline-base-content/10 rounded-full bg-base-300"
+          className="w-full h-12 pl-5 focus:outline-1 text-sm hover:outline-1 outline-base-content/10 rounded-full bg-base-300"
         />
 
         <div className="absolute right-0 top-1/2 -translate-y-1/2 px-2 flex items-center">

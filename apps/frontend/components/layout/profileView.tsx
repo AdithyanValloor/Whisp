@@ -1,13 +1,13 @@
 "use client";
 
-import { CalendarDays, EllipsisVertical } from "lucide-react";
+import { ArrowLeft, CalendarDays, EllipsisVertical } from "lucide-react";
 import { FaUserCheck, FaUserClock, FaUserPlus } from "react-icons/fa";
 import { useState } from "react";
 
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import IconButton from "../GlobalComponents/IconButtons";
 
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { selectUserStatus, useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
   addFriend,
   removeFriend,
@@ -18,6 +18,7 @@ import {
   addFriendFromSocket,
 } from "@/redux/features/friendsSlice";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 
 interface ProfileViewProps {
   user: {
@@ -25,17 +26,16 @@ interface ProfileViewProps {
     username: string;
     displayName?: string;
     profilePicture?: { url: string | null };
-    status?: string | null;
     createdAt?: string;
     about?: string;
     pronouns?: string;
   };
-  status: "online" | "offline";
+  onBack?: () => void;
 }
 
 type FriendAction = "add" | "remove" | "accept" | "reject" | "cancel" | null;
 
-export default function ProfileView({ user, status }: ProfileViewProps) {
+export default function ProfileView({ user, onBack }: ProfileViewProps) {
   const dispatch = useAppDispatch();
 
   const currentUser = useAppSelector((state) => state.auth.user);
@@ -46,6 +46,9 @@ export default function ProfileView({ user, status }: ProfileViewProps) {
   const [showRemoveModal, setShowRemoveModal] = useState(false);
 
   const isLoading = (action: FriendAction) => pendingAction === action;
+
+  const status = useAppSelector(selectUserStatus(user._id ?? ""));
+  
 
   // --------------------------------------------------
   // Derived friend status (single source of truth)
@@ -150,11 +153,46 @@ export default function ProfileView({ user, status }: ProfileViewProps) {
     );
   };
 
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 15 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.25, ease: "easeOut" },
+    },
+  };
+
   // --------------------------------------------------
   // UI
   // --------------------------------------------------
   return (
-    <div className="relative flex flex-col w-full h-full px-5 bg-base-200 overflow-hidden">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="relative flex flex-col w-full h-full px-3 bg-base-200 overflow-hidden"
+    >
+
+      {onBack && 
+        <div className="absolute top-3 left-3">
+            <IconButton 
+              ariaLabel="Go back"
+              onClick={onBack}
+            >
+              <ArrowLeft size={19} />
+            </IconButton>
+        </div>
+      }
       {currentUser?._id !== user._id && (
         <div className="absolute top-3 right-3 flex items-center gap-2">
           {renderFriendButton()}
@@ -177,12 +215,12 @@ export default function ProfileView({ user, status }: ProfileViewProps) {
       )}
 
       {/* Profile Card */}
-      <div className="relative mt-22 z-10">
+      <motion.div variants={itemVariants} className="relative mt-22 z-10">
         <div className="flex items-center gap-4 bg-base-100 rounded-xl p-4 shadow">
           <ProfilePicture
             src={user.profilePicture?.url || ""}
             size="lg"
-            status={status}
+            status={status ?? "offline"}
           />
           <div className="flex-1">
             <h2 className="text-lg font-semibold leading-tight">
@@ -194,60 +232,75 @@ export default function ProfileView({ user, status }: ProfileViewProps) {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Incoming Request Banner */}
-      {incomingReq && (
-        <div className="mt-4 bg-base-100 rounded-2xl shadow p-4">
-          <p className="text-sm">
-            <span className="font-medium">
-              {user.displayName || user.username}
-            </span>{" "}
-            sent you a friend request.
-          </p>
+      <AnimatePresence>
+        {incomingReq && (
+          <motion.div
+            key="incoming-request"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            style={{ overflow: "hidden" }}
+            className="mt-4 bg-base-100 rounded-2xl shadow p-4"
+          >
+            <p className="text-sm text-base-content/80">
+              <span className="font-semibold text-base-content">
+                {user.displayName || user.username}
+              </span>{" "}
+              sent you a friend request.
+            </p>
 
-          <div className="flex gap-2 mt-3">
-            <button
-              disabled={isLoading("accept")}
-              onClick={() =>
-                performAction(
-                  () => dispatch(acceptFriend(incomingReq._id)).unwrap(),
-                  "accept"
-                )
-              }
-              className="px-4 py-1.5 rounded-xl cursor-pointer bg-green-900 text-white text-sm hover:bg-green-700"
-            >
-              Accept
-            </button>
+            <div className="flex gap-2 mt-3">
+              <button
+                disabled={isLoading("accept")}
+                onClick={() =>
+                  performAction(
+                    () => dispatch(acceptFriend(incomingReq._id)).unwrap(),
+                    "accept"
+                  )
+                }
+                className="px-4 py-1.5 rounded-xl cursor-pointer border border-base-content/10 bg-green-700 text-white text-sm hover:bg-green-900"
+              >
+                Accept
+              </button>
 
-            <button
-              disabled={isLoading("reject")}
-              onClick={() =>
-                performAction(
-                  () => dispatch(rejectFriend(incomingReq._id)).unwrap(),
-                  "reject"
-                )
-              }
-              className="px-4 py-1.5 rounded-xl cursor-pointer bg-red-800 text-white text-sm hover:bg-red-600"
-            >
-              Reject
-            </button>
-          </div>
-        </div>
-      )}
-
+              <button
+                disabled={isLoading("reject")}
+                onClick={() =>
+                  performAction(
+                    () => dispatch(rejectFriend(incomingReq._id)).unwrap(),
+                    "reject"
+                  )
+                }
+                className="px-4 py-1.5 rounded-xl cursor-pointer border border-base-content/10 bg-red-800 text-white text-sm hover:bg-red-900"
+              >
+                Reject
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* About */}
-      <div className="mt-4 bg-base-100 rounded-xl shadow p-4">
+      <motion.div
+        variants={itemVariants}
+        className="mt-4 bg-base-100 rounded-xl shadow p-4"
+      >
         <p className="text-[11px] uppercase font-medium opacity-60 tracking-wide">
           About
         </p>
         <p className="text-sm mt-1 leading-relaxed">
           {user.about || "Whisp user."}
         </p>
-      </div>
+      </motion.div>
 
       {/* Member Info */}
-      <div className="mt-5 flex items-center justify-between bg-base-100 rounded-xl p-4">
+      <motion.div
+        variants={itemVariants}
+        className="mt-5 flex items-center justify-between bg-base-100 rounded-xl p-4"
+      >
         <div className="flex items-center gap-2 text-xs opacity-80">
           <CalendarDays size={14} />
           <span>Joined {joinedDate}</span>
@@ -255,7 +308,7 @@ export default function ProfileView({ user, status }: ProfileViewProps) {
         <span className="text-[11px] font-semibold uppercase tracking-wider text-[#004030]">
           Member
         </span>
-      </div>
+      </motion.div>
 
       {/* Accent Bar */}
       <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#004030]" />
@@ -266,7 +319,7 @@ export default function ProfileView({ user, status }: ProfileViewProps) {
           open
           title={`Remove ${user.displayName || user.username}`}
           description="Are you sure you want to remove this user from your friends?"
-          confirmText={isLoading("remove") ? "Removing..." : "Remove"}
+          confirmText="Remove"
           confirmLoading={isLoading("remove")}
           onCancel={() => setShowRemoveModal(false)}
           onConfirm={() =>
@@ -278,6 +331,6 @@ export default function ProfileView({ user, status }: ProfileViewProps) {
           }
         />
       )}
-    </div>
+    </motion.div>
   );
 }

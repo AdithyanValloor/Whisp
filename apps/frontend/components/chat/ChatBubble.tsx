@@ -47,7 +47,7 @@ export default function ChatBubble({
       className={`chat relative p-0 border-1 border-transparent 
         ${msg.reactions && msg.reactions.length > 0 ? "pb-5" : ""} 
         ${isMe ? "chat-end" : "chat-start"} 
-        hover:bg-base-content/10
+        hover:bg-base-content/10 rounded-sm
           px-4 transition-colors
           ${highlightedMessageId === msg._id && "bg-cyan-900/30"}
           ${editingMessage?._id === msg._id && "bg-base-content/10"}

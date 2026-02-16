@@ -11,7 +11,7 @@ interface ConfirmModalProps {
   description?: ReactNode;
   onCancel?: () => void;
   onConfirm: () => void;
-  confirmText?: string;
+  confirmText?: React.ReactNode;
   cancelText?: string;
   confirmLoading?: boolean;
   confirmDisabled?: boolean;
@@ -82,7 +82,7 @@ export default function ConfirmModal({
                 onClick={onConfirm}
                 className="w-full p-2 cursor-pointer rounded-xl bg-red-900 text-white hover:bg-red-900/80 disabled:opacity-60 transition"
               >
-                {confirmLoading ? "Processing..." : confirmText}
+                {confirmLoading ? <span className="loading loading-dots loading-lg"></span> : confirmText}
               </button>
             </div>
           </motion.div>

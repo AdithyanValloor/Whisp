@@ -41,6 +41,12 @@ export default function RootPage() {
     }
   }, [sessionLoading, user, router]);
 
+  useEffect(() => {
+  const suppress = (e: MouseEvent) => e.preventDefault();
+  document.addEventListener("contextmenu", suppress);
+  return () => document.removeEventListener("contextmenu", suppress);
+}, []);
+
   return (
     <div className="flex h-screen items-center justify-center bg-base-200">
       <span className="loading loading-spinner loading-xl" />

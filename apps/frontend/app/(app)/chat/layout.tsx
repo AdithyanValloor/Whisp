@@ -1,5 +1,3 @@
-// "/app/(app)/chat/layout.tsx"
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -37,6 +35,12 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
   const [activeTab, setActiveTab] = useState("Inbox");
 
   const isChatOpen = pathname !== "/chat";
+
+  useEffect(() => {
+    const suppress = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", suppress);
+    return () => document.removeEventListener("contextmenu", suppress);
+  }, []);
 
   /* ---------- Responsive ---------- */
 

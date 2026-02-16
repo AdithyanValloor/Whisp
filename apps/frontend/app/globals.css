@@ -29,46 +29,41 @@ body {
   animation: fade-in 0.3s ease-out;
 }
 
-/* ===== UNIVERSAL SCROLLBAR STYLE ===== */
-.scrollbar {
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(100, 116, 139, 0.8) transparent; /* Firefox */
-}
-
-/* Chrome, Edge, Safari */
-.scrollbar::-webkit-scrollbar {
+::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
 }
 
-.scrollbar::-webkit-scrollbar-track {
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(100, 116, 139, 0.8); /* slate-600 */
-  border-radius: 9999px;
-  transition: background-color 0.2s ease, opacity 0.3s ease;
-}
-
-.scrollbar:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(71, 85, 105, 1); /* slate-700 */
-}
-
-/* Auto-hide only scrollbar thumb, not track */
-.scrollbar::-webkit-scrollbar-thumb {
-  opacity: 0;
-}
-.scrollbar:hover::-webkit-scrollbar-thumb {
-  opacity: 1;
-}
-
-/* Remove arrows (Chrome only) */
-.scrollbar::-webkit-scrollbar-button {
+::-webkit-scrollbar-button {
   display: none;
-  width: 0;
-  height: 0;
 }
+
+*:hover > ::-webkit-scrollbar-thumb,
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(142, 142, 142, 0.2);
+  background-clip: padding-box;
+}
+
+*:hover > ::-webkit-scrollbar-thumb:hover,
+*:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 142, 142, 0.5);
+  background-clip: padding-box;
+}
+
+/* * {
+  scrollbar-width: auto;
+}  */
+
 
 .twemoji-container img.emoji {
   height: 1.2em;
@@ -77,3 +72,5 @@ body {
   vertical-align: -0.2em;
   display: inline-block;
 }
+
+

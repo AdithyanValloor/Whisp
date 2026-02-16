@@ -1,21 +1,43 @@
-'use client';
+"use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import FriendCard from "../Message/FriendCard";
 import { fetchChats } from "@/redux/features/chatSlice";
 
+interface ContextMenuState {
+  x: number;
+  y: number;
+  chatId: string;
+  position: "top" | "bottom";
+}
+
 interface GroupChatProps {
   onOpenChat: (chatId: string) => void;
   selectedChatId?: string;
+  ifInbox: boolean;
 }
 
-export default function GroupChat({ onOpenChat, selectedChatId }: GroupChatProps) {
+export default function GroupChat({
+  onOpenChat,
+  selectedChatId,
+}: GroupChatProps) {
   const dispatch = useAppDispatch();
 
   const { chats, listLoading } = useAppSelector((state) => state.chat);
   const { user, sessionLoading } = useAppSelector((state) => state.auth);
   const perChatUnread = useAppSelector((state) => state.unread.perChat);
+
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const contextMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const handleContextMenuOpen = useCallback((state: ContextMenuState) => {
+    setContextMenu(state);
+  }, []);
+
+  const handleContextMenuClose = useCallback(() => {
+    setContextMenu(null);
+  }, []);
 
   /* -------- Fetch chats once -------- */
   useEffect(() => {
@@ -31,11 +53,7 @@ export default function GroupChat({ onOpenChat, selectedChatId }: GroupChatProps
   const groupChats = chats.filter((chat) => chat.isGroup);
 
   if (!groupChats.length) {
-    return (
-      <p className="p-3 text-center opacity-70">
-        No groups yet
-      </p>
-    );
+    return <p className="p-3 text-center opacity-70">No groups yet</p>;
   }
 
   return (
@@ -46,10 +64,10 @@ export default function GroupChat({ onOpenChat, selectedChatId }: GroupChatProps
         return (
           <FriendCard
             key={chat._id}
+            ifInbox
             user={{
               name: chat.chatName,
               profilePic: chat.members[0]?.profilePicture?.url || "",
-              status: "online",
               lastMessage: chat.lastMessage?.content || "",
             }}
             msgId={chat._id}
@@ -57,6 +75,19 @@ export default function GroupChat({ onOpenChat, selectedChatId }: GroupChatProps
             unread={unreadCount}
             onClick={() => onOpenChat(chat._id)}
             selectedChat={selectedChatId}
+            activeContextMenuChatId={contextMenu?.chatId ?? null}
+            contextMenuRef={contextMenuRef}
+            onContextMenuOpen={handleContextMenuOpen}
+            onContextMenuClose={handleContextMenuClose}
+            contextMenuPos={
+              contextMenu?.chatId === chat._id
+                ? {
+                    x: contextMenu.x,
+                    y: contextMenu.y,
+                    position: contextMenu.position,
+                  }
+                : null
+            }
           />
         );
       })}
