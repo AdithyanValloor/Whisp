@@ -8,6 +8,7 @@ import MuiThemeBridge from "@/app/MuiThemeBridge";
 
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { ToastProvider } from "@/components/Notification/Toast/ToastProvider";
 
 export default function Providers({
   children,
@@ -18,9 +19,11 @@ export default function Providers({
     <ReduxProvider store={store}>
       <ThemeProvider>
         <MuiThemeBridge>
-          <LocalizationProvider dateAdapter={AdapterDayjs}>
-            {children}
-          </LocalizationProvider>
+          <ToastProvider>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              {children}
+            </LocalizationProvider>
+          </ToastProvider>
         </MuiThemeBridge>
       </ThemeProvider>
     </ReduxProvider>

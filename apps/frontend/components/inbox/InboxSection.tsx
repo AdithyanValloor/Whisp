@@ -128,15 +128,15 @@ export default function InboxSection() {
                 key={type}
                 type="button"
                 onClick={() => setChatType(type)}
-                className={`relative flex-1 py-2 text-sm transition-colors duration-200 ${chatType === type ? "cursor-auto" : "cursor-pointer"}`}
+                className={` flex-1 py-2 text-sm transition-colors duration-200 ${chatType === type ? "cursor-auto" : "cursor-pointer"}`}
               >
                 <span
-                  className={`inline-flex items-center gap-2 transition-colors duration-200 text-base-content/80 text-base`}
+                  className={`inline-flex relative items-center gap-2 transition-colors duration-200 text-base-content/80 text-base`}
                 >
                   {label}
 
                   {unread > 0 && (
-                    <span className="flex items-center justify-center min-w-5 h-5 px-1 text-[11px] rounded-full bg-red-900 text-white">
+                    <span className="absolute -right-5 -top-1 leading-none border-2 border-base-200 bg-red-700 font-semibold text-white font-sans text-[10px] rounded-full min-w-5 h-5 px-[4px] flex items-center justify-center">
                       {unread}
                     </span>
                   )}

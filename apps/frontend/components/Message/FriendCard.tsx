@@ -55,7 +55,6 @@ interface InboxFriendCardProps extends BaseFriendCardProps {
   contextMenuPos?: { x: number; y: number; position: "top" | "bottom" } | null;
 }
 
-
 interface NonInboxFriendCardProps extends BaseFriendCardProps {
   ifInbox?: false;
   chatType?: never;
@@ -99,8 +98,7 @@ export default function FriendCard(props: FriendCardProps) {
         _id: props.groupMember!._id,
         name: props.groupMember!.username,
         displayName: props.groupMember!.displayName,
-        profilePic:
-          props.groupMember!.profilePicture?.url ?? defaultPFP,
+        profilePic: props.groupMember!.profilePicture?.url ?? defaultPFP,
       }
     : {
         ...props.user!,
@@ -237,7 +235,7 @@ export default function FriendCard(props: FriendCardProps) {
         {roleText}
       </span>
     );
-};
+  };
 
   return (
     <>
@@ -267,20 +265,20 @@ export default function FriendCard(props: FriendCardProps) {
             </h3>
             {lastMessageTime && (
               <p
-                className={`text-[11px] font-semibold opacity-60 ${unread ? "text-primary" : ""}`}
+                className={`text-[11px] font-semibold opacity-60 ${unread ? "text-green-500" : ""}`}
               >
                 {lastMessageTime}
               </p>
             )}
-            
-            {isGroupMemberCard && (
-              generateBadge(props.groupMember?.role)
-            )}
 
+            {isGroupMemberCard && generateBadge(props.groupMember?.role)}
           </div>
 
           {!isGroupMemberCard && !hideLastMessage && (
-            <p className="text-[13px] opacity-60 truncate flex items-center gap-1">
+            <p className="text-[13px] opacity-60 flex items-center justify-between gap-1 min-w-0">
+              <span className="truncate min-w-0">
+                {rightSlot ? status : lastMessageText}
+              </span>
               {isMyMessage &&
                 (ifSeen ? (
                   <CheckCheck
@@ -291,13 +289,12 @@ export default function FriendCard(props: FriendCardProps) {
                 ) : ifDelivered ? (
                   <Check size={16} strokeWidth={3} className="flex-shrink-0" />
                 ) : null)}
-              {rightSlot ? status : lastMessageText}
             </p>
           )}
         </div>
 
         {unread > 0 && (
-          <span className="bg-primary text-black text-xs font-semibold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center ml-1">
+          <span className="bg-green-500 text-black text-xs font-semibold min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center ml-1">
             {unread > 99 ? "99+" : unread}
           </span>
         )}

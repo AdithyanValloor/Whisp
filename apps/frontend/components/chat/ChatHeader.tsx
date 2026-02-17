@@ -39,8 +39,8 @@ export function ChatHeader({
         <div onClick={onProfileClick} className="flex items-center gap-3 cursor-pointer">
           <ProfilePicture src={displayPic} status={displayStatus} size="md" />
           <div>
-            <h1 className="font-semibold truncate">{displayName}</h1>
-            <p className="text-xs opacity-60">{displayStatus}</p>
+            <h1 className="font-semibold text-xl truncate">{displayName}</h1>
+            <p className="text-xs opacity-50">{displayStatus}</p>
           </div>
         </div>
       </div>

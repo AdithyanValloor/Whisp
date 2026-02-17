@@ -110,15 +110,15 @@ export default function UserSettings({ onBack }: UserSettingsProps) {
                 className="p-3 py-4 rounded-lg flex justify-between hover:bg-base-content/10 items-center cursor-pointer"
               >
                 <h3
-                  className={`text-sm font-medium opacity-70 ${
-                    item.danger ? "text-[#D22B2B]" : ""
+                  className={`text-sm font-medium ${
+                    item.danger ? "text-red-400" : ""
                   }`}
                 >
                   {item.label}
                 </h3>
                 <Icon
                   size={20}
-                  color={item.danger ? "#D22B2B" : undefined}
+                  color={item.danger ? "oklch(70.4% 0.191 22.216)" : undefined}
                 />
               </div>
             );

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
+  Film,
   Menu,
   MessageCircleMore,
   Phone,
@@ -11,6 +12,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
+import { AiFillMessage } from "react-icons/ai";
 
 interface SideBarProps {
   activeTab: string;
@@ -28,6 +30,11 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const totalUnread = useAppSelector((state) => state.unread.total);
+  const { requests } = useAppSelector((state) => state.friends);
+    const pendingCount = useMemo(
+      () => requests.incoming.length,
+      [requests.incoming.length],
+    );
 
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -37,10 +44,14 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
       setIsMobile(!!e.matches);
     };
     setIsMobile(!!m.matches);
-    m.addEventListener ? m.addEventListener("change", onChange) : (m.onchange = onChange);
+    m.addEventListener
+      ? m.addEventListener("change", onChange)
+      : (m.onchange = onChange);
 
     return () => {
-      m.removeEventListener ? m.removeEventListener("change", onChange) : (m.onchange = null);
+      m.removeEventListener
+        ? m.removeEventListener("change", onChange)
+        : (m.onchange = null);
     };
   }, []);
 
@@ -59,30 +70,33 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   }, []);
 
   const buttons: ButtonType[] = [
-    { title: "Menu", icon: <Menu strokeWidth={1.5} size={20} />, isMenu: true },
-    { 
-      title: "Inbox", 
-      icon: <MessageCircleMore strokeWidth={1.5} size={20} />,
-      notificationCount: totalUnread
+    { title: "Menu", icon: <Menu size={20} />, isMenu: true },
+    {
+      title: "Inbox",
+      icon: <AiFillMessage size={22} />,
+      notificationCount: totalUnread,
     },
-    { title: "Friends", icon: <UsersRound strokeWidth={1.5} size={20} /> },
-    { title: "Call history", icon: <Phone strokeWidth={1.5} size={20} /> },
-    { title: "Status", icon: <Target strokeWidth={1.5} size={20} /> },
+    { title: "Friends", 
+      icon: <UsersRound size={20} />, 
+      notificationCount: pendingCount,
+    },
+    { title: "Call history", icon: <Phone size={20} /> },
+    { title: "Status", icon: <Film size={20} /> },
   ];
 
   const bottomButtons: ButtonType[] = [
-    { title: "Starred messages", icon: <Star strokeWidth={1.5} size={20} /> },
-    { title: "Archived chats", icon: <Archive strokeWidth={1.5} size={20} /> },
-    { title: "Settings", icon: <Settings strokeWidth={1.5} size={20} /> },
-    { title: "User profile", icon: <User2Icon strokeWidth={1.5} size={20} /> },
+    { title: "Starred messages", icon: <Star size={20} /> },
+    { title: "Archived chats", icon: <Archive size={20} /> },
+    { title: "Settings", icon: <Settings size={20} /> },
+    { title: "User profile", icon: <User2Icon size={20} /> },
   ];
 
   // Mobile: show only main navigation items
   const mobileButtons: ButtonType[] = [
-    { 
-      title: "Inbox", 
+    {
+      title: "Inbox",
       icon: <MessageCircleMore strokeWidth={1.5} size={22} />,
-      notificationCount: totalUnread
+      notificationCount: totalUnread,
     },
     { title: "Friends", icon: <UsersRound strokeWidth={1.5} size={22} /> },
     { title: "Call history", icon: <Phone strokeWidth={1.5} size={22} /> },
@@ -112,14 +126,21 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
           >
             <div className="relative">
               {btn.icon}
-              {btn.notificationCount !== undefined && btn.notificationCount > 0 && (
-                <span className="absolute -top-2 leading-none -right-2 bg-error text-white text-[9px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-semibold">
-                  {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
-                </span>
-              )}
+              {btn.notificationCount !== undefined &&
+                btn.notificationCount > 0 && (
+                  <span className="absolute -top-2 leading-none -right-2 bg-error text-white text-[9px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-semibold">
+                    {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
+                  </span>
+                )}
             </div>
-            <span className={`text-[10px] font-medium ${activeTab === btn.title ? "font-semibold" : ""}`}>
-              {btn.title === "Call history" ? "Calls" : btn.title === "User profile" ? "Profile" : btn.title } 
+            <span
+              className={`text-[10px] font-medium ${activeTab === btn.title ? "font-semibold" : ""}`}
+            >
+              {btn.title === "Call history"
+                ? "Calls"
+                : btn.title === "User profile"
+                  ? "Profile"
+                  : btn.title}
             </span>
           </button>
         </div>
@@ -132,16 +153,23 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
         <button
           onClick={handleClick}
           className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer
-            transition-colors duration-200 w-full justify-start
-            ${activeTab === btn.title ? "bg-base-300" : "hover:bg-base-100"}`}
+            transition-colors duration-200 w-full justify-start shadow-accent-content
+            ${activeTab === btn.title ? "bg-base-200 border-l-2" : "hover:bg-base-100"}`}
         >
+        {/* <button
+          onClick={handleClick}
+          className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer
+            transition-colors duration-200 w-full justify-start shadow-accent-content
+            ${activeTab === btn.title ? "bg-base-200 border-l-2" : "hover:bg-base-100"}`}
+        > */}
           <div className="flex-shrink-0 w-10 flex justify-center relative">
             {btn.icon}
-            {btn.notificationCount !== undefined && btn.notificationCount > 0 && (
-              <span className="absolute -top-0 leading-none -right-0 bg-primary text-black font-semibold text-[10px] rounded-full min-w-4 h-4 px-[3px] flex items-center justify-center">
-                {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
-              </span>
-            )}
+            {btn.notificationCount !== undefined &&
+              btn.notificationCount > 0 && (
+                <span className="absolute -top-1 leading-none -right-1 border-2 border-base-300 bg-red-700 font-semibold text-white font-sans text-[10px] rounded-full min-w-5 h-5 px-[4px] flex items-center justify-center">
+                  {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
+                </span>
+              )}
           </div>
           <div
             className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out
@@ -167,15 +195,17 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
 
   // Desktop sidebar with overlay expansion
   return (
-    <div className="relative h-full w-[60px] flex-shrink-0">
+    <div className="relative h-full w-[60px] bg-base-300 flex-shrink-0">
       {/* Base sidebar - always 60px wide */}
       <div
         ref={sidebarRef}
-        className={`absolute inset-0 flex flex-col px-1 justify-between z-50
-          transition-all duration-300 ease-in-out
+        className={`absolute inset-0 flex flex-col px-1 bg-base-300 justify-between z-50
+          transition-all  ease-in-out
           ${isExpanded ? "w-60 rounded-r-xl shadow-xl" : "w-[60px]"}`}
       >
-        <div className="flex flex-col gap-2 py-2">{buttons.map((btn) => renderButton(btn))}</div>
+        <div className="flex flex-col gap-2 py-2">
+          {buttons.map((btn) => renderButton(btn))}
+        </div>
         <div className="flex flex-col gap-2 py-2">
           {bottomButtons.map((btn) => renderButton(btn))}
         </div>

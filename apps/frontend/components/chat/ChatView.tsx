@@ -33,6 +33,7 @@ import { ChatHeader } from "./ChatHeader";
 import { ChatBody } from "./ChatBody";
 import ChatSearchComponent from "./ChatSearchComponent";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
+import { setActiveChatId } from "@/utils/activeChat";
 
 interface ChatViewProps {
   chat: {
@@ -93,6 +94,14 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
 
   console.log("CHAT:", chat);
   console.log("MESSAGES COUNT:", messages.length);
+  
+  useEffect(() => {
+    setActiveChatId(chat._id);
+
+    return () => {
+      setActiveChatId(null);
+    };
+  }, [chat._id]);
 
   // Detect mobile screen
   useEffect(() => {

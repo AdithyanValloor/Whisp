@@ -67,8 +67,7 @@ export default function InboxContextMenu({
   return createPortal(
     <>
       <div
-        className="fixed inset-0"
-        style={{ zIndex: 99998 }}
+        className="fixed inset-0 z-[99998]"
         onClick={onClose}
         onContextMenu={onClose}
       />
@@ -95,40 +94,42 @@ export default function InboxContextMenu({
           {menuItems.map((item, index) => {
             if ("divider" in item) {
               return (
-                <hr
-                  key={`divider-${index}`}
-                  className="my-1 border-base-content/10"
-                />
+                <li key={`divider-${index}`}>
+                  <hr
+                    className="my-1 border-base-content/10"
+                  />
+                </li>
               );
             }
 
             const Icon = item.icon;
             return (
-              <button
-                key={item.label}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // TODO: wire up real actions using chatId
-                  onClose();
-                }}
-                className={`
-                  flex items-center justify-between
-                  w-full px-3 py-2
-                  rounded-lg
-                  text-sm
-                  transition-colors duration-150
-                  cursor-pointer
-                  ${
-                    item.danger
-                      ? "text-red-400 hover:bg-red-400/10"
-                      : "text-base-content hover:bg-base-content/10"
-                  }
-                `}
-              >
-                <span>{item.label}</span>
-                <Icon size={16} className="ml-2 flex-shrink-0 opacity-70" />
-              </button>
+              <li key={item.label}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // TODO: wire up real actions using chatId
+                    onClose();
+                  }}
+                  className={`
+                    flex items-center justify-between
+                    w-full px-3 py-2
+                    rounded-lg
+                    text-sm
+                    transition-colors duration-150
+                    cursor-pointer
+                    ${
+                      item.danger
+                        ? "text-red-400 hover:bg-red-400/10"
+                        : "text-base-content hover:bg-base-content/10"
+                    }
+                  `}
+                >
+                  <span>{item.label}</span>
+                  <Icon size={16} className="ml-2 flex-shrink-0 opacity-70" />
+                </button>
+              </li>
             );
           })}
         </ul>

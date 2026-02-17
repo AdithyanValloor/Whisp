@@ -90,7 +90,7 @@ export const addFriend = createAsyncThunk<
     const res = await api.post(
       "/friends",
       { username },
-      { withCredentials: true }
+      { withCredentials: true },
     );
     return res.data.request;
   } catch {
@@ -110,7 +110,7 @@ export const acceptFriend = createAsyncThunk<
     const res = await api.post(
       "/friends/accept",
       { id },
-      { withCredentials: true }
+      { withCredentials: true },
     );
     return res.data.request;
   } catch {
@@ -127,11 +127,7 @@ export const rejectFriend = createAsyncThunk<
   { rejectValue: string }
 >("friends/rejectFriend", async (id, { rejectWithValue }) => {
   try {
-    await api.post(
-      "/friends/reject",
-      { id },
-      { withCredentials: true }
-    );
+    await api.post("/friends/reject", { id }, { withCredentials: true });
     return id;
   } catch {
     return rejectWithValue("Failed to reject request");
@@ -147,11 +143,7 @@ export const cancelFriend = createAsyncThunk<
   { rejectValue: string }
 >("friends/cancelFriend", async (id, { rejectWithValue }) => {
   try {
-    await api.post(
-      "/friends/cancel",
-      { id },
-      { withCredentials: true }
-    );
+    await api.post("/friends/cancel", { id }, { withCredentials: true });
     return id;
   } catch {
     return rejectWithValue("Failed to cancel request");
@@ -167,11 +159,7 @@ export const removeFriend = createAsyncThunk<
   { rejectValue: string }
 >("friends/removeFriend", async (id, { rejectWithValue }) => {
   try {
-    await api.post(
-      "/friends/remove",
-      { id },
-      { withCredentials: true }
-    );
+    await api.post("/friends/remove", { id }, { withCredentials: true });
     return id;
   } catch {
     return rejectWithValue("Failed to remove friend");
@@ -196,7 +184,7 @@ const friendSlice = createSlice({
     // ---------- SOCKET: REQUESTS ----------
     addIncomingRequest: (state, action) => {
       const exists = state.requests.incoming.some(
-        (r) => r._id === action.payload._id
+        (r) => r._id === action.payload._id,
       );
       if (!exists) {
         state.requests.incoming.push(action.payload);
@@ -205,7 +193,7 @@ const friendSlice = createSlice({
 
     addOutgoingRequest: (state, action) => {
       const exists = state.requests.outgoing.some(
-        (r) => r._id === action.payload._id
+        (r) => r._id === action.payload._id,
       );
       if (!exists) {
         state.requests.outgoing.push(action.payload);
@@ -214,51 +202,53 @@ const friendSlice = createSlice({
 
     removeIncomingRequest: (state, action) => {
       state.requests.incoming = state.requests.incoming.filter(
-        (r) => r._id !== action.payload
+        (r) => r._id !== action.payload,
       );
     },
 
     removeOutgoingRequest: (state, action) => {
       state.requests.outgoing = state.requests.outgoing.filter(
-        (r) => r._id !== action.payload
+        (r) => r._id !== action.payload,
       );
     },
 
     // ---------- SOCKET: FRIENDS ----------
-   addFriendFromSocket: (state, action) => {
+    addFriendFromSocket: (state, action) => {
       const { requestId, friend } = action.payload;
 
-      state.requests.incoming =
-        state.requests.incoming.filter(r => r._id !== requestId);
+      state.requests.incoming = state.requests.incoming.filter(
+        (r) => r._id !== requestId,
+      );
 
-      state.requests.outgoing =
-        state.requests.outgoing.filter(r => r._id !== requestId);
+      state.requests.outgoing = state.requests.outgoing.filter(
+        (r) => r._id !== requestId,
+      );
 
-      if (!state.friends.some(f => f._id === friend._id)) {
+      if (!state.friends.some((f) => f._id === friend._id)) {
         state.friends.push(friend);
       }
     },
     removeFriendFromSocket: (state, action) => {
       const removedUserId = action.payload;
 
-      state.friends = state.friends.filter(
-        f => f._id !== removedUserId
-      );
+      state.friends = state.friends.filter((f) => f._id !== removedUserId);
 
       state.requests.incoming = state.requests.incoming.filter(
-        r => r.from._id !== removedUserId && r.to._id !== removedUserId
+        (r) => r.from._id !== removedUserId && r.to._id !== removedUserId,
       );
 
       state.requests.outgoing = state.requests.outgoing.filter(
-        r => r.from._id !== removedUserId && r.to._id !== removedUserId
+        (r) => r.from._id !== removedUserId && r.to._id !== removedUserId,
       );
     },
     setActionLoading: (state, action) => {
       state.actionLoading = action.payload;
     },
   },
+
   extraReducers: (builder) => {
     builder
+
       /* -------- FETCH FRIENDS -------- */
       .addCase(fetchFriends.pending, (state) => {
         state.listLoading = true;
@@ -266,7 +256,14 @@ const friendSlice = createSlice({
       })
       .addCase(fetchFriends.fulfilled, (state, action) => {
         state.listLoading = false;
-        state.friends = action.payload;
+
+        // Always normalize by id to prevent accidental duplicates
+        const unique = new Map<string, FriendUser>();
+        action.payload.forEach((friend) => {
+          unique.set(friend._id, friend);
+        });
+
+        state.friends = Array.from(unique.values());
       })
       .addCase(fetchFriends.rejected, (state, action) => {
         state.listLoading = false;
@@ -286,38 +283,72 @@ const friendSlice = createSlice({
         state.error = action.payload ?? "Failed to fetch requests";
       })
 
-      /* -------- ADD FRIEND -------- */
+      /* -------- ADD FRIEND (SEND REQUEST) -------- */
       .addCase(addFriend.fulfilled, (state, action) => {
-        state.requests.outgoing.push(action.payload);
+        const request = action.payload;
+
+        // Prevent duplicate outgoing requests
+        if (!state.requests.outgoing.some((r) => r._id === request._id)) {
+          state.requests.outgoing.push(request);
+        }
       })
 
       /* -------- ACCEPT FRIEND -------- */
       .addCase(acceptFriend.fulfilled, (state, action) => {
         const request = action.payload;
 
+        // Remove request from BOTH arrays
         state.requests.incoming = state.requests.incoming.filter(
-          (r) => r._id !== request._id
+          (r) => r._id !== request._id,
         );
 
-        state.friends.push(request.from);
-      })
-
-      /* -------- REJECT / CANCEL -------- */
-      .addCase(rejectFriend.fulfilled, (state, action) => {
-        state.requests.incoming = state.requests.incoming.filter(
-          (r) => r._id !== action.payload
-        );
-      })
-      .addCase(cancelFriend.fulfilled, (state, action) => {
         state.requests.outgoing = state.requests.outgoing.filter(
-          (r) => r._id !== action.payload
+          (r) => r._id !== request._id,
+        );
+
+        // Determine correct friend user
+        // If you accepted incoming, friend is request.from
+        const friendUser = request.from;
+
+        // Ensure no duplicate friend entries
+        const exists = state.friends.some((f) => f._id === friendUser._id);
+
+        if (!exists) {
+          state.friends.push(friendUser);
+        }
+      })
+
+      /* -------- REJECT -------- */
+      .addCase(rejectFriend.fulfilled, (state, action) => {
+        const requestId = action.payload;
+
+        state.requests.incoming = state.requests.incoming.filter(
+          (r) => r._id !== requestId,
+        );
+      })
+
+      /* -------- CANCEL -------- */
+      .addCase(cancelFriend.fulfilled, (state, action) => {
+        const requestId = action.payload;
+
+        state.requests.outgoing = state.requests.outgoing.filter(
+          (r) => r._id !== requestId,
         );
       })
 
       /* -------- REMOVE FRIEND -------- */
       .addCase(removeFriend.fulfilled, (state, action) => {
-        state.friends = state.friends.filter(
-          (f) => f._id !== action.payload
+        const removedUserId = action.payload;
+
+        state.friends = state.friends.filter((f) => f._id !== removedUserId);
+
+        // Clean up stray requests referencing this user
+        state.requests.incoming = state.requests.incoming.filter(
+          (r) => r.from._id !== removedUserId && r.to._id !== removedUserId,
+        );
+
+        state.requests.outgoing = state.requests.outgoing.filter(
+          (r) => r.from._id !== removedUserId && r.to._id !== removedUserId,
         );
       });
   },

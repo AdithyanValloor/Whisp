@@ -20,7 +20,6 @@ interface PersonalProps {
 
 export default function Personal({
   onOpenChat,
-  ifInbox,
   selectedChatId,
 }: PersonalProps) {
   const dispatch = useAppDispatch();
@@ -29,7 +28,6 @@ export default function Personal({
   const { user, sessionLoading } = useAppSelector((state) => state.auth);
 
   const perChatUnread = useAppSelector((state) => state.unread.perChat);
-  const onlineStatus = useAppSelector((state) => state.presence.users);
 
   // Single context menu state for the entire list — only one can be open at a time.
   // Closing is handled entirely by the backdrop inside InboxContextMenu,

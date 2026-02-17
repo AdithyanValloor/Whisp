@@ -21,7 +21,16 @@ import type {
 
 import { normalizeSocketMessage, toChatLastMessage } from "./normalizeMessage";
 import { typingStarted, typingStopped } from "@/redux/features/typingSlice";
-import { addFriendFromSocket, addIncomingRequest, addOutgoingRequest, removeFriendFromSocket, removeIncomingRequest, removeOutgoingRequest } from "@/redux/features/friendsSlice";
+import {
+  addFriendFromSocket,
+  addIncomingRequest,
+  addOutgoingRequest,
+  removeFriendFromSocket,
+  removeIncomingRequest,
+  removeOutgoingRequest,
+} from "@/redux/features/friendsSlice";
+import { emitToast } from "@/utils/toastEmitter";
+import { getActiveChatId } from "./activeChat";
 
 /* -------------------- SINGLETON STATE -------------------- */
 
@@ -49,10 +58,7 @@ const socketURL = process.env.NEXT_SOCKET_URL;
  * - Join user and chat rooms
  * - Bind all real-time event listeners
  */
-export const getSocket = (
-  userId?: string,
-  allChats: string[] = []
-): Socket => {
+export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
   if (socket && socket.connected) return socket;
 
   if (!socket) {
@@ -98,11 +104,16 @@ export const getSocket = (
      * to message state and chat preview state.
      */
 
-    socket.on("new_message", (msg: NewMessagePayload) => {     
+    socket.on("new_message", (msg: NewMessagePayload) => {
       const state = store.getState();
       const currentUserId = state.auth.user?._id;
-      
-      console.log("👤 Current user:", currentUserId, "Message sender:", msg.sender._id);
+
+      console.log(
+        "👤 Current user:",
+        currentUserId,
+        "Message sender:",
+        msg.sender._id,
+      );
 
       // Ignore own messages (already handled optimistically)
       if (msg.sender._id === currentUserId) {
@@ -111,21 +122,42 @@ export const getSocket = (
       }
 
       const normalized = normalizeSocketMessage(msg);
-      
+
       store.dispatch(
         insertMessage({
           chatId: normalized.chat,
           message: normalized,
-        })
+        }),
       );
 
       store.dispatch(
         updateChatLatestMessage({
           chatId: normalized.chat,
           message: toChatLastMessage(msg),
-        })
+        }),
       );
-      
+
+      const activeChatId = getActiveChatId();
+
+      if (msg.chat !== activeChatId) {
+        const chatMeta = state.chat.chats.find((c) => c._id === msg.chat);
+
+        const isGroup = chatMeta?.isGroup;
+        const groupName = chatMeta?.chatName;
+
+        const senderName = msg.sender.displayName || msg.sender.username;
+
+        const title = isGroup ? `${senderName} • ${groupName}` : senderName;
+
+        emitToast({
+          type: "message",
+          title,
+          description: msg.content,
+          profilePicture: msg.sender.profilePicture,
+          chatId: msg.chat,
+        });
+      }
+
       console.log("✅ Message dispatched successfully");
     });
 
@@ -135,9 +167,7 @@ export const getSocket = (
      * Apply message edits from real-time events.
      */
     socket.on("edit_message", (msg) => {
-      store.dispatch(
-        editMessage({ message: normalizeSocketMessage(msg) })
-      );
+      store.dispatch(editMessage({ message: normalizeSocketMessage(msg) }));
     });
 
     /* -------------------- DELETE MESSAGE -------------------- */
@@ -146,9 +176,7 @@ export const getSocket = (
      * Apply soft-delete updates to messages.
      */
     socket.on("delete_message", (msg) => {
-      store.dispatch(
-        deleteMessage({ message: normalizeSocketMessage(msg) })
-      );
+      store.dispatch(deleteMessage({ message: normalizeSocketMessage(msg) }));
     });
 
     /* -------------------- MESSAGE REACTION -------------------- */
@@ -157,9 +185,7 @@ export const getSocket = (
      * Reactions are treated as message updates.
      */
     socket.on("message_reaction", (msg) => {
-      store.dispatch(
-        editMessage({ message: normalizeSocketMessage(msg) })
-      );
+      store.dispatch(editMessage({ message: normalizeSocketMessage(msg) }));
     });
 
     /* -------------------- MESSAGE DELIVERED -------------------- */
@@ -173,7 +199,7 @@ export const getSocket = (
           chatId,
           messageId,
           userId,
-        })
+        }),
       );
     });
 
@@ -203,7 +229,7 @@ export const getSocket = (
           chatId: roomId,
           userId,
           name: displayName || username,
-        })
+        }),
       );
     });
 
@@ -212,11 +238,11 @@ export const getSocket = (
         typingStopped({
           chatId: roomId,
           userId,
-        })
+        }),
       );
     });
 
-   // socket.ts
+    // socket.ts
 
     socket.on("friend_request_received", (req) => {
       store.dispatch(addIncomingRequest(req));
@@ -237,7 +263,7 @@ export const getSocket = (
         addFriendFromSocket({
           requestId: req._id,
           friend,
-        })
+        }),
       );
     });
 
@@ -269,7 +295,7 @@ export const getSocket = (
       "presence_update",
       ({ userId, status }: PresenceUpdatePayload) => {
         store.dispatch(updatePresence({ userId, status }));
-      }
+      },
     );
     /* -------------------- CONNECTION EVENTS -------------------- */
 

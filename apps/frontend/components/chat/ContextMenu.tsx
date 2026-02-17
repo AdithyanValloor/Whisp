@@ -5,6 +5,7 @@ import { SmilePlus, Reply, Pencil, Trash2, Copy, Forward } from "lucide-react";
 import { motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
+import { useEffect } from "react";
 
 interface ContextMenuProps {
   contextMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -36,6 +37,15 @@ export default function ContextMenu({
   onEdit,
   onDelete,
 }: ContextMenuProps) {
+  
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") closeContextMenu();
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [closeContextMenu]);
+
   const menuItems = [
     {
       label: "React",
@@ -129,27 +139,27 @@ export default function ContextMenu({
                 .filter((item) => item.show)
                 .map((item) => {
                   const Icon = item.icon;
-
                   return (
-                    <button
-                      key={item.label}
-                      className={`
-                      flex items-center justify-between 
-                      w-full px-3 py-2 
-                      rounded-lg 
-                      text-sm 
-                      transition-colors duration-150
-                      cursor-pointer
-                      ${
-                        item.danger
-                          ? "text-red-400 hover:bg-red-400/10"
-                          : "text-base-content hover:bg-base-content/10"
-                      }`}
-                      onClick={item.action}
-                    >
-                      <span>{item.label}</span>
-                      <Icon size={16} className="opacity-70" />
-                    </button>
+                    <li key={item.label}>
+                      <button
+                        className={`
+                        flex items-center justify-between 
+                        w-full px-3 py-2 
+                        rounded-lg 
+                        text-sm 
+                        transition-colors duration-150
+                        cursor-pointer
+                        ${
+                          item.danger
+                            ? "text-red-400 hover:bg-red-400/10"
+                            : "text-base-content hover:bg-base-content/10"
+                        }`}
+                        onClick={item.action}
+                      >
+                        <span>{item.label}</span>
+                        <Icon size={16} className="opacity-70" />
+                      </button>
+                    </li>
                   );
                 })}
             </ul>

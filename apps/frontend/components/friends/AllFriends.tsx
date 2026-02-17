@@ -79,6 +79,7 @@ export default function AllFriends({ setActiveTab }: AllFriendsProps) {
   return (
     <div className="flex flex-col gap-1">
       {friends.map((friend) => {
+        
         return (
           <FriendCard
             key={friend._id}

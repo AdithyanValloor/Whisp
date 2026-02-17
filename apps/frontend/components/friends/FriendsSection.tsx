@@ -17,19 +17,17 @@ interface FriendSectionProps {
 export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
   const [tab, setTab] = useState<FriendsTab>("all");
 
-  const { requests } = useAppSelector(
-    (state) => state.friends
-  );
+  const { requests } = useAppSelector((state) => state.friends);
 
   const pendingCount = useMemo(
     () => requests.incoming.length,
-    [requests.incoming.length]
+    [requests.incoming.length],
   );
-  
+
   return (
     <div className="h-full w-full p-3 flex flex-col gap-3 relative">
       <h1 className="text-2xl font-semibold p-1">Friends</h1>
-      
+
       {/* Tabs */}
       <div className="relative flex border-b border-base-content/10 mt-2">
         {(
@@ -43,17 +41,16 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
             key={key}
             type="button"
             onClick={() => setTab(key)}
-            className="relative flex-1 py-2 text-sm cursor-pointer"
+            className="flex-1 py-2 text-sm cursor-pointer"
           >
             <span
-              className={`inline-flex items-center justify-center gap-2 w-full
+              className={`relative inline-flex items-center justify-center gap-2
                 transition-colors duration-200
                 ${tab === key ? "text-base-content" : "text-base-content/70"}`}
             >
               {label}
-
               {key === "pending" && pendingCount > 0 && (
-                <span className="flex items-center justify-center min-w-5 h-5 px-1 text-[11px] rounded-full bg-red-900 text-white">
+                <span className="absolute -right-5 -top-1 leading-none border-2 border-base-200 bg-red-700 font-semibold text-white font-sans text-[10px] rounded-full min-w-5 h-5 px-[4px] flex items-center justify-center">
                   {pendingCount}
                 </span>
               )}
@@ -70,19 +67,15 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
               tab === "all"
                 ? "translateX(0%)"
                 : tab === "pending"
-                ? "translateX(100%)"
-                : "translateX(200%)",
+                  ? "translateX(100%)"
+                  : "translateX(200%)",
           }}
         />
       </div>
 
       {/* Search / Add */}
-      {tab === "add" ? (
-        <AddFriendInput />
-      ) : (
-        <SearchInput/>
-      )}
-     
+      {tab === "add" ? <AddFriendInput /> : <SearchInput />}
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {tab === "all" && <AllFriends setActiveTab={setActiveTab} />}

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Poppins, Yellowtail } from "next/font/google";
 import "./globals.css";
 import Providers from "./Providers";
-import ThemeProvider from "./ThemeProvider";
 import AuthBootstrap from "./AuthBootstrap";
 
 const geistSans = Geist({
@@ -17,15 +16,15 @@ const geistMono = Geist_Mono({
 
 const poppins = Poppins({
   subsets: ["latin"],
-  variable: "--font-poppins", 
-  weight: ["400", "500", "600", "700"], 
+  variable: "--font-poppins",
+  weight: ["400", "500", "600", "700"],
 });
 
 const yellowtail = Yellowtail({
   subsets: ["latin"],
-  variable: "--font-yellowtail", 
+  variable: "--font-yellowtail",
   weight: ["400"],
-})
+});
 
 export const metadata: Metadata = {
   title: "Whisp",
@@ -43,10 +42,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${yellowtail.variable} ${geistMono.variable} ${poppins.variable} antialiased`}
       >
         <Providers>
-          <ThemeProvider>
-            <AuthBootstrap/>
-              {children}
-          </ThemeProvider>
+          <AuthBootstrap />
+          {children}
         </Providers>
       </body>
     </html>

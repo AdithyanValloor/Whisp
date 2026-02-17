@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
-import { fetchMessageContext, fetchMessages, MessageType, toggleReaction } from "@/redux/features/messageSlice";
+import { fetchMessages, MessageType, toggleReaction } from "@/redux/features/messageSlice";
 import { ChevronDown, ChevronsDown } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { selectMessagesByChat } from "@/redux/features/messageSelectors"
@@ -48,7 +48,6 @@ export default function Messages({
   const isInitialLoadRef = useRef(true);
   const prevMessagesLengthRef = useRef(0);
   const animatedMessageIdRef = useRef<string | null>(null);
-  const isScrollingToBottomRef = useRef(false);
   const jumpLockRef = useRef(false);
 
   const jumpTo = useAppSelector((s) => s.messages.jumpTo);
@@ -520,6 +519,11 @@ export default function Messages({
   const openContextMenu = (e: React.MouseEvent, msg: MessageType) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    if (contextMenu.msg?._id === msg._id) {
+      closeContextMenu();
+      return;
+    }
     
     if (!containerRef.current) return;
 
