@@ -70,11 +70,11 @@ export default function MainSection({
 
   return (
     <div
-      className={`flex h-full flex-col pb-3 transition-transform duration-300 ease-in-out
+      className={`flex h-full flex-col text-base-content pb-3 transition-transform duration-300 ease-in-out
         ${isMobile && isChatOpen ? "-translate-x-full" : "translate-x-0"}`}
     >
       <div
-        className={`flex h-full flex-col bg-base-200 shadow-md
+        className={`flex h-full flex-col bg-base-200 border border-base-content/10 shadow-md
           ${!isMobile && "rounded-2xl"} 
            overflow-hidden`}
       >

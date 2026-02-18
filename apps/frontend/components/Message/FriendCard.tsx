@@ -43,6 +43,7 @@ interface BaseFriendCardProps {
   forceActive?: boolean;
   onClick?: () => void;
   ClassName?: string;
+  openDropdown: boolean;
 }
 
 interface InboxFriendCardProps extends BaseFriendCardProps {
@@ -72,6 +73,7 @@ export default function FriendCard(props: FriendCardProps) {
     hideLastMessage,
     forceActive,
     ClassName,
+    openDropdown
   } = props;
 
   const isInbox = props.ifInbox === true;
@@ -83,6 +85,8 @@ export default function FriendCard(props: FriendCardProps) {
   const onContextMenuClose = isInbox ? props.onContextMenuClose : undefined;
   const contextMenuPos = isInbox ? props.contextMenuPos : undefined;
   const chatType = isInbox ? props.chatType : undefined;
+
+  const typingUsers = useAppSelector((s) => s.typing.byChat[msgId] ?? {});
 
   const currentUser = useAppSelector((s) => s.auth.user);
   const currentUserId = currentUser?._id;
@@ -208,6 +212,15 @@ export default function FriendCard(props: FriendCardProps) {
   const ifSeen = lastMsg?.seenBy && lastMsg.seenBy.length > 0;
   const ifDelivered = lastMsg?.deliveredTo && lastMsg.deliveredTo.length > 0;
 
+  const typingUserIds = Object.keys(typingUsers);
+
+  const isChatTyping =
+    typingUserIds.filter((id) => id !== currentUserId).length > 0;
+
+  const isMemberTyping = isGroupMemberCard
+    ? typingUserIds.includes(userData._id ?? "")
+    : false;
+
   const generateBadge = (role: string | undefined) => {
     if (!role) return null;
 
@@ -243,7 +256,7 @@ export default function FriendCard(props: FriendCardProps) {
         onContextMenu={openContextMenu}
         className={`cursor-pointer w-full p-2 rounded-lg flex items-center transition-colors
           ${forceActive || msgId === selectedChat ? "bg-base-content/5" : "hover:bg-base-content/5"}
-          ${isMenuOpen ? "bg-base-content/5" : ""} ${ClassName}
+          ${isMenuOpen ? "bg-base-content/5" : ""} ${openDropdown && "bg-base-content/5"} ${ClassName}
         `}
         onClick={(e) => {
           const target = e.target as HTMLElement;
@@ -260,12 +273,12 @@ export default function FriendCard(props: FriendCardProps) {
 
         <div className="px-2 flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium truncate flex-1">
+            <h3 className="font-semibold truncate flex-1 text-base-content">
               {userData.displayName || userData.name}
             </h3>
             {lastMessageTime && (
               <p
-                className={`text-[11px] font-semibold opacity-60 ${unread ? "text-green-500" : ""}`}
+                className={`text-[11px] font-semibold text-base-content opacity-60 ${unread ? "text-green-500" : ""}`}
               >
                 {lastMessageTime}
               </p>
@@ -274,12 +287,29 @@ export default function FriendCard(props: FriendCardProps) {
             {isGroupMemberCard && generateBadge(props.groupMember?.role)}
           </div>
 
-          {!isGroupMemberCard && !hideLastMessage && (
-            <p className="text-[13px] opacity-60 flex items-center justify-between gap-1 min-w-0">
-              <span className="truncate min-w-0">
-                {rightSlot ? status : lastMessageText}
+          {!hideLastMessage && (
+            <p className="text-[12px] opacity-70 flex items-center justify-between gap-1 min-w-0">
+              <span className="truncate min-w-0 text-base-content flex items-center gap-1">
+                {isGroupMemberCard ? (
+                  isMemberTyping ? (
+                    <>
+                      <span className="loading loading-dots loading-sm opacity-70" />
+                    </>
+                  ) : null
+                ) : isChatTyping ? (
+                  <>
+                    <span className="loading loading-dots loading-sm opacity-70" />
+                  </>
+                ) : rightSlot ? (
+                  status
+                ) : (
+                  lastMessageText
+                )}
               </span>
-              {isMyMessage &&
+
+              {!isGroupMemberCard &&
+                !isChatTyping &&
+                isMyMessage &&
                 (ifSeen ? (
                   <CheckCheck
                     size={16}
@@ -287,7 +317,11 @@ export default function FriendCard(props: FriendCardProps) {
                     className="text-blue-400 flex-shrink-0"
                   />
                 ) : ifDelivered ? (
-                  <Check size={16} strokeWidth={3} className="flex-shrink-0" />
+                  <Check
+                    size={16}
+                    strokeWidth={3}
+                    className="flex-shrink-0 text-base-content"
+                  />
                 ) : null)}
             </p>
           )}

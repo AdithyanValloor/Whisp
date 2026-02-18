@@ -31,6 +31,7 @@ const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
           cursor-pointer
           overflow-hidden
           group
+          text-base-content
           ${className}
         `}
       >

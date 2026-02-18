@@ -1,22 +1,25 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { themes, getSystemTheme } from "@/config/themeConfig";
+import { getSystemTheme, AVAILABLE_THEMES, AppTheme, DaisyTheme } from "@/config/themeConfig";
 
 interface ThemeState {
-  current: string;
+  current: AppTheme;
 }
 
-const getInitialTheme = (): string => {
-  if (typeof window === "undefined") return themes.light;
+const getInitialTheme = (): AppTheme => {
+  if (typeof window === "undefined") return "light";
 
   const saved = localStorage.getItem("theme");
 
-  if (saved && Object.values(themes).includes(saved)) {
-    return saved;
+  if (!saved) return getSystemTheme();
+
+  if (saved === "system") return "system";
+
+  if (AVAILABLE_THEMES.includes(saved as DaisyTheme)) {
+    return saved as DaisyTheme;
   }
 
   return getSystemTheme();
 };
-
 const initialState: ThemeState = {
   current: getInitialTheme(),
 };
@@ -25,15 +28,11 @@ const themeSlice = createSlice({
   name: "theme",
   initialState,
   reducers: {
-    setTheme(state, action: PayloadAction<string>) {
+    setTheme(state, action: PayloadAction<AppTheme>) {
       state.current = action.payload;
-    },
-    toggleTheme(state) {
-      state.current =
-        state.current === themes.light ? themes.dark : themes.light;
     },
   },
 });
 
-export const { setTheme, toggleTheme } = themeSlice.actions;
+export const { setTheme } = themeSlice.actions;
 export default themeSlice.reducer;

@@ -20,9 +20,8 @@ export function SubPage({ onBack, title, children }: SubPageProps) {
           >
             <ArrowLeft size={18} />
           </IconButton>
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="text-lg font-semibold text-base-content">{title}</h2>
         </div>
-
       {/* Content */}
       <div className="p-4">{children || <p className="opacity-70">Coming soon…</p>}</div>
     </div>

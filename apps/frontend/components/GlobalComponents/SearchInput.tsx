@@ -26,7 +26,7 @@ export default function SearchInput({
       <Search
         size={16}
         aria-hidden
-        className={`absolute left-4 top-1/2 -translate-y-1/2 opacity-60 ${iconClassName}`}
+        className={`absolute text-base-content left-4 top-1/2 -translate-y-1/2 opacity-60 ${iconClassName}`}
       />
       <input
         value={value}
@@ -34,7 +34,7 @@ export default function SearchInput({
         autoFocus={autoFocus}
         placeholder={placeholder}
         className={`
-          w-full h-10 pl-10 pr-4 text-sm rounded-full outline-base-content/10 hover:outline
+          w-full h-10 pl-10 pr-4 text-sm rounded-full text-base-content outline-base-content/10 hover:outline
           bg-base-300 focus:outline
           ${inputClassName}
         `}

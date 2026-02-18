@@ -14,7 +14,6 @@ export default function ThemeProvider({
     if (!theme) return;
 
     document.documentElement.setAttribute("data-theme", theme);
-    document.body.setAttribute("data-theme", theme); 
     localStorage.setItem("theme", theme);
   }, [theme]);
 

@@ -26,7 +26,7 @@ export default function EmojiPickerBox({ onEmojiClick, showPicker, setShowPicker
       <button 
         title="Emojis"
         type="button"
-        className="p-2 rounded-full hover:rotate-180 transition-all duration-400 hover:scale-110 cursor-pointer"
+        className="p-2 text-base-content rounded-full opacity-80 hover:rotate-180 transition-all duration-400 hover:scale-110 cursor-pointer"
         onClick={(e) => { 
           e.stopPropagation();
           setShowPicker((prev) => !prev);

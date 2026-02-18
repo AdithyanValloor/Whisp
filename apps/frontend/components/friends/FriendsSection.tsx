@@ -26,7 +26,7 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
 
   return (
     <div className="h-full w-full p-3 flex flex-col gap-3 relative">
-      <h1 className="text-2xl font-semibold p-1">Friends</h1>
+      <h1 className="text-2xl font-semibold text-base-content p-1">Friends</h1>
 
       {/* Tabs */}
       <div className="relative flex border-b border-base-content/10 mt-2">

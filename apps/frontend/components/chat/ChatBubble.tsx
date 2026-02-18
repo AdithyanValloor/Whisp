@@ -44,7 +44,7 @@ export default function ChatBubble({
 
   return (
     <div
-      className={`chat relative p-0 border-1 border-transparent 
+      className={`chat relative text-base-content p-0 border-1 border-transparent 
         ${msg.reactions && msg.reactions.length > 0 ? "pb-5" : ""} 
         ${isMe ? "chat-end" : "chat-start"} 
         hover:bg-base-content/10 rounded-sm

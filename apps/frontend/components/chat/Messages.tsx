@@ -646,7 +646,7 @@ export default function Messages({
           scrollbar scrollbar-thumb-rounded-full scrollbar-track-rounded-full"
       >
         {/* Initial loading skeleton */}
-        {isInitialLoading && (
+        {/* {isInitialLoading && (
           <div className="flex flex-col gap-4 p-4 animate-pulse">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className={`flex gap-3 ${i % 2 === 0 ? 'flex-row-reverse' : ''}`}>
@@ -658,7 +658,7 @@ export default function Messages({
               </div>
             ))}
           </div>
-        )}
+        )} */}
 
         {/* Pagination loading with fade animation */}
         {loadingMore && !isInitialLoading && (
@@ -738,7 +738,7 @@ export default function Messages({
                 {newDay && (
                   <div className="flex items-center my-4 w-full">
                     <hr className="flex-grow border-t border-base-content opacity-10" />
-                    <span className="opacity-50 text-xs mx-3 whitespace-nowrap">
+                    <span className="opacity-50 text-base-content text-xs mx-3 whitespace-nowrap">
                       {new Date(msg.createdAt).toLocaleDateString([], {
                         weekday: "short",
                         month: "short",
@@ -802,7 +802,7 @@ export default function Messages({
               transition={{ duration: 0.2 }}
               className="chat chat-start px-17 py-[1px]"
             >
-              <div className="bg-base-100 flex items-center gap-2 px-4 rounded-2xl py-1">
+              <div className="bg-base-100 flex items-center gap-2 shadow text-base-content px-4 rounded-2xl py-1">
                 <span className="loading loading-dots loading-md opacity-50" />
               </div>
             </motion.div>

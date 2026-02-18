@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
 import { AiFillMessage } from "react-icons/ai";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SideBarProps {
   activeTab: string;
@@ -146,40 +147,67 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
         </div>
       );
     }
+    
+return (
+  <div key={btn.title} className="relative">
+    <motion.button
+      onClick={handleClick}
+      whileTap={{ scale: 0.96 }}
+      whileHover={{ y: -1 }}
+      transition={{ type: "spring", stiffness: 350, damping: 25 }}
+      className={`
+        relative flex items-center h-11
+        px-3 ml-1
+        rounded-xl
+        cursor-pointer
+        transition-colors duration-200
+        ${
+          activeTab === btn.title
+            ? "bg-cyan-900/80 backdrop-blur-md text-white"
+            : "text-base-content/70 hover:bg-cyan-900/40 hover:text-white"
+        }
+      `}
+    >
+      {/* Active Sliding Bar */}
+      {activeTab === btn.title && (
+        <motion.div
+          layoutId="activeBar"
+          className="absolute left-0 h-6 w-[3px] bg-cyan-400 rounded-r-full"
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        />
+      )}
 
-    // Desktop sidebar style
-    return (
-      <div key={btn.title} className="relative">
-        <button
-          onClick={handleClick}
-          className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer
-            transition-colors duration-200 w-full justify-start shadow-accent-content
-            ${activeTab === btn.title ? "bg-base-200 border-l-2" : "hover:bg-base-100"}`}
-        >
-        {/* <button
-          onClick={handleClick}
-          className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer
-            transition-colors duration-200 w-full justify-start shadow-accent-content
-            ${activeTab === btn.title ? "bg-base-200 border-l-2" : "hover:bg-base-100"}`}
-        > */}
-          <div className="flex-shrink-0 w-10 flex justify-center relative">
-            {btn.icon}
-            {btn.notificationCount !== undefined &&
-              btn.notificationCount > 0 && (
-                <span className="absolute -top-1 leading-none -right-1 border-2 border-base-300 bg-red-700 font-semibold text-white font-sans text-[10px] rounded-full min-w-5 h-5 px-[4px] flex items-center justify-center">
-                  {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
-                </span>
-              )}
-          </div>
-          <div
-            className={`overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out
-              ${isExpanded ? "max-w-[150px] opacity-100 ml-2" : "max-w-0 opacity-0 ml-0"}`}
-          >
-            {btn.title !== "Menu" ? btn.title : ""}
-          </div>
-        </button>
+      {/* Icon */}
+      <div className="w-10 flex justify-center flex-shrink-0 relative">
+        {btn.icon}
+
+        {btn.notificationCount !== undefined &&
+          btn.notificationCount > 0 && (
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 400 }}
+              className="absolute -top-1 -right-0 bg-red-600 font-sans text-white text-[10px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-semibold"
+            >
+              {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
+            </motion.span>
+          )}
       </div>
-    );
+
+      {/* Label — NOW PART OF FLEX */}
+      <motion.span
+        animate={{
+          opacity: isExpanded ? 1 : 0,
+          width: isExpanded ? "auto" : 0,
+        }}
+        transition={{ duration: 0.2 }}
+        className="overflow-hidden whitespace-nowrap text-sm font-medium"
+      >
+        {btn.title !== "Menu" ? btn.title : ""}
+      </motion.span>
+    </motion.button>
+  </div>
+);
   };
 
   // Mobile bottom navigation
@@ -193,23 +221,22 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
     );
   }
 
-  // Desktop sidebar with overlay expansion
-  return (
-    <div className="relative h-full w-[60px] bg-base-300 flex-shrink-0">
-      {/* Base sidebar - always 60px wide */}
-      <div
-        ref={sidebarRef}
-        className={`absolute inset-0 flex flex-col px-1 bg-base-300 justify-between z-50
-          transition-all  ease-in-out
-          ${isExpanded ? "w-60 rounded-r-xl shadow-xl" : "w-[60px]"}`}
-      >
-        <div className="flex flex-col gap-2 py-2">
-          {buttons.map((btn) => renderButton(btn))}
-        </div>
-        <div className="flex flex-col gap-2 py-2">
-          {bottomButtons.map((btn) => renderButton(btn))}
-        </div>
+return (
+  <div className="relative h-full flex-shrink-0 z-50">
+    <motion.div
+      animate={{ width: isExpanded ? 240 : 60 }}
+      transition={{ type: "spring", stiffness: 320, damping: 32 }}
+      className={`absolute inset-0 flex flex-col mb-3 ${isExpanded && " shadow-lg"} justify-between bg-base-300 rounded-2xl overflow-hidden`}
+      ref={sidebarRef}
+    >
+      <div className="flex flex-col gap-2 py-3">
+        {buttons.map((btn) => renderButton(btn))}
       </div>
-    </div>
-  );
+
+      <div className="flex flex-col gap-2 py-3">
+        {bottomButtons.map((btn) => renderButton(btn))}
+      </div>
+    </motion.div>
+  </div>
+);
 }

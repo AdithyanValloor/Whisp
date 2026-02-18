@@ -68,12 +68,19 @@ export default function GroupSidebar({
   onMakeAdmin,
   onRemoveAdmin,
 }: GroupSidebarProps) {
-  const [selectedProfile, setSelectedProfile] = useState<MemberWithRole | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<MemberWithRole | null>(
+    null,
+  );
   const [showAddModal, setShowAddModal] = useState(false);
   const [availableFriends, setAvailableFriends] = useState<Friend[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [showLeaveModal, setShowLeaveModal] = useState(false)
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+
+  const [dropdownPos, setDropdownPos] = useState<{
+    x: number;
+    y: number;
+  }>({ x: 0, y: 0 });
 
   const { friends } = useAppSelector((state) => state.friends);
 
@@ -90,11 +97,11 @@ export default function GroupSidebar({
   useEffect(() => {
     if (!showAddModal) return;
     const available = (friends as Friend[]).filter(
-      (f) => !group.members.some((m) => m._id === f._id)
+      (f) => !group.members.some((m) => m._id === f._id),
     );
     setAvailableFriends(available);
   }, [showAddModal, friends, group.members]);
-  
+
   // Close dropdown on outside click
   const handleClickOutside = useCallback(() => setOpenDropdownId(null), []);
 
@@ -129,7 +136,7 @@ export default function GroupSidebar({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-base-200">
+    <div className="relative w-full h-full text-base-content overflow-hidden bg-base-200">
       {/* ── Main Group Info Panel ── */}
       <div
         className={`
@@ -156,7 +163,7 @@ export default function GroupSidebar({
 
           {/* Group profile card */}
           <div className={`mt-${isAdmin ? "2" : "10"} shrink-0`}>
-            <div className="flex flex-col items-center text-center bg-base-100 rounded-xl p-4 shadow">
+            <div className="flex border border-base-content/10 flex-col items-center text-center bg-base-100 rounded-xl p-4 shadow">
               <div className="w-20 h-20 rounded-full bg-base-200 border border-base-content/10 flex items-center justify-center text-3xl font-semibold select-none">
                 {group.chatName[0]}
               </div>
@@ -169,7 +176,7 @@ export default function GroupSidebar({
           </div>
 
           {/* About */}
-          <div className="mt-4 bg-base-100 rounded-xl shadow p-4 shrink-0">
+          <div className="mt-4 bg-base-100 border border-base-content/10 rounded-xl shadow p-4 shrink-0">
             <p className="text-[11px] uppercase font-medium opacity-60 tracking-wide">
               About
             </p>
@@ -197,6 +204,41 @@ export default function GroupSidebar({
                     if (isAdmin && m._id !== currentUserId) {
                       e.preventDefault();
                       e.stopPropagation();
+
+                      if (openDropdownId === m._id) {
+                        setOpenDropdownId(null);
+                        return;
+                      }
+
+                      const rect = e.currentTarget.getBoundingClientRect();
+
+                      const menuWidth = 176; // w-44
+                      const menuHeight = 140; // approx
+
+                      let offsetX = e.clientX - rect.left;
+                      let offsetY = e.clientY - rect.top;
+
+                      // Prevent RIGHT overflow
+                      if (offsetX + menuWidth > rect.width) {
+                        offsetX = rect.width - menuWidth - 8;
+                      }
+
+                      // Prevent LEFT overflow
+                      if (offsetX < 8) {
+                        offsetX = 8;
+                      }
+
+                      // Prevent BOTTOM overflow
+                      if (offsetY + menuHeight > rect.height) {
+                        offsetY = rect.height - menuHeight - 8;
+                      }
+
+                      // Prevent TOP overflow
+                      if (offsetY < 8) {
+                        offsetY = 8;
+                      }
+
+                      setDropdownPos({ x: offsetX, y: offsetY });
                       setOpenDropdownId(m._id);
                     }
                   }}
@@ -210,6 +252,7 @@ export default function GroupSidebar({
                       profilePicture: m.profilePicture,
                       role: m.role,
                     }}
+                    openDropdown={openDropdownId === m._id}
                     msgId={m._id}
                   />
 
@@ -218,7 +261,12 @@ export default function GroupSidebar({
                     m._id !== currentUserId &&
                     openDropdownId === m._id && (
                       <div
-                        className="absolute right-2 top-8 bg-base-100 rounded-lg z-[100] w-44 p-2 shadow-xl border border-base-content/10"
+                        style={{
+                          position: "absolute",
+                          top: dropdownPos.y,
+                          left: dropdownPos.x,
+                        }}
+                        className="bg-base-100 rounded-lg z-[100] w-44 p-2 shadow-xl border border-base-content/10"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <ul className="menu menu-compact w-full p-0">
@@ -297,10 +345,10 @@ export default function GroupSidebar({
           <div className="py-1">
             <button
               type="button"
-              onClick={()=>setShowLeaveModal(true)}
+              onClick={() => setShowLeaveModal(true)}
               className="w-full cursor-pointer px-6 py-4 rounded-lg flex items-center gap-3 text-red-400 text-sm font-medium hover:bg-base-content/5"
             >
-              <LogOut/>
+              <LogOut />
               Leave Group
             </button>
           </div>
@@ -316,7 +364,9 @@ export default function GroupSidebar({
         `}
       >
         <div className="relative h-full w-full overflow-y-auto">
-          {selectedProfile && <ProfileView onBack={handleProfileBack} user={selectedProfile} />}
+          {selectedProfile && (
+            <ProfileView onBack={handleProfileBack} user={selectedProfile} />
+          )}
         </div>
       </div>
 
@@ -329,17 +379,17 @@ export default function GroupSidebar({
         handleAddSelected={handleAddSelected}
       />
 
-      {showLeaveModal && 
+      {showLeaveModal && (
         <ConfirmModal
           open
           title={`Exit ${group.chatName}`}
           confirmText="Yes"
           cancelText="No"
-          onCancel={()=>setShowLeaveModal(false)}
-          onConfirm={()=>setShowLeaveModal(false)}
+          onCancel={() => setShowLeaveModal(false)}
+          onConfirm={() => setShowLeaveModal(false)}
           description={`Are you sure you want to leave this group? You won't be able to rejoin this group unless you invited again.`}
         />
-      }
+      )}
     </div>
   );
 }

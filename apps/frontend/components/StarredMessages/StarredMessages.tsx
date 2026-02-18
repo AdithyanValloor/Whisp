@@ -2,6 +2,7 @@
 
 import { Search } from "lucide-react";
 import { useState } from "react";
+import SearchInput from "../GlobalComponents/SearchInput";
 
 export default function StarredMessages() {
 
@@ -10,19 +11,11 @@ export default function StarredMessages() {
             
             {/* Title */}
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold">Starred Messages</h1>
+                <h1 className="text-2xl font-semibold text-base-content">Starred Messages</h1>
             </div>
 
             {/* Search Bar */}
-            <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2" strokeWidth={1.5} />
-                <input
-                    type="text"
-                    placeholder="Search"
-                    className="w-full h-10 pl-10 pr-3 rounded-full border border-base-300 bg-base
-                               focus:outline-none focus:ring-2 focus:ring-[#004030] transition"
-                />
-            </div>
+            <SearchInput/>
 
             {/* Messages Section */}
             <div className="flex-1 overflow-y-auto">

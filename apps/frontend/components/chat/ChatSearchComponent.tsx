@@ -70,7 +70,7 @@ export default function ChatSearchComponent({
   };
 
   return (
-    <div className="h-full w-full flex flex-col bg-base-200 shadow">
+    <div className="h-full w-full text-base-content flex flex-col bg-base-200 shadow">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-base-content/8 bg-base-200">
         <IconButton ariaLabel="Close search" onClick={onClose}>

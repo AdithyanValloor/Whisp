@@ -100,7 +100,7 @@ export default function InboxSection() {
       <div className="h-full w-full p-3 flex flex-col gap-3">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-semibold p-1">Chats</h1>
+          <h1 className="text-2xl font-semibold text-base-content p-1">Chats</h1>
           {/* Create group FAB */}
           <IconButton
             ariaLabel="Create group chat"

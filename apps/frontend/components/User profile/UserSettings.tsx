@@ -95,7 +95,7 @@ export default function UserSettings({ onBack }: UserSettingsProps) {
           >
             <ArrowLeft size={18} />
           </IconButton>
-          <h2 className="text-lg font-semibold">Settings</h2>
+          <h2 className="text-lg font-semibold text-base-content">Settings</h2>
         </div>
 
         {/* Sections */}
@@ -110,7 +110,7 @@ export default function UserSettings({ onBack }: UserSettingsProps) {
                 className="p-3 py-4 rounded-lg flex justify-between hover:bg-base-content/10 items-center cursor-pointer"
               >
                 <h3
-                  className={`text-sm font-medium ${
+                  className={`text-sm font-medium text-base-content ${
                     item.danger ? "text-red-400" : ""
                   }`}
                 >
@@ -118,7 +118,7 @@ export default function UserSettings({ onBack }: UserSettingsProps) {
                 </h3>
                 <Icon
                   size={20}
-                  color={item.danger ? "oklch(70.4% 0.191 22.216)" : undefined}
+                  className={`${item.danger ? "text-red-400" : "text-base-content"}`}
                 />
               </div>
             );

@@ -472,7 +472,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
                 : "relative w-1/3"}
               h-full mx-2 pb-3`}
           >
-            <div className="h-full w-full shadow-md overflow-hidden rounded-2xl">
+            <div className="h-full w-full shadow-md border border-base-content/10 overflow-hidden rounded-2xl">
 
               {sidebarMode === "search" && (
                 <ChatSearchComponent

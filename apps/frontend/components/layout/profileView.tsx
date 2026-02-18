@@ -180,7 +180,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
       variants={containerVariants}
       initial="hidden"
       animate="show"
-      className="relative flex flex-col w-full h-full px-3 bg-base-200 overflow-hidden"
+      className="relative flex flex-col text-base-content w-full h-full px-3 bg-base-200 overflow-hidden"
     >
 
       {onBack && 
@@ -216,7 +216,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
 
       {/* Profile Card */}
       <motion.div variants={itemVariants} className="relative mt-22 z-10">
-        <div className="flex items-center gap-4 bg-base-100 rounded-xl p-4 shadow">
+        <div className="flex items-center gap-4 bg-base-100 border border-base-content/10 rounded-xl p-4 shadow">
           <ProfilePicture
             src={user.profilePicture?.url || ""}
             size="lg"
@@ -244,7 +244,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.25 }}
             style={{ overflow: "hidden" }}
-            className="mt-4 bg-base-100 rounded-2xl shadow p-4"
+            className="mt-4 bg-base-100 rounded-2xl border border-base-content/10 shadow p-4"
           >
             <p className="text-sm text-base-content/80">
               <span className="font-semibold text-base-content">
@@ -286,7 +286,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
       {/* About */}
       <motion.div
         variants={itemVariants}
-        className="mt-4 bg-base-100 rounded-xl shadow p-4"
+        className="mt-4 bg-base-100 rounded-xl border border-base-content/10 shadow p-4"
       >
         <p className="text-[11px] uppercase font-medium opacity-60 tracking-wide">
           About
@@ -299,7 +299,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
       {/* Member Info */}
       <motion.div
         variants={itemVariants}
-        className="mt-5 flex items-center justify-between bg-base-100 rounded-xl p-4"
+        className="mt-5 flex items-center border border-base-content/10 justify-between bg-base-100 rounded-xl p-4"
       >
         <div className="flex items-center gap-2 text-xs opacity-80">
           <CalendarDays size={14} />

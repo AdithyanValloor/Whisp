@@ -1,58 +1,65 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { toggleTheme } from "@/redux/features/themeSlice";
-import { themes } from "@/config/themeConfig";
+import { setTheme } from "@/redux/features/themeSlice";
+import { AVAILABLE_THEMES, AppTheme, THEME_LABELS } from "@/config/themeConfig";
+import { Palette } from "lucide-react";
 
-export default function ThemeToggle() {
+export default function ThemeSelector() {
   const dispatch = useAppDispatch();
   const theme = useAppSelector((state) => state.theme.current);
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const handleChange = () => {
-    dispatch(toggleTheme());
+  const handleSelect = (t: AppTheme) => {
+    dispatch(setTheme(t));
+    setOpen(false);
   };
 
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    <label className="swap swap-rotate cursor-pointer">
-      {/* This hidden checkbox controls the swap state */}
-      <input
-        type="checkbox"
-        onChange={handleChange}
-        checked={theme === themes.dark}
-        className="hidden"
-      />
-
-      {/* Sun icon for light mode */}
-      <svg
-        className="swap-on fill-current w-6 h-6 text-yellow-400"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
+    <div ref={wrapperRef} className="relative">
+      {/* Trigger */}
+      <button
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex items-center px-2 gap-2 cursor-pointer"
       >
-        <path
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-          d="M12 4V2m0 20v-2m4.24-13.76 1.42-1.42M6.34 17.66l-1.42 1.42M20 12h2M2 12h2m15.66 5.66 1.42 1.42M4.92 4.92l1.42 1.42M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"
-        />
-      </svg>
+        <Palette size={16} />
+        <span className="opacity-70 text-sm">{THEME_LABELS[theme]}</span>
+      </button>
 
-      {/* Moon icon for dark mode */}
-      <svg
-        className="swap-off fill-current w-6 h-6 text-blue-400"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-          d="M21 12.79A9 9 0 0 1 11.21 3 7 7 0 1 0 21 12.79Z"
-        />
-      </svg>
-    </label>
+      {/* Dropdown */}
+      {open && (
+        <ul className="absolute right-0 mt-2 z-[100] menu p-2 shadow-lg bg-base-200 border border-base-content/10 rounded-box w-44">
+          {AVAILABLE_THEMES.map((t) => (
+            <li key={t}>
+              <button
+                onClick={() => handleSelect(t)}
+                className={`capitalize ${
+                  theme === t ? "active font-medium" : ""
+                }`}
+              >
+                {THEME_LABELS[t]}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }

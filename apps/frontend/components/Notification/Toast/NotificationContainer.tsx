@@ -15,7 +15,7 @@ export default function NotificationContainer({
   removeToast,
 }: Props) {
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-80">
+    <div className="fixed top-6 left-1/2 text-base-content -translate-x-1/2 z-50 flex flex-col gap-2 w-80">
       <AnimatePresence>
         {notifications.map((toast) => (
           <motion.div

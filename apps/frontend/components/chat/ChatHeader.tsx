@@ -25,7 +25,7 @@ export function ChatHeader({
   setSidebarMode,
 }: ChatHeaderProps) {
   return (
-    <header className=" flex-shrink-0 rounded-2xl py-2 bg-base-200 shadow-md px-3 md:px-4 flex justify-between items-center">
+    <header className=" flex-shrink-0 rounded-2xl py-2 border border-base-content/10 bg-base-200 shadow-lg shadow-black/10 px-3 md:px-4 flex justify-between items-center">
       <div className="flex items-center gap-3 min-w-0">
         {isMobile && (
           <button 
@@ -39,8 +39,8 @@ export function ChatHeader({
         <div onClick={onProfileClick} className="flex items-center gap-3 cursor-pointer">
           <ProfilePicture src={displayPic} status={displayStatus} size="md" />
           <div>
-            <h1 className="font-semibold text-xl truncate">{displayName}</h1>
-            <p className="text-xs opacity-50">{displayStatus}</p>
+            <h1 className="font-semibold text-xl text-base-content truncate">{displayName}</h1>
+            <p className="text-xs opacity-50 text-base-content">{displayStatus}</p>
           </div>
         </div>
       </div>

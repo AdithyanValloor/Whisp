@@ -52,7 +52,7 @@ export default function AddMembersModal({
     <AnimatePresence>
       {show && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex text-base-content items-center justify-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -141,7 +141,7 @@ export default function AddMembersModal({
               type="button"
               onClick={handleAddSelected}
               disabled={selectedUsers.size === 0}
-              className="mt-4 w-full p-2 bg-[#004030] text-white rounded-lg hover:bg-[#006644] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-4 w-full p-2 cursor-pointer bg-[#004030] text-white rounded-lg hover:bg-[#006644] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add Selected
             </button>

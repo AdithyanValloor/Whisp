@@ -8,7 +8,7 @@ export default function StatusSection() {
             
             {/* Title */}
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold">Status</h1>
+                <h1 className="text-2xl font-semibold text-base-content">Status</h1>
             </div>
 
             {/* Messages Section */}

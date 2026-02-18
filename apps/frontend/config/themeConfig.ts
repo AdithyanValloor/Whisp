@@ -1,19 +1,33 @@
-export const themes = {
-  light: "light",  
-  // light: "retro",  
-  dark: "forest",
-  // dark: "sunset",
-  // dark: "business",
-  // dark: "dim",
-  // dark: "dark",
-  // dark: "abyss",
+
+export const AVAILABLE_THEMES = [
+  "light",
+  "forest",
+  "sunset",
+  "business",
+  "dracula",
+  "lemonade",
+  "retro",
+] as const;
+
+export const THEME_LABELS: Record<AppTheme, string> = {
+  light: "Light",
+  forest: "Dark",
+  sunset: "Teal",
+  business: "Corporate",
+  dracula: "Midnight",
+  lemonade: "Sage",
+  retro: "Sunset",
+  system: "System",
 };
 
-export const getSystemTheme = (): string => {
+export type DaisyTheme = typeof AVAILABLE_THEMES[number];
+
+export type AppTheme = DaisyTheme | "system";
+
+export const getSystemTheme = (): AppTheme => {
   if (typeof window !== "undefined") {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    return prefersDark ? themes.dark : themes.light;
+    return prefersDark ? "forest" : "light";
   }
-  return themes.light;
+  return "light";
 };
-

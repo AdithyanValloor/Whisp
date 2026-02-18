@@ -11,16 +11,16 @@ export default function MuiThemeBridge({
   children: React.ReactNode;
 }) {
   const daisyTheme = useAppSelector((state) => state.theme.current);
-  const mode = daisyTheme === "light" ? "light" : "dark";
   const [mounted, setMounted] = useState(false);
 
-  const muiTheme = useMemo(() => createMuiTheme(mode), [mode]);
+  const muiTheme = useMemo(() => {
+    return createMuiTheme();
+  }, [daisyTheme]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Don't render MUI theme until client-side hydration is complete
   if (!mounted) {
     return <>{children}</>;
   }
