@@ -2,7 +2,6 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
 import axios from "axios";
 import { setUser } from "./authSlice";
-import type { AuthUser } from "./authSlice";
 
 /* -------------------- TYPES -------------------- */
 
@@ -57,7 +56,7 @@ export const fetchProfile = createAsyncThunk<
   } catch (err) {
     if (axios.isAxiosError(err)) {
       return rejectWithValue(
-        err.response?.data?.message ?? "Failed to fetch profile"
+        err.response?.data?.message ?? "Failed to fetch profile",
       );
     }
     return rejectWithValue("Failed to fetch profile");
@@ -84,20 +83,23 @@ export const updateProfile = createAsyncThunk<
      */
     dispatch(
       setUser({
-        user: {
-          _id: updatedProfile._id,
-          displayName: updatedProfile.displayName,
-          username: updatedProfile.username,
-          profilePicture: updatedProfile.profilePicture ?? null,
-        } as AuthUser,
-      })
+        _id: updatedProfile._id,
+        displayName: updatedProfile.displayName,
+        username: updatedProfile.username,
+        profilePicture: updatedProfile.profilePicture
+          ? {
+              url: updatedProfile.profilePicture.url,
+              public_id: null,
+            }
+          : null,
+      }),
     );
 
     return updatedProfile;
   } catch (err) {
     if (axios.isAxiosError(err)) {
       return rejectWithValue(
-        err.response?.data?.message ?? "Failed to update profile"
+        err.response?.data?.message ?? "Failed to update profile",
       );
     }
     return rejectWithValue("Failed to update profile");
@@ -137,9 +139,16 @@ const profileSlice = createSlice({
       })
 
       /* -------- UPDATE PROFILE -------- */
-      .addCase(updateProfile.pending, (state) => {
+      .addCase(updateProfile.pending, (state, action) => {
         state.loading = true;
         state.error = null;
+
+        if (state.profile) {
+          state.profile = {
+            ...state.profile,
+            ...action.meta.arg,
+          };
+        }
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.loading = false;

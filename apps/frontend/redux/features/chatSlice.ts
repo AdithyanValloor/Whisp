@@ -78,6 +78,14 @@ interface CreateGroupResponse {
   groupChat: Chat;
 }
 
+/**
+ * Chat reponse type
+ */
+interface ChatResponse {
+  message: string;
+  chat: Chat;
+}
+
 /* -------------------- THUNKS -------------------- */
 
 /**
@@ -139,8 +147,8 @@ export const addMembers = createAsyncThunk<
   { rejectValue: string }
 >("group/addMembers", async (data, { rejectWithValue }) => {
   try {
-    const res = await api.post<Chat>("/group/members", data);
-    return res.data;
+    const res = await api.post<ChatResponse>("/group/members", data);
+    return res.data.chat;
   } catch {
     return rejectWithValue("Failed to add members");
   }
@@ -155,8 +163,8 @@ export const removeMembers = createAsyncThunk<
   { rejectValue: string }
 >("group/removeMembers", async (data, { rejectWithValue }) => {
   try {
-    const res = await api.delete<Chat>("/group/members", { data });
-    return res.data;
+    const res = await api.delete<ChatResponse>("/group/members", { data });
+    return res.data.chat;
   } catch {
     return rejectWithValue("Failed to remove member");
   }
@@ -171,8 +179,8 @@ export const toggleAdmin = createAsyncThunk<
   { rejectValue: string }
 >("group/toggleAdmin", async (data, { rejectWithValue }) => {
   try {
-    const res = await api.patch<Chat>("/group/admin", data);
-    return res.data;
+    const res = await api.patch<ChatResponse>("/group/admin", data);
+    return res.data.chat;
   } catch {
     return rejectWithValue("Failed to toggle admin");
   }
@@ -319,6 +327,29 @@ const chatSlice = createSlice({
       })
 
       /* -------- GROUP MUTATIONS -------- */
+      .addCase(addMembers.pending, (state, action) => {
+        const { chatId, members } = action.meta.arg;
+
+        const chat = state.chats.find((c) => c._id === chatId);
+        if (!chat) return;
+
+        members.forEach((id) => {
+          if (!chat.members.some((m) => m._id === id)) {
+            const tempUser: ChatUser = {
+              _id: id,
+              username: "Loading...",
+              displayName: "Loading...",
+              profilePicture: {
+                url: null,
+                public_id: null,
+              },
+            };
+
+            chat.members.push(tempUser);
+          }
+        });
+      })
+
       .addCase(addMembers.fulfilled, (state, action) => {
         const idx = state.chats.findIndex((g) => g._id === action.payload._id);
         if (idx !== -1) state.chats[idx] = action.payload;
@@ -327,9 +358,36 @@ const chatSlice = createSlice({
         const idx = state.chats.findIndex((g) => g._id === action.payload._id);
         if (idx !== -1) state.chats[idx] = action.payload;
       })
+
+      .addCase(toggleAdmin.pending, (state, action) => {
+        const { chatId, member, makeAdmin } = action.meta.arg;
+
+        const chat = state.chats.find((c) => c._id === chatId);
+        if (!chat) return;
+
+        if (makeAdmin) {
+          const memberObj = chat.members.find((m) => m._id === member);
+          if (memberObj && !chat.admin.some((a) => a._id === member)) {
+            chat.admin.push(memberObj);
+          }
+        } else {
+          chat.admin = chat.admin.filter((a) => a._id !== member);
+        }
+      })
+
       .addCase(toggleAdmin.fulfilled, (state, action) => {
         const idx = state.chats.findIndex((g) => g._id === action.payload._id);
         if (idx !== -1) state.chats[idx] = action.payload;
+      })
+
+      .addCase(removeMembers.pending, (state, action) => {
+        const { chatId, member } = action.meta.arg;
+
+        const chat = state.chats.find((c) => c._id === chatId);
+        if (!chat) return;
+
+        chat.members = chat.members.filter((m) => m._id !== member);
+        chat.admin = chat.admin.filter((a) => a._id !== member);
       })
 
       /* -------- LEAVE GROUP -------- */

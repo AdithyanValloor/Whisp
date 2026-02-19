@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { logoutUser } from "@/redux/features/authSlice";
 import {
-  ArrowLeft,
   Bell,
   LogOut,
   Palette,
@@ -14,18 +13,26 @@ import {
 import { SubPage } from "./UserSettingsSubPages";
 import EditProfileForm from "./EditProfilePage";
 import ThemeSettings from "./ThemeSettings";
-import { useAppDispatch } from "@/redux/hooks";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
-import IconButton from "../GlobalComponents/IconButtons";
+import Image from "next/image";
+import defaultPFP from "@/public/default-pfp.png";
 
 interface UserSettingsProps {
   onBack: () => void;
+  activePage: string | null;
+  setActivePage: (page: string | null) => void;
 }
 
-export default function UserSettings({ onBack }: UserSettingsProps) {
-  const [activePage, setActivePage] = useState<string | null>(null);
+export default function UserSettings({
+  onBack,
+  activePage,
+  setActivePage,
+}: UserSettingsProps) {
+  // const [activePage, setActivePage] = useState<string | null>(null);
   const [showLogout, setShowLogout] = useState(false);
   const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.profile.profile);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -88,14 +95,20 @@ export default function UserSettings({ onBack }: UserSettingsProps) {
     <>
       <div className="w-full h-full relative">
         {/* Header */}
-        <div className="flex items-center gap-2 p-3 border-b border-base-300">
-          <IconButton
-            onClick={onBack}
-            ariaLabel="Go back"
-          >
-            <ArrowLeft size={18} />
-          </IconButton>
-          <h2 className="text-lg font-semibold text-base-content">Settings</h2>
+        <div className="flex items-center gap-2 p-3 justify-between border-b border-base-300">
+          <h2 className="text-2xl font-semibold text-base-content p-1">
+            Settings
+          </h2>
+          <div className="bg-base-content/10 hover:bg-base-content/80 transition-colors rounded-full">
+            <Image
+              src={user?.profilePicture?.url ?? defaultPFP}
+              alt="profile"
+              width={40}
+              height={40}
+              onClick={onBack}
+              className="rounded-full object-cover border cursor-pointer"
+            />
+          </div>
         </div>
 
         {/* Sections */}

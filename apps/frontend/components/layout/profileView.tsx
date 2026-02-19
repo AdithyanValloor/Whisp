@@ -27,7 +27,7 @@ interface ProfileViewProps {
     displayName?: string;
     profilePicture?: { url: string | null };
     createdAt?: string;
-    about?: string;
+    bio?: string;
     pronouns?: string;
   };
   onBack?: () => void;
@@ -292,7 +292,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
           About
         </p>
         <p className="text-sm mt-1 leading-relaxed">
-          {user.about || "Whisp user."}
+          {user.bio || "Whisp user."}
         </p>
       </motion.div>
 

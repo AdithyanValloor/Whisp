@@ -10,9 +10,8 @@ interface EditProfileFormProps {
 }
 
 export default function EditProfileForm({ onBack }: EditProfileFormProps) {
-  
   const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => state.auth.user);
+  const user = useAppSelector((state) => state.profile.profile);
 
   const initialValues = {
     displayName: user?.displayName || "",
@@ -32,7 +31,7 @@ export default function EditProfileForm({ onBack }: EditProfileFormProps) {
         displayName,
         bio,
         pronouns,
-      })
+      }),
     );
 
     onBack();
@@ -52,11 +51,7 @@ export default function EditProfileForm({ onBack }: EditProfileFormProps) {
   // const hasChanges = true
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-5"
-    >
-      
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Display Name */}
       <div className="w-full">
         <label

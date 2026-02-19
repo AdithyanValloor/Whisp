@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
@@ -13,7 +15,7 @@ import {
 } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
 import { AiFillMessage } from "react-icons/ai";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 interface SideBarProps {
   activeTab: string;

@@ -64,8 +64,20 @@ export default function MainSection({
     Status: <StatusSection />,
     "Starred messages": <StarredMessages />,
     "Archived chats": <ArchivedChats />,
-    Settings: <ProfileDropdown isOpen initialView="settings" />,
-    "User profile": <ProfileDropdown isOpen initialView="profile" />,
+    Settings: (
+      <ProfileDropdown
+        isOpen
+        initialView="settings"
+        setActiveTab={setActiveTab}
+      />
+    ),
+    "User profile": (
+      <ProfileDropdown
+        isOpen
+        initialView="profile"
+        setActiveTab={setActiveTab}
+      />
+    ),
   };
 
   return (
