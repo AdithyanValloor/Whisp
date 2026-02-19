@@ -1,7 +1,7 @@
-import mongoose, {Schema, model, Document, Types} from "mongoose";
+import mongoose, { Schema, model, Document, Types } from "mongoose";
 
 export interface IChat extends Document {
- _id: Types.ObjectId;  
+  _id: Types.ObjectId;
   members: Types.ObjectId[];
 
   isGroup: boolean;
@@ -14,13 +14,17 @@ export interface IChat extends Document {
 
   unreadCounts: Map<string, number>;
 
+  isDeleted: boolean;
+  deletedAt: Date;
+
+  deletedBy: Types.ObjectId;
+
   createdAt: Date;
   updatedAt: Date;
 }
 
-
-const ChatSchema:Schema<IChat> = new Schema(
- {
+const ChatSchema: Schema<IChat> = new Schema(
+  {
     members: [
       {
         type: Schema.Types.ObjectId,
@@ -61,11 +65,21 @@ const ChatSchema:Schema<IChat> = new Schema(
       of: Number,
       default: {},
     },
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedAt: Date,
+    deletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   {
     timestamps: true,
-  }
-)
+  },
+);
 
 export const Chat = model<IChat>("Chat", ChatSchema);
-

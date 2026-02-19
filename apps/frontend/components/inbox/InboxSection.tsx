@@ -1,11 +1,10 @@
 "use client";
 
-import { MessageCirclePlus, X } from "lucide-react";
+import { MessageCirclePlus } from "lucide-react";
 import { useState, useMemo, JSX } from "react";
 import { useRouter } from "next/navigation";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
-import { createGroupChat } from "@/redux/features/groupSlice";
-import type { Chat } from "@/redux/features/chatSlice";
+import { createGroupChat, type Chat } from "@/redux/features/chatSlice";
 import { useParams } from "next/navigation";
 
 import Personal from "./Personal";
@@ -26,8 +25,7 @@ export default function InboxSection() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
   const { friends } = useAppSelector((state) => state.friends);
-  const { actionLoading } = useAppSelector((state) => state.group);
-  const { chats } = useAppSelector((state) => state.chat);
+  const { chats, accessLoading  } = useAppSelector((state) => state.chat);
   const perChatUnread = useAppSelector((state) => state.unread.perChat);
 
   const params = useParams<{ chatId?: string }>();
@@ -168,7 +166,7 @@ export default function InboxSection() {
           selectedUsers={selectedUsers}
           toggleUserSelection={toggleUserSelection}
           handleCreateGroup={handleCreateGroup}
-          actionLoading={actionLoading}
+          actionLoading={accessLoading}
         />
       )}
     </div>

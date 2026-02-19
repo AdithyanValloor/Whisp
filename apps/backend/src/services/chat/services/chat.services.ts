@@ -24,6 +24,7 @@ export const fetchChatsFunction = async (userId: string) => {
   })
     .populate("members", "-password")
     .populate("admin", "-password")
+    .populate("createdBy", "-password")
     .populate("lastMessage")
     .sort({ updatedAt: -1 });
 
@@ -51,9 +52,6 @@ export const accessChatFunction = async (
 ) => {
   if (!userId || !currentUserId) {
     throw BadRequest("Both user IDs are required");
-
-
-    
   }
 
   if (userId === currentUserId) {

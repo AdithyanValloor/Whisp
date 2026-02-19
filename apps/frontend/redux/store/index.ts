@@ -6,7 +6,6 @@ import friendsReducer from "../features/friendsSlice";
 import messagesReducer from "../features/messageSlice";
 import profileReducer from "../features/profileSlice";
 import unreadReducer from "../features/unreadSlice";
-import groupReducer from "../features/groupSlice";
 import themeReducer from "../features/themeSlice";
 import presenceReducer from "../features/presenceSlice";
 import typingReducer from "../features/typingSlice"
@@ -48,9 +47,6 @@ export const store = configureStore({
 
     // Unread message counters per chat
     unread: unreadReducer,
-
-    // Group chat metadata and membership
-    group: groupReducer,
 
     // Real-time presence (online / offline) state
     presence: presenceReducer,

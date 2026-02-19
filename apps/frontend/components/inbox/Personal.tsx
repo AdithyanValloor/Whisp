@@ -63,6 +63,8 @@ export default function Personal({
   return (
     <div className="h-full w-full flex flex-col gap-1">
       {personalChats.map((chat) => {
+        console.log("CHAT ------ ", chat.members);
+        
         const otherUser = chat.members.find((m) => m._id !== user?._id);
         const unreadCount = perChatUnread[chat._id] || 0;
 

@@ -5,7 +5,9 @@ import {
     removeMembers, 
     toggleAdmin, 
     leaveGroup, 
-    getGroupById
+    getGroupById,
+    deleteGroup,
+    transferOwnership
 } from "../controllers/group.controller.js"
 import { protect } from "../../auth/auth.middleware.js"
 
@@ -29,5 +31,11 @@ router.patch("/admin", protect, toggleAdmin)
 
 // Leave a group
 router.post("/leave", protect, leaveGroup)
+
+// Delete group ( for owner )
+router.delete("/delete", protect, deleteGroup)
+
+// Transfer ownership ( for owner )
+router.patch("/transfer-ownership", protect, transferOwnership)
 
 export {router as groupChatRouter}

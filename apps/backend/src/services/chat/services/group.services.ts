@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { ObjectId } from "mongoose";
 import { Chat } from "../models/chat.model.js";
 import {
   BadRequest,
@@ -6,6 +6,31 @@ import {
   Forbidden,
   NotFound,
 } from "../../../utils/errors/httpErrors.js";
+
+/**
+ * Populates a group chat with all required related fields.
+ *
+ * - members (without password)
+ * - admin (without password)
+ * * createdBy (without password)
+ * - lastMessage + sender details
+ *
+ * Use this after any group update to ensure
+ * the frontend receives complete data.
+ */
+const populateGroup = (chatId: string) => {
+  return Chat.findById(chatId)
+    .populate("members", "-password")
+    .populate("admin", "-password")
+    .populate("createdBy", "-password")
+    .populate({
+      path: "lastMessage",
+      populate: {
+        path: "sender",
+        select: "username profilePicture email",
+      },
+    });
+};
 
 /**
  * ------------------------------------------------------------------
@@ -21,7 +46,7 @@ import {
 export const createGroupChatFunction = async (
   name: string,
   userIds: string[],
-  currentUserId: string
+  currentUserId: string,
 ) => {
   if (!name || !Array.isArray(userIds) || userIds.length < 1) {
     throw BadRequest("Group name and at least one member are required");
@@ -38,9 +63,7 @@ export const createGroupChatFunction = async (
     createdBy: currentUserId,
   });
 
-  return Chat.findById(groupChat._id)
-    .populate("members", "-password")
-    .populate("admin", "-password");
+  return populateGroup(groupChat._id.toString());
 };
 
 /**
@@ -49,10 +72,7 @@ export const createGroupChatFunction = async (
  * ------------------------------------------------------------------
  * @desc    Fetch a group chat only if requester is a member
  */
-export const getGroupByIdFunction = async (
-  userId: string,
-  chatId: string
-) => {
+export const getGroupByIdFunction = async (userId: string, chatId: string) => {
   if (!userId) throw Unauthorized();
   if (!chatId) throw BadRequest("Group ID is required");
 
@@ -60,17 +80,11 @@ export const getGroupByIdFunction = async (
     _id: chatId,
     isGroup: true,
     members: userId,
-  })
-    .populate("members", "-password")
-    .populate("admin", "-password")
-    .populate({
-      path: "lastMessage",
-      populate: { path: "sender", select: "username profilePicture email" },
-    });
+  });
 
   if (!group) throw NotFound("Group not found");
 
-  return group;
+  return populateGroup(group._id.toString());
 };
 
 /**
@@ -86,7 +100,7 @@ export const getGroupByIdFunction = async (
 export const addMembersFunction = async (
   chatId: string,
   members: string[],
-  userId: string
+  userId: string,
 ) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -100,15 +114,13 @@ export const addMembersFunction = async (
   }
 
   const newMembers = members.filter(
-    (id) => !chat.members.some((m) => m.toString() === id)
+    (id) => !chat.members.some((m) => m.toString() === id),
   );
 
-  chat.members.push(
-    ...newMembers.map((id) => new mongoose.Types.ObjectId(id))
-  );
+  chat.members.push(...newMembers.map((id) => new mongoose.Types.ObjectId(id)));
 
   await chat.save();
-  return chat;
+  return populateGroup(chat._id.toString());
 };
 
 /**
@@ -124,7 +136,7 @@ export const addMembersFunction = async (
 export const removeMembersFunction = async (
   userId: string,
   chatId: string,
-  memberId: string
+  memberId: string,
 ) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -141,16 +153,12 @@ export const removeMembersFunction = async (
     throw BadRequest("Creator can't be removed");
   }
 
-  chat.members = chat.members.filter(
-    (id) => id.toString() !== memberId
-  );
+  chat.members = chat.members.filter((id) => id.toString() !== memberId);
 
-  chat.admin = chat.admin.filter(
-    (id) => id.toString() !== memberId
-  );
+  chat.admin = chat.admin.filter((id) => id.toString() !== memberId);
 
   await chat.save();
-  return chat;
+  return populateGroup(chat._id.toString());
 };
 
 /**
@@ -166,7 +174,7 @@ export const toggleAdminFunction = async (
   userId: string,
   chatId: string,
   memberId: string,
-  makeAdmin: boolean
+  makeAdmin: boolean,
 ) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -180,13 +188,11 @@ export const toggleAdminFunction = async (
       chat.admin.push(new mongoose.Types.ObjectId(memberId));
     }
   } else {
-    chat.admin = chat.admin.filter(
-      (id) => id.toString() !== memberId
-    );
+    chat.admin = chat.admin.filter((id) => id.toString() !== memberId);
   }
 
   await chat.save();
-  return chat;
+  return populateGroup(chat._id.toString());
 };
 
 /**
@@ -200,36 +206,125 @@ export const toggleAdminFunction = async (
  * - Reassigns creator if needed
  * - Deletes group if no members remain
  */
-export const leaveGroupFunction = async (
-  userId: string,
-  chatId: string
-) => {
+export const leaveGroupFunction = async (userId: string, chatId: string) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
 
-  chat.members = chat.members.filter(
-    (id) => id.toString() !== userId
-  );
-  chat.admin = chat.admin.filter(
-    (id) => id.toString() !== userId
+  if (chat.createdBy?.toString() === userId) {
+    throw Forbidden("Transfer ownership before leaving the group");
+  }
+
+  chat.members = chat.members.filter((id) => id.toString() !== userId);
+
+  chat.admin = chat.admin.filter((id) => id.toString() !== userId);
+
+  await chat.save();
+
+  return { message: "You left the group", chat };
+};
+
+/**
+ * Soft deletes a group chat.
+ *
+ * - Only the group owner (createdBy) can delete.
+ * - Marks group as deleted (isDeleted = true).
+ *
+ * @param userId - ID of requesting user
+ * @param chatId - Group chat ID
+ *
+ * @throws NotFound | BadRequest | Forbidden
+ */
+
+export const deleteGroupFunction = async (userId: string, chatId: string) => {
+  const chat = await Chat.findById(chatId);
+
+  if (!chat) throw NotFound("Chat not found");
+
+  if (!chat.isGroup) {
+    throw BadRequest("This is not a group chat");
+  }
+
+  // Only creator can delete
+  if (chat.createdBy?.toString() !== userId) {
+    throw Forbidden("Only creator can delete this group");
+  }
+
+  // Prevent double deletion
+  if (chat.isDeleted) {
+    throw BadRequest("Group already deleted");
+  }
+
+  // Soft delete
+  chat.isDeleted = true;
+  chat.deletedAt = new Date();
+  chat.deletedBy = new mongoose.Types.ObjectId(userId);
+
+  await chat.save();
+
+  return {
+    message: "Group deleted successfully",
+    deleted: true,
+  };
+};
+
+/**
+ * Transfers group ownership to another member.
+ *
+ * - Only current owner can transfer.
+ * - New owner must be an existing member.
+ * - New owner is promoted to admin if needed.
+ *
+ * @param userId - Current owner ID
+ * @param chatId - Group chat ID
+ * @param newOwnerId - Member to become new owner
+ *
+ * @throws NotFound | BadRequest | Forbidden
+ */
+
+export const transferOwnershipFunction = async (
+  userId: string,
+  chatId: string,
+  newOwnerId: string,
+) => {
+  const chat = await Chat.findById(chatId);
+
+  if (!chat) throw NotFound("Chat not found");
+
+  if (!chat.isGroup) {
+    throw BadRequest("This is not a group chat");
+  }
+
+  // Only current owner can transfer
+  if (chat.createdBy?.toString() !== userId) {
+    throw Forbidden("Only group owner can transfer ownership");
+  }
+
+  // New owner must be different
+  if (userId === newOwnerId) {
+    throw BadRequest("You are already the owner");
+  }
+
+  // New owner must be a member
+  const isMember = chat.members.some(
+    (member) => member.toString() === newOwnerId,
   );
 
-  // Handle creator leaving
-  if (chat.createdBy?.toString() === userId) {
-    if (chat.admin.length > 0) {
-      chat.createdBy = new mongoose.Types.ObjectId(
-        chat.admin[0].toString()
-      );
-    } else if (chat.members.length > 0) {
-      chat.createdBy = new mongoose.Types.ObjectId(
-        chat.members[0].toString()
-      );
-    } else {
-      await Chat.findByIdAndDelete(chatId);
-      return { message: "Group deleted as no members left", deleted: true };
-    }
+  if (!isMember) {
+    throw BadRequest("New owner must be a group member");
+  }
+
+  // Assign new owner
+  chat.createdBy = new mongoose.Types.ObjectId(newOwnerId);
+
+  // Ensure new owner is admin
+  const isAlreadyAdmin = chat.admin.some(
+    (admin) => admin.toString() === newOwnerId,
+  );
+
+  if (!isAlreadyAdmin) {
+    chat.admin.push(new mongoose.Types.ObjectId(newOwnerId));
   }
 
   await chat.save();
-  return { message: "You left the group", chat };
+  return populateGroup(chat._id.toString());
 };

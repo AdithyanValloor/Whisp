@@ -2,10 +2,12 @@ import { Response } from "express";
 import {
   addMembersFunction,
   createGroupChatFunction,
+  deleteGroupFunction,
   getGroupByIdFunction,
   leaveGroupFunction,
   removeMembersFunction,
   toggleAdminFunction,
+  transferOwnershipFunction,
 } from "../services/group.services.js";
 import { handleChatError } from "../errors/chatErrors.js";
 import { AuthRequest } from "../../user/types/authRequest.js";
@@ -217,6 +219,75 @@ export const leaveGroup = async (
     const response = await leaveGroupFunction(userId, chatId);
 
     res.status(200).json(response);
+  } catch (error) {
+    handleChatError(res, error as Error);
+  }
+};
+
+/**
+ * ------------------------------------------------------------------
+ * Delete Group
+ * ------------------------------------------------------------------
+ * @desc    Allows creator to delete a group chat
+ * @route   POST /api/group/delete
+ * @access  Private (owner only)
+ *
+ */
+
+export const deleteGroup = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { chatId }: { chatId?: string } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("Chat ID is required");
+
+    await deleteGroupFunction(userId, chatId);
+
+    res.status(200).json({
+      message: "Group deleted successfully",
+    });
+  } catch (error) {
+    handleChatError(res, error as Error);
+  }
+};
+
+/**
+ * ------------------------------------------------------------------
+ * Transfer Ownership
+ * ------------------------------------------------------------------
+ * @desc    Allows group creator to transfer ownership to another member
+ * @route   PATCH /api/group/transfer-ownership
+ * @access  Private (Owner only)
+ */
+export const transferOwnership = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { chatId, newOwnerId }: { chatId?: string; newOwnerId?: string } =
+      req.body;
+
+    const userId = req.user?.id;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId || !newOwnerId) {
+      throw BadRequest("Chat ID and new owner ID are required");
+    }
+
+    const chat = await transferOwnershipFunction(
+      userId,
+      chatId,
+      newOwnerId
+    );
+
+    res.status(200).json({
+      message: "Ownership transferred successfully",
+      chat,
+    });
   } catch (error) {
     handleChatError(res, error as Error);
   }

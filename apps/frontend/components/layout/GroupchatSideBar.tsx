@@ -9,6 +9,7 @@ import {
   Shield,
   ShieldOff,
   LogOut,
+  Trash2,
 } from "lucide-react";
 import { useAppSelector } from "@/redux/hooks";
 import ProfileView from "./profileView";
@@ -17,6 +18,7 @@ import FriendCard from "../Message/FriendCard";
 import IconButton from "../GlobalComponents/IconButtons";
 import AddMembersModal from "../chat/AddMembersModal";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
+import TransferOwnershipModal from "../chat/TransferOwnershipModal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,7 +30,7 @@ interface Member {
 }
 
 interface MemberWithRole extends Member {
-  role: "admin" | "member";
+  role: "admin" | "member" | "owner";
 }
 
 interface Friend {
@@ -42,7 +44,8 @@ interface Group {
   _id: string;
   chatName: string;
   members: Member[];
-  admin?: { _id: string }[];
+  admin?: Member[];
+  createdBy?: Member;
 }
 
 interface GroupSidebarProps {
@@ -54,6 +57,7 @@ interface GroupSidebarProps {
   onRemoveMember?: (userId: string) => void;
   onMakeAdmin?: (userId: string) => void;
   onRemoveAdmin?: (userId: string) => void;
+  onTransferOwnership?: (userId: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -64,6 +68,7 @@ export default function GroupSidebar({
   onAddMembers,
   onLeaveGroup,
   onDeleteGroup,
+  onTransferOwnership,
   onRemoveMember,
   onMakeAdmin,
   onRemoveAdmin,
@@ -76,6 +81,8 @@ export default function GroupSidebar({
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
 
   const [dropdownPos, setDropdownPos] = useState<{
     x: number;
@@ -86,12 +93,37 @@ export default function GroupSidebar({
 
   const adminIds = new Set(group.admin?.map((a) => a._id) ?? []);
 
-  const membersWithRoles: MemberWithRole[] = group.members.map((m) => ({
-    ...m,
-    role: adminIds.has(m._id) ? "admin" : "member",
-  }));
-
+  const creatorId = group.createdBy?._id;
+  const isOwner = creatorId === currentUserId;
   const isAdmin = adminIds.has(currentUserId);
+  const canManageMembers = isOwner || isAdmin;
+
+  const membersWithRoles: MemberWithRole[] = group.members.map((m) => {
+    if (m._id === creatorId) {
+      return { ...m, role: "owner" };
+    }
+
+    if (adminIds.has(m._id)) {
+      return { ...m, role: "admin" };
+    }
+
+    return { ...m, role: "member" };
+  });
+
+  console.log("MEMBER WITH ROLES : =====================", membersWithRoles);
+  
+
+console.log(
+  "Duplicate check:",
+  new Set(membersWithRoles.map(m => m._id)).size,
+  membersWithRoles.length
+);
+
+  console.log("creatorId:", creatorId);
+  console.log(
+    "members:",
+    group.members.map((m) => m._id),
+  );
 
   // Populate available friends when modal opens
   useEffect(() => {
@@ -257,7 +289,7 @@ export default function GroupSidebar({
                   />
 
                   {/* Context menu dropdown */}
-                  {isAdmin &&
+                  {canManageMembers &&
                     m._id !== currentUserId &&
                     openDropdownId === m._id && (
                       <div
@@ -270,7 +302,7 @@ export default function GroupSidebar({
                         onClick={(e) => e.stopPropagation()}
                       >
                         <ul className="menu menu-compact w-full p-0">
-                          <li>
+                          <li key={`remove-${m._id}`}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -285,7 +317,7 @@ export default function GroupSidebar({
                           </li>
 
                           {m.role === "member" ? (
-                            <li>
+                            <li key={`make-admin-${m._id}`}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -299,7 +331,7 @@ export default function GroupSidebar({
                               </button>
                             </li>
                           ) : (
-                            <li>
+                            <li key={`remove-admin-${m._id}`}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -320,37 +352,27 @@ export default function GroupSidebar({
               ))}
             </ul>
           </div>
-
-          {/* Group Actions */}
-          {/* <div className="mt-4 bg-base-100 rounded-xl p-4 shadow shrink-0">
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={onDeleteGroup}
-                className="w-full px-4 py-2 rounded-xl border border-red-600 text-red-600 text-sm font-medium hover:bg-red-600 hover:text-white transition"
-              >
-                Delete Group
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onLeaveGroup}
-                className="w-full px-4 py-2 rounded-xl border border-red-600 text-red-600 text-sm font-medium hover:bg-red-600 hover:text-white transition"
-              >
-                Leave Group
-              </button>
-            )}
-          </div> */}
-
-          <div className="py-1">
+          <div className="py-1 flex flex-col gap-2">
             <button
               type="button"
-              onClick={() => setShowLeaveModal(true)}
+              onClick={() => {
+                setShowLeaveModal(true);
+              }}
               className="w-full cursor-pointer px-6 py-4 rounded-lg flex items-center gap-3 text-red-400 text-sm font-medium hover:bg-base-content/5"
             >
               <LogOut />
               Leave Group
             </button>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="w-full cursor-pointer px-6 py-4 rounded-lg flex items-center gap-3 text-red-400 text-sm font-medium hover:bg-base-content/5"
+              >
+                <Trash2 />
+                Delete Group
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -382,12 +404,58 @@ export default function GroupSidebar({
       {showLeaveModal && (
         <ConfirmModal
           open
-          title={`Exit ${group.chatName}`}
-          confirmText="Yes"
-          cancelText="No"
+          title={
+            isOwner ? `Transfer Ownership Required` : `Exit ${group.chatName}`
+          }
+          confirmText={isOwner ? "Continue" : "Leave Group"}
+          cancelText="Cancel"
           onCancel={() => setShowLeaveModal(false)}
-          onConfirm={() => setShowLeaveModal(false)}
-          description={`Are you sure you want to leave this group? You won't be able to rejoin this group unless you invited again.`}
+          onConfirm={() => {
+            setShowLeaveModal(false);
+            if (isOwner) {
+              setShowTransferModal(true);
+            } else {
+              onLeaveGroup?.();
+            }
+          }}
+          description={
+            isOwner
+              ? `You are the owner of this group. 
+           You must transfer ownership to another member before leaving.`
+              : `Are you sure you want to leave this group? 
+           You won't be able to rejoin unless invited again.`
+          }
+        />
+      )}
+
+      {isOwner && showTransferModal && (
+        <TransferOwnershipModal
+          show={showTransferModal}
+          onClose={() => setShowTransferModal(false)}
+          members={group.members}
+          currentUserId={currentUserId}
+          onTransfer={(newOwnerId) => {
+            setShowTransferModal(false);
+            onTransferOwnership?.(newOwnerId);
+            console.log("Transfer to:", newOwnerId);
+          }}
+        />
+      )}
+
+      {showDeleteModal && (
+        <ConfirmModal
+          open
+          title={`Delete ${group.chatName}`}
+          confirmText="Delete Group"
+          cancelText="No"
+          onCancel={() => setShowDeleteModal(false)}
+          onConfirm={() => {
+            setShowDeleteModal(false);
+            onDeleteGroup?.();
+          }}
+          description={`This will permanently delete "${group.chatName}" for all members. 
+          All conversations and shared content will be removed. 
+          This action cannot be undone.`}
         />
       )}
     </div>

@@ -2,7 +2,7 @@ import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import defaultPFP from "@/public/default-pfp.png";
 import { selectMessagesByChat } from "@/redux/features/messageSelectors";
 import { selectUserStatus, useAppSelector } from "@/redux/hooks";
-import { Check, CheckCheck, Shield, UserRound } from "lucide-react";
+import { Check, CheckCheck, Crown, Shield, UserRound } from "lucide-react";
 import { useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import InboxContextMenu from "../inbox/components/InboxContextMenu";
@@ -13,6 +13,7 @@ interface UserType {
   displayName?: string;
   profilePic: string;
   lastMessage?: string;
+  status?: "online" | "offline"
 }
 
 interface ContextMenuState {
@@ -29,7 +30,7 @@ interface GroupMemberType {
   profilePicture?: {
     url: string | null;
   };
-  role?: string;
+  role?: "owner" | "admin" | "member";
 }
 
 interface BaseFriendCardProps {
@@ -43,7 +44,7 @@ interface BaseFriendCardProps {
   forceActive?: boolean;
   onClick?: () => void;
   ClassName?: string;
-  openDropdown: boolean;
+  openDropdown?: boolean;
 }
 
 interface InboxFriendCardProps extends BaseFriendCardProps {
@@ -221,12 +222,35 @@ export default function FriendCard(props: FriendCardProps) {
     ? typingUserIds.includes(userData._id ?? "")
     : false;
 
-  const generateBadge = (role: string | undefined) => {
+ const generateBadge = (
+  role?: "owner" | "admin" | "member"
+  ) => {
     if (!role) return null;
 
-    const isAdmin = role === "admin";
-    const Icon = isAdmin ? Shield : UserRound;
-    const roleText = role.charAt(0).toUpperCase() + role.slice(1);
+      const roleText = role.charAt(0).toUpperCase() + role.slice(1);
+
+  let IconComponent;
+  let styles;
+
+  switch (role) {
+    case "owner":
+      IconComponent = Crown;
+      styles =
+        "bg-yellow-500/10 text-yellow-600 border-yellow-500/30";
+      break;
+
+    case "admin":
+      IconComponent = Shield;
+      styles =
+        "bg-amber-500/10 text-amber-600 border-amber-500/30";
+      break;
+
+    default:
+      IconComponent = UserRound;
+      styles =
+        "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+  }
+
 
     return (
       <span
@@ -237,14 +261,9 @@ export default function FriendCard(props: FriendCardProps) {
           rounded-full
           border
           transition-all duration-200
-          ${
-            isAdmin
-              ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
-              : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-          }
-        `}
+          ${styles}`}
       >
-        <Icon size={12} strokeWidth={2.5} />
+        <IconComponent size={12} strokeWidth={2.5} />
         {roleText}
       </span>
     );
