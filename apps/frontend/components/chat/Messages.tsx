@@ -1,17 +1,20 @@
-'use client';
+"use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fetchMessages, MessageType, toggleReaction } from "@/redux/features/messageSlice";
+import {
+  fetchMessages,
+  MessageType,
+  toggleReaction,
+} from "@/redux/features/messageSlice";
 import { ChevronDown, ChevronsDown } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
-import { selectMessagesByChat } from "@/redux/features/messageSelectors"
-import ReactionPicker from "./ReactionPicker";
+import { selectMessagesByChat } from "@/redux/features/messageSelectors";
 import ChatBubble from "./ChatBubble";
 import ContextMenu from "./ContextMenu";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { clearJumpTo, fetchNewerMessages } from "@/redux/features/messageSlice";
-
+import UniversalEmojiPicker from "../GlobalComponents/UniversalEmojiPicker";
 
 interface MessagesProps {
   chatId: string;
@@ -37,7 +40,7 @@ export default function Messages({
   typingUsers,
   editingMessage,
   scrollToMessage,
-  highlightedMessageId
+  highlightedMessageId,
 }: MessagesProps) {
   const dispatch = useAppDispatch();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -55,22 +58,26 @@ export default function Messages({
   const loadingNewerRef = useRef(false);
   const loadNewerDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  const reactionTargetRef = useRef<MessageType | null>(null);
+
   const [hasMore, setHasMore] = useState(() => chatMeta?.hasMore ?? true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [showNewMsgBadge, setShowNewMsgBadge] = useState(false);
-  const [unreadDividerIndex, setUnreadDividerIndex] = useState<number | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ 
-    x: number; 
-    y: number; 
+  const [unreadDividerIndex, setUnreadDividerIndex] = useState<number | null>(
+    null,
+  );
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
     msg: MessageType | null;
-    position: 'top' | 'bottom';
+    position: "top" | "bottom";
   }>({
     x: 0,
     y: 0,
     msg: null,
-    position: 'bottom',
+    position: "bottom",
   });
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const [showFullPicker, setShowFullPicker] = useState<{
@@ -78,8 +85,8 @@ export default function Messages({
     msgId: string | null;
   }>({ visible: false, msgId: null });
 
-  const messages = useAppSelector(state =>
-    selectMessagesByChat(state, chatId)
+  const messages = useAppSelector((state) =>
+    selectMessagesByChat(state, chatId),
   );
 
   let pressTimer: NodeJS.Timeout;
@@ -88,35 +95,38 @@ export default function Messages({
     pressTimer = setTimeout(() => {
       const touch = e.touches[0];
       if (!touch || !containerRef.current) return;
-      
+
       const touchX = touch.clientX;
       const touchY = touch.clientY;
-      
+
       // Context menu dimensions (actual size)
       const menuWidth = 160;
       const menuHeight = msg.sender._id === currentUser._id ? 220 : 160;
-      
+
       // Viewport dimensions
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const containerRect = containerRef.current.getBoundingClientRect();
-      
+
       // Center horizontally, but adjust if needed
-      const finalX = Math.max(10, Math.min(touchX - menuWidth / 2, viewportWidth - menuWidth - 10));
+      const finalX = Math.max(
+        10,
+        Math.min(touchX - menuWidth / 2, viewportWidth - menuWidth - 10),
+      );
       let finalY = touchY;
-      
+
       // Determine vertical position
-      let position: 'top' | 'bottom' = 'bottom';
+      let position: "top" | "bottom" = "bottom";
       const spaceBelow = viewportHeight - touchY;
       const spaceAbove = touchY - containerRect.top;
-      
+
       if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
-        position = 'top';
+        position = "top";
         finalY = Math.max(containerRect.top + 10, touchY - menuHeight);
       } else {
         finalY = Math.min(touchY, viewportHeight - menuHeight - 10);
       }
-      
+
       setContextMenu({
         x: finalX,
         y: finalY,
@@ -227,8 +237,12 @@ export default function Messages({
     const attemptCenter = (attemptsLeft: number) => {
       const el = document.getElementById(`msg-${jumpTo.messageId}`);
       if (!el) {
-        if (attemptsLeft > 0) setTimeout(() => attemptCenter(attemptsLeft - 1), 80);
-        else { jumpLockRef.current = false; dispatch(clearJumpTo()); }
+        if (attemptsLeft > 0)
+          setTimeout(() => attemptCenter(attemptsLeft - 1), 80);
+        else {
+          jumpLockRef.current = false;
+          dispatch(clearJumpTo());
+        }
         return;
       }
 
@@ -239,12 +253,17 @@ export default function Messages({
       const containerRect = container.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
       const elOffsetTop = elRect.top - containerRect.top + container.scrollTop;
-      const target = Math.max(0, elOffsetTop - container.clientHeight / 2 + elRect.height / 2);
+      const target = Math.max(
+        0,
+        elOffsetTop - container.clientHeight / 2 + elRect.height / 2,
+      );
 
       container.scrollTo({ top: target, behavior: "smooth" });
 
       // Hold lock so pagination doesn't fire while scroll is settling
-      setTimeout(() => { jumpLockRef.current = false; }, 800);
+      setTimeout(() => {
+        jumpLockRef.current = false;
+      }, 800);
     };
 
     requestAnimationFrame(() => attemptCenter(8));
@@ -264,11 +283,12 @@ export default function Messages({
     const scrollHeightBefore = container?.scrollHeight ?? 0;
     const scrollTopBefore = container?.scrollTop ?? 0;
     const clientHeight = container?.clientHeight ?? 0;
-    const distanceFromBottom = scrollHeightBefore - scrollTopBefore - clientHeight;
+    const distanceFromBottom =
+      scrollHeightBefore - scrollTopBefore - clientHeight;
 
     try {
       await dispatch(
-        fetchNewerMessages({ chatId, after: lastMsg.createdAt, limit: 20 })
+        fetchNewerMessages({ chatId, after: lastMsg.createdAt, limit: 20 }),
       ).unwrap();
 
       // Preserve scroll position after new messages appended at bottom
@@ -276,13 +296,16 @@ export default function Messages({
         requestAnimationFrame(() => {
           if (!containerRef.current) return;
           const newHeight = containerRef.current.scrollHeight;
-          containerRef.current.scrollTop = newHeight - distanceFromBottom - containerRef.current.clientHeight;
+          containerRef.current.scrollTop =
+            newHeight - distanceFromBottom - containerRef.current.clientHeight;
         });
       });
     } catch (e) {
       console.error("Failed to load newer messages", e);
     } finally {
-      setTimeout(() => { loadingNewerRef.current = false; }, 150);
+      setTimeout(() => {
+        loadingNewerRef.current = false;
+      }, 150);
     }
   };
 
@@ -296,13 +319,14 @@ export default function Messages({
       setShowNewMsgBadge(false);
       setUnreadDividerIndex(null);
 
-    // Load newer messages when scrolling down past the context window
-    if (chatMeta?.hasMoreNewer) {
-      if (loadNewerDebounceRef.current) clearTimeout(loadNewerDebounceRef.current);
-      loadNewerDebounceRef.current = setTimeout(() => {
-        loadNewer();
-      }, 200);
-    }
+      // Load newer messages when scrolling down past the context window
+      if (chatMeta?.hasMoreNewer) {
+        if (loadNewerDebounceRef.current)
+          clearTimeout(loadNewerDebounceRef.current);
+        loadNewerDebounceRef.current = setTimeout(() => {
+          loadNewer();
+        }, 200);
+      }
     } else {
       setShowScrollBtn(true);
     }
@@ -320,12 +344,12 @@ export default function Messages({
 
     isInitialLoadRef.current = false;
     setIsInitialLoading(false);
-    
+
     // Instant scroll to bottom
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-    
+
     // Double-check after render
     requestAnimationFrame(() => {
       if (containerRef.current) {
@@ -337,8 +361,11 @@ export default function Messages({
   // Close context menu on outside click
   useEffect(() => {
     const closeMenu = (e: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenu({ x: 0, y: 0, msg: null, position: 'bottom' });
+      const target = e.target as HTMLElement;
+      if (target.closest(".universal-emoji-picker-container")) return;
+
+      if (contextMenuRef.current && !contextMenuRef.current.contains(target)) {
+        setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
         setShowFullPicker({ visible: false, msgId: null });
       }
     };
@@ -417,9 +444,7 @@ export default function Messages({
     }, 80);
 
     return () => clearTimeout(timeout);
-  }, [
-    messages.map(m => m.reactions?.length).join(","), 
-  ]);
+  }, [messages.map((m) => m.reactions?.length).join(",")]);
 
   // Scroll when typing
   useEffect(() => {
@@ -434,23 +459,26 @@ export default function Messages({
     if (!containerRef.current || loadingOlderRef.current || !hasMore) return;
     if (loadingNewerRef.current || jumpLockRef.current) return;
     // if (loadingNewerRef.current) return;
-    
+
     loadingOlderRef.current = true;
     setLoadingMore(true);
 
     const container = containerRef.current;
-    
+
     // Store current scroll metrics
     const scrollHeightBefore = container.scrollHeight;
     const scrollTopBefore = container.scrollTop;
     const clientHeight = container.clientHeight;
-    
+
     // Calculate distance from bottom (Telegram approach)
-    const distanceFromBottom = scrollHeightBefore - scrollTopBefore - clientHeight;
+    const distanceFromBottom =
+      scrollHeightBefore - scrollTopBefore - clientHeight;
 
     try {
       const nextPage = pageRef.current + 1;
-      const res = await dispatch(fetchMessages({ chatId, page: nextPage, limit: 20 })).unwrap();
+      const res = await dispatch(
+        fetchMessages({ chatId, page: nextPage, limit: 20 }),
+      ).unwrap();
 
       // Stop pagination if no messages returned OR fewer than requested (reached the beginning)
       if (res.messages.length === 0 || res.messages.length < 20) {
@@ -462,23 +490,24 @@ export default function Messages({
           setHasMore(false);
         }
       }
-      
+
       // Only adjust scroll if we got messages
       if (res.messages.length > 0) {
         // Multiple RAF for stable positioning (Telegram uses this approach)
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             if (!containerRef.current) return;
-            
+
             const scrollHeightAfter = containerRef.current.scrollHeight;
             const clientHeightAfter = containerRef.current.clientHeight;
-            
+
             // Maintain the same distance from bottom
-            const newScrollTop = scrollHeightAfter - distanceFromBottom - clientHeightAfter;
-            
+            const newScrollTop =
+              scrollHeightAfter - distanceFromBottom - clientHeightAfter;
+
             // Apply scroll position
             containerRef.current.scrollTop = newScrollTop;
-            
+
             // Triple RAF for extra stability on slower devices
             requestAnimationFrame(() => {
               if (containerRef.current) {
@@ -501,92 +530,97 @@ export default function Messages({
 
   const isNewDay = (curr: MessageType, prev?: MessageType) => {
     if (!prev) return true;
-    return new Date(curr.createdAt).toDateString() !== new Date(prev.createdAt).toDateString();
+    return (
+      new Date(curr.createdAt).toDateString() !==
+      new Date(prev.createdAt).toDateString()
+    );
   };
 
   const handleReply = (msg: MessageType) => {
-    onEdit(null); 
+    onEdit(null);
     setReplyingTo(msg);
-    setContextMenu({ x: 0, y: 0, msg: null, position: 'bottom' });
+    setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
   };
 
   const handleReaction = (msg: MessageType, emoji: string) => {
+    console.log("REACTION :", msg, emoji);
     dispatch(toggleReaction({ messageId: msg._id, emoji }));
-    setContextMenu({ x: 0, y: 0, msg: null, position: 'bottom' });
+    reactionTargetRef.current = null;
+    setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
     setShowFullPicker({ visible: false, msgId: null });
   };
 
   const openContextMenu = (e: React.MouseEvent, msg: MessageType) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (contextMenu.msg?._id === msg._id) {
       closeContextMenu();
       return;
     }
-    
+
     if (!containerRef.current) return;
 
     const mouseX = e.clientX;
     const mouseY = e.clientY;
-    
+
     // Check if this is the current user's message
     const isUserMessage = msg.sender._id === currentUser._id;
-    
+
     // Context menu dimensions (actual size from component: w-40 = 160px)
     const menuWidth = 160;
     const menuHeight = isUserMessage ? 220 : 160; // Taller if user's own message (has edit/delete)
-    
+
     // Viewport dimensions
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const containerRect = containerRef.current.getBoundingClientRect();
-    
+
     // Calculate initial position at mouse pointer
     let finalX = mouseX;
     let finalY = mouseY;
-    
+
     // Adjust X position if menu would overflow right edge
     if (finalX + menuWidth > viewportWidth) {
       finalX = viewportWidth - menuWidth - 10; // 10px padding from edge
     }
-    
+
     // Adjust X position if menu would overflow left edge
     if (finalX < 10) {
       finalX = 10;
     }
-    
+
     // Determine if menu should open above or below cursor
-    let position: 'top' | 'bottom' = 'bottom';
-    
+    let position: "top" | "bottom" = "bottom";
+
     // Check if there's enough space below
     const spaceBelow = viewportHeight - mouseY;
     const spaceAbove = mouseY - containerRect.top;
-    
+
     if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
       // Open above cursor
-      position = 'top';
+      position = "top";
       finalY = mouseY - menuHeight;
-      
+
       // Make sure it doesn't overflow top
       if (finalY < containerRect.top + 10) {
         finalY = containerRect.top + 10;
       }
     } else {
       // Open below cursor
-      position = 'bottom';
-      
+      position = "bottom";
+
       // Make sure it doesn't overflow bottom
       if (finalY + menuHeight > viewportHeight) {
         finalY = viewportHeight - menuHeight - 10;
       }
     }
-    
-    setContextMenu({ 
-      x: finalX, 
-      y: finalY, 
-      msg, 
-      position 
+
+    setContextMenu({
+      x: finalX,
+      y: finalY,
+      msg,
+      position,
     });
     setShowFullPicker({ visible: false, msgId: null });
   };
@@ -597,14 +631,14 @@ export default function Messages({
   };
 
   const openFullPicker = (msgId: string) => {
+    reactionTargetRef.current = contextMenu.msg;
     setShowFullPicker({ visible: true, msgId });
   };
-
   // Freeze page scroll when context menu is open
   useEffect(() => {
     const prevent = (e: Event) => {
       const target = e.target as HTMLElement;
-      if (target.closest('.EmojiPickerReact')) return;
+      if (target.closest(".EmojiPickerReact")) return;
       e.preventDefault();
     };
 
@@ -677,120 +711,127 @@ export default function Messages({
         )}
 
         <AnimatePresence>
-          {!isInitialLoading && messages.map((msg, index) => {
-            
-            let grouped = false;
-            if (!groupStart) {
-              // First message in entire list
-              groupStart = msg;
-              grouped = false;
-            } else {
-              const sameSender = msg.sender._id === groupStart.sender._id;
-
-              const diffSeconds =
-                (new Date(msg.createdAt).getTime() -
-                  new Date(groupStart.createdAt).getTime()) /
-                1000;
-
-              if (sameSender && diffSeconds < GROUP_INTERVAL) {
-                grouped = true;
-              } else {
-                // Start new group
+          {!isInitialLoading &&
+            messages.map((msg, index) => {
+              let grouped = false;
+              if (!groupStart) {
+                // First message in entire list
                 groupStart = msg;
                 grouped = false;
+              } else {
+                const sameSender = msg.sender._id === groupStart.sender._id;
+
+                const diffSeconds =
+                  (new Date(msg.createdAt).getTime() -
+                    new Date(groupStart.createdAt).getTime()) /
+                  1000;
+
+                if (sameSender && diffSeconds < GROUP_INTERVAL) {
+                  grouped = true;
+                } else {
+                  // Start new group
+                  groupStart = msg;
+                  grouped = false;
+                }
               }
-            }
 
-            const prev = messages[index - 1];
+              const prev = messages[index - 1];
 
-            const newDay = isNewDay(msg, prev);
-            const next = messages[index + 1];
+              const newDay = isNewDay(msg, prev);
+              const next = messages[index + 1];
 
-            const nextInSameGroup =
-              next &&
-              next.sender._id === msg.sender._id &&
-              (new Date(next.createdAt).getTime() - new Date(msg.createdAt).getTime()) / 1000 < 300;
+              const nextInSameGroup =
+                next &&
+                next.sender._id === msg.sender._id &&
+                (new Date(next.createdAt).getTime() -
+                  new Date(msg.createdAt).getTime()) /
+                  1000 <
+                  300;
 
-            const isLastInGroup = !nextInSameGroup;
-            const isLastMessage = index === messages.length - 1;
+              const isLastInGroup = !nextInSameGroup;
+              const isLastMessage = index === messages.length - 1;
 
-            // Animate only the specific message ID we flagged as new.
-            // Reading a ref here is intentional: we want the current value
-            // at render time without subscribing to it as reactive state.
-            const shouldAnimate = msg._id === animatedMessageIdRef.current;
+              // Animate only the specific message ID we flagged as new.
+              // Reading a ref here is intentional: we want the current value
+              // at render time without subscribing to it as reactive state.
+              const shouldAnimate = msg._id === animatedMessageIdRef.current;
 
-            const isMe = msg.sender._id === currentUser._id;
-            const senderName = isMe ? "You" : msg.sender.displayName || msg.sender.username;
-            const profilePic = isMe ? currentUser.profilePic || "/default-pfp.png" : msg.sender.profilePicture?.url || "/default-pfp.png";
+              const isMe = msg.sender._id === currentUser._id;
+              const senderName = isMe
+                ? "You"
+                : msg.sender.displayName || msg.sender.username;
+              const profilePic = isMe
+                ? currentUser.profilePic || "/default-pfp.png"
+                : msg.sender.profilePicture?.url || "/default-pfp.png";
 
-            return (
-              <motion.div
-                id={`msg-${msg._id}`}
-                key={msg._id}
-                initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="relative"
-                onContextMenu={(e) => openContextMenu(e, msg)}
-                onTouchStart={(e) => handleTouchStart(msg, e)}
-                onTouchEnd={handleTouchEnd}
-              >
-                {newDay && (
-                  <div className="flex items-center my-4 w-full">
-                    <hr className="flex-grow border-t border-base-content opacity-10" />
-                    <span className="opacity-50 text-base-content text-xs mx-3 whitespace-nowrap">
-                      {new Date(msg.createdAt).toLocaleDateString([], {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </span>
-                    <hr className="flex-grow border-t border-base-content opacity-10" />
-                  </div>
-                )}
-
-                {unreadDividerIndex === index && (
-                  <div className="flex items-center justify-center my-2">
-                    <div className="bg-primary text-white text-xs px-3 py-1 rounded-full shadow">
-                      New Messages
+              return (
+                <motion.div
+                  id={`msg-${msg._id}`}
+                  key={msg._id}
+                  initial={shouldAnimate ? { opacity: 0, y: 20 } : false}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="relative"
+                  onContextMenu={(e) => openContextMenu(e, msg)}
+                  onTouchStart={(e) => handleTouchStart(msg, e)}
+                  onTouchEnd={handleTouchEnd}
+                >
+                  {newDay && (
+                    <div className="flex items-center my-4 w-full">
+                      <hr className="flex-grow border-t border-base-content opacity-10" />
+                      <span className="opacity-50 text-base-content text-xs mx-3 whitespace-nowrap">
+                        {new Date(msg.createdAt).toLocaleDateString([], {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </span>
+                      <hr className="flex-grow border-t border-base-content opacity-10" />
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <ChatBubble
-                  msg={msg}
-                  isMe={isMe}
-                  grouped={grouped}
-                  isLastInGroup={isLastInGroup}
-                  senderName={senderName}
-                  scrollToMessage={scrollToMessage}
-                  replyingTo={replyingTo}
-                  editingMessage={editingMessage}
-                  profilePic={profilePic}
-                  handleReaction={handleReaction}
-                  contextMenu={contextMenu}
-                  isLastMessage={isLastMessage}
-                  highlightedMessageId={highlightedMessageId }
-                />
-                
-                {contextMenu.msg?._id === msg._id && !msg.deleted && (
-                  <ContextMenu
-                    contextMenuRef={contextMenuRef}
-                    contextMenu={contextMenu}
-                    isMe={isMe}
-                    openFullPicker={openFullPicker}
+                  {unreadDividerIndex === index && (
+                    <div className="flex items-center justify-center my-2">
+                      <div className="bg-primary text-white text-xs px-3 py-1 rounded-full shadow">
+                        New Messages
+                      </div>
+                    </div>
+                  )}
+
+                  <ChatBubble
                     msg={msg}
-                    handleReply={handleReply}
-                    closeContextMenu={closeContextMenu}
-                    setReplyingTo={setReplyingTo}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
+                    isMe={isMe}
+                    grouped={grouped}
+                    isLastInGroup={isLastInGroup}
+                    senderName={senderName}
+                    scrollToMessage={scrollToMessage}
+                    replyingTo={replyingTo}
+                    editingMessage={editingMessage}
+                    profilePic={profilePic}
+                    handleReaction={handleReaction}
+                    contextMenu={contextMenu}
+                    isLastMessage={isLastMessage}
+                    highlightedMessageId={highlightedMessageId}
                   />
-                )}
-              </motion.div>
-            );
-          })}
+
+                  {contextMenu.msg?._id === msg._id && !msg.deleted && (
+                    <ContextMenu
+                      contextMenuRef={contextMenuRef}
+                      contextMenu={contextMenu}
+                      isMe={isMe}
+                      openFullPicker={openFullPicker}
+                      msg={msg}
+                      handleReply={handleReply}
+                      closeContextMenu={closeContextMenu}
+                      setReplyingTo={setReplyingTo}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                    />
+                  )}
+                </motion.div>
+              );
+            })}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -810,19 +851,18 @@ export default function Messages({
         </AnimatePresence>
       </div>
 
-      {showFullPicker.visible && (
-        <ReactionPicker
-          visible={showFullPicker.visible}
-          onClose={() => {
-            setShowFullPicker({ visible: false, msgId: null });
-            setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
-          }}
-          onSelect={(emoji) => {
-            const msg = contextMenu.msg;
-            if (msg) handleReaction(msg, emoji);
-          }}
-        />
-      )}
+      <UniversalEmojiPicker
+        visible={showFullPicker.visible}
+        setVisible={(v: boolean) =>
+          setShowFullPicker({ visible: v, msgId: null })
+        }
+        onSelect={(emoji: string) => {
+          const msg = reactionTargetRef.current;
+          if (msg) {
+            handleReaction(msg, emoji);
+          }
+        }}
+      />
 
       <AnimatePresence>
         {showScrollBtn && (
@@ -852,17 +892,18 @@ export default function Messages({
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.6, opacity: 0 }}
+            whileHover={{ scale: 1.02 }}
             transition={{ duration: 0.2 }}
             className="absolute bottom-0 left-4 mb-5 z-50
               flex items-center gap-1
               pl-4 px-2 py-2
               rounded-full
-              bg-[#004030]
-              text-white
-              text-sm font-medium
+              bg-base-content
+              font-semibold
+              text-sm
               cursor-pointer shadow"
           >
-            New messages <ChevronsDown size={17}/>
+            New messages <ChevronsDown size={18} strokeWidth={3} />
           </motion.div>
         )}
       </AnimatePresence>

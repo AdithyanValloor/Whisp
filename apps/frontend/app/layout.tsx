@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Poppins, Yellowtail } from "next/font/google";
-import "./globals.css";
+import "./styles/globals.css";
+import "./styles/emoji-picker.css"
 import Providers from "./Providers";
 import AuthBootstrap from "./AuthBootstrap";
 

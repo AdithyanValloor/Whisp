@@ -38,17 +38,6 @@ export default function MessageInput({
   setReplyingTo,
   isMobile,
 }: MessageInputProps) {
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.closest(".emoji-picker-container")) {
-        setShowPicker(false);
-      }
-    };
-
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
-  }, [setShowPicker]);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 

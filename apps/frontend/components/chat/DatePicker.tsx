@@ -11,7 +11,6 @@ interface DateFilterProps {
   onChange: (value: Dayjs | null) => void;
 }
 
-
 export default function DateFilter({ value, onChange }: DateFilterProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement | null>(null);
@@ -41,9 +40,6 @@ export default function DateFilter({ value, onChange }: DateFilterProps) {
           textField: {
             sx: { display: "none" },
           },
-
-          
-
           popper: {
             anchorEl: anchorRef.current,
             placement: "bottom-end",

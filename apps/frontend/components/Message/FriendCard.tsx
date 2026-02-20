@@ -6,6 +6,7 @@ import { Check, CheckCheck, Crown, Shield, UserRound } from "lucide-react";
 import { useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import InboxContextMenu from "../inbox/components/InboxContextMenu";
+import { ppid } from "process";
 
 interface UserType {
   _id?: string;
@@ -13,7 +14,7 @@ interface UserType {
   displayName?: string;
   profilePic: string;
   lastMessage?: string;
-  status?: "online" | "offline"
+  status?: "online" | "offline";
 }
 
 interface ContextMenuState {
@@ -74,7 +75,7 @@ export default function FriendCard(props: FriendCardProps) {
     hideLastMessage,
     forceActive,
     ClassName,
-    openDropdown
+    openDropdown,
   } = props;
 
   const isInbox = props.ifInbox === true;
@@ -222,35 +223,29 @@ export default function FriendCard(props: FriendCardProps) {
     ? typingUserIds.includes(userData._id ?? "")
     : false;
 
- const generateBadge = (
-  role?: "owner" | "admin" | "member"
-  ) => {
+  const generateBadge = (role?: "owner" | "admin" | "member") => {
     if (!role) return null;
 
-      const roleText = role.charAt(0).toUpperCase() + role.slice(1);
+    const roleText = role.charAt(0).toUpperCase() + role.slice(1);
 
-  let IconComponent;
-  let styles;
+    let IconComponent;
+    let styles;
 
-  switch (role) {
-    case "owner":
-      IconComponent = Crown;
-      styles =
-        "bg-yellow-500/10 text-yellow-600 border-yellow-500/30";
-      break;
+    switch (role) {
+      case "owner":
+        IconComponent = Crown;
+        styles = "bg-yellow-500/10 text-yellow-600 border-yellow-500/30";
+        break;
 
-    case "admin":
-      IconComponent = Shield;
-      styles =
-        "bg-amber-500/10 text-amber-600 border-amber-500/30";
-      break;
+      case "admin":
+        IconComponent = Shield;
+        styles = "bg-amber-500/10 text-amber-600 border-amber-500/30";
+        break;
 
-    default:
-      IconComponent = UserRound;
-      styles =
-        "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
-  }
-
+      default:
+        IconComponent = UserRound;
+        styles = "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+    }
 
     return (
       <span
@@ -297,7 +292,7 @@ export default function FriendCard(props: FriendCardProps) {
             </h3>
             {lastMessageTime && (
               <p
-                className={`text-[11px] font-semibold text-base-content opacity-60 ${unread ? "text-green-500" : ""}`}
+                className={`text-[12px] font-semibold text-base-content opacity-60 ${unread ? "text-green-500" : ""}`}
               >
                 {lastMessageTime}
               </p>
@@ -307,25 +302,27 @@ export default function FriendCard(props: FriendCardProps) {
           </div>
 
           {!hideLastMessage && (
-            <p className="text-[12px] opacity-70 flex items-center justify-between gap-1 min-w-0">
-              <span className="truncate min-w-0 text-base-content flex items-center gap-1">
+            <div className="text-[13px] flex items-center justify-between gap-2 min-w-0">
+              {/* LEFT TEXT AREA */}
+              <span className="flex-1 min-w-0 truncate text-base-content flex items-center gap-1">
                 {isGroupMemberCard ? (
                   isMemberTyping ? (
-                    <>
-                      <span className="loading loading-dots loading-sm opacity-70" />
-                    </>
+                    <span className="loading loading-dots loading-sm opacity-70" />
                   ) : null
                 ) : isChatTyping ? (
-                  <>
-                    <span className="loading loading-dots loading-sm opacity-70" />
-                  </>
+                  <span className="loading loading-dots loading-sm opacity-70" />
                 ) : rightSlot ? (
                   status
                 ) : (
-                  lastMessageText
+                  <span
+                    className={`${unread ? "opacity-100" : "opacity-60"} truncate`}
+                  >
+                    {lastMessageText}
+                  </span>
                 )}
               </span>
 
+              {/* SEEN / DELIVERED ICON */}
               {!isGroupMemberCard &&
                 !isChatTyping &&
                 isMyMessage &&
@@ -342,16 +339,21 @@ export default function FriendCard(props: FriendCardProps) {
                     className="flex-shrink-0 text-base-content"
                   />
                 ) : null)}
-            </p>
+
+              {/* UNREAD BADGE */}
+              {unread > 0 && (
+                <span
+                  className="bg-green-600 text-black text-xs font-sans font-bold
+        min-w-5 h-5 px-1 rounded-full
+        flex items-center justify-center
+        flex-shrink-0"
+                >
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </div>
           )}
         </div>
-
-        {unread > 0 && (
-          <span className="bg-green-500 text-black text-xs font-semibold min-w-5 h-5 px-1.5 rounded-full flex items-center justify-center ml-1">
-            {unread > 99 ? "99+" : unread}
-          </span>
-        )}
-
         {rightSlot && (
           <div className="ml-2 flex-shrink-0" data-right-slot>
             {rightSlot}
