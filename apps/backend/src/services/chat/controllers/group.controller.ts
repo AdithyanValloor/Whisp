@@ -15,6 +15,16 @@ import {
   BadRequest,
   Unauthorized,
 } from "../../../utils/errors/httpErrors.js";
+import {
+  emitAdminToggled,
+  emitGroupCreated,
+  emitGroupDeleted,
+  emitGroupUpdated,
+  emitMemberLeft,
+  emitMemberRemoved,
+  emitMembersAdded,
+  emitOwnershipTransferred,
+} from "../../../socket/emitters/group.emitter.js";
 
 /**
  * ------------------------------------------------------------------
@@ -24,9 +34,8 @@ import {
  * @route   POST /api/group
  * @access  Private (Authenticated users only)
  *
- * Notes:
- * - The requesting user becomes the group creator & admin
- * - At least one additional member is required
+ * Emits:
+ * - `group_created` to each member individually
  */
 export const createGroupChat = async (
   req: AuthRequest,
@@ -41,15 +50,17 @@ export const createGroupChat = async (
       throw BadRequest("Group name and member list are required");
     }
 
-    const groupChat = await createGroupChatFunction(
+    const { group, memberIds } = await createGroupChatFunction(
       name,
       userIds,
       currentUserId
     );
 
+    emitGroupCreated(group, memberIds);
+
     res.status(201).json({
       message: "Group chat created",
-      groupChat,
+      groupChat: group,
     });
   } catch (error) {
     handleChatError(res, error as Error);
@@ -90,6 +101,10 @@ export const getGroupById = async (
  * @desc    Adds new members to an existing group chat
  * @route   POST /api/group/members
  * @access  Private (Admins only)
+ *
+ * Emits:
+ * - `members_added` to the group room
+ * - `added_to_group` to each newly added member individually
  */
 export const addMembers = async (
   req: AuthRequest,
@@ -105,11 +120,17 @@ export const addMembers = async (
       throw BadRequest("Chat ID and members array are required");
     }
 
-    const chat = await addMembersFunction(chatId, members, userId);
+    const { group, newMemberIds } = await addMembersFunction(
+      chatId,
+      members,
+      userId
+    );
+
+    emitMembersAdded(chatId, group, newMemberIds);
 
     res.status(200).json({
       message: "Members added successfully",
-      chat,
+      chat: group,
     });
   } catch (error) {
     handleChatError(res, error as Error);
@@ -123,6 +144,10 @@ export const addMembers = async (
  * @desc    Removes a member from a group chat
  * @route   DELETE /api/group/members
  * @access  Private (Admins only)
+ *
+ * Emits:
+ * - `member_removed` to the group room
+ * - `removed_from_group` to the removed user
  */
 export const removeMembers = async (
   req: AuthRequest,
@@ -137,11 +162,20 @@ export const removeMembers = async (
       throw BadRequest("Chat ID and member ID are required");
     }
 
-    const chat = await removeMembersFunction(userId, chatId, member);
+    const { group, removedMemberId } = await removeMembersFunction(
+      userId,
+      chatId,
+      member
+    );
+
+    emitMemberRemoved(chatId, removedMemberId);
+
+    // Broadcast updated group data to remaining members
+    emitGroupUpdated(chatId, group);
 
     res.status(200).json({
       message: "Member removed successfully",
-      chat,
+      chat: group,
     });
   } catch (error) {
     handleChatError(res, error as Error);
@@ -155,6 +189,9 @@ export const removeMembers = async (
  * @desc    Promotes or demotes a member as group admin
  * @route   PATCH /api/group/admin
  * @access  Private (Group creator only)
+ *
+ * Emits:
+ * - `admin_toggled` to the group room
  */
 export const toggleAdmin = async (
   req: AuthRequest,
@@ -165,11 +202,7 @@ export const toggleAdmin = async (
       chatId,
       member,
       makeAdmin,
-    }: {
-      chatId?: string;
-      member?: string;
-      makeAdmin?: boolean;
-    } = req.body;
+    }: { chatId?: string; member?: string; makeAdmin?: boolean } = req.body;
 
     const userId = req.user?.id;
 
@@ -178,16 +211,18 @@ export const toggleAdmin = async (
       throw BadRequest("Invalid admin toggle payload");
     }
 
-    const chat = await toggleAdminFunction(
+    const { group, memberId, isAdmin } = await toggleAdminFunction(
       userId,
       chatId,
       member,
       makeAdmin
     );
 
+    emitAdminToggled(chatId, memberId, isAdmin);
+
     res.status(200).json({
       message: makeAdmin ? "User promoted to admin" : "User demoted",
-      chat,
+      chat: group,
     });
   } catch (error) {
     handleChatError(res, error as Error);
@@ -202,8 +237,9 @@ export const toggleAdmin = async (
  * @route   POST /api/group/leave
  * @access  Private (Group members only)
  *
- * Notes:
- * - If the creator leaves, ownership is reassigned or group deleted
+ * Emits:
+ * - `group_deleted` to all members individually  (if group was deleted)
+ * - `member_left` to group room + leaver         (if normal leave)
  */
 export const leaveGroup = async (
   req: AuthRequest,
@@ -216,9 +252,18 @@ export const leaveGroup = async (
     if (!userId) throw Unauthorized();
     if (!chatId) throw BadRequest("Chat ID is required");
 
-    const response = await leaveGroupFunction(userId, chatId);
+    const result = await leaveGroupFunction(userId, chatId);
 
-    res.status(200).json(response);
+    if (result.deleted) {
+      emitGroupDeleted(result.chatId, result.memberIds!);
+    } else {
+      emitMemberLeft(result.chatId, userId);
+    }
+
+    res.status(200).json({
+      message: result.message,
+      deleted: result.deleted,
+    });
   } catch (error) {
     handleChatError(res, error as Error);
   }
@@ -230,10 +275,11 @@ export const leaveGroup = async (
  * ------------------------------------------------------------------
  * @desc    Allows creator to delete a group chat
  * @route   POST /api/group/delete
- * @access  Private (owner only)
+ * @access  Private (Owner only)
  *
+ * Emits:
+ * - `group_deleted` to all members individually
  */
-
 export const deleteGroup = async (
   req: AuthRequest,
   res: Response
@@ -245,7 +291,12 @@ export const deleteGroup = async (
     if (!userId) throw Unauthorized();
     if (!chatId) throw BadRequest("Chat ID is required");
 
-    await deleteGroupFunction(userId, chatId);
+    const { chatId: deletedChatId, memberIds } = await deleteGroupFunction(
+      userId,
+      chatId
+    );
+
+    emitGroupDeleted(deletedChatId, memberIds);
 
     res.status(200).json({
       message: "Group deleted successfully",
@@ -262,6 +313,9 @@ export const deleteGroup = async (
  * @desc    Allows group creator to transfer ownership to another member
  * @route   PATCH /api/group/transfer-ownership
  * @access  Private (Owner only)
+ *
+ * Emits:
+ * - `ownership_transferred` to the group room
  */
 export const transferOwnership = async (
   req: AuthRequest,
@@ -278,15 +332,14 @@ export const transferOwnership = async (
       throw BadRequest("Chat ID and new owner ID are required");
     }
 
-    const chat = await transferOwnershipFunction(
-      userId,
-      chatId,
-      newOwnerId
-    );
+    const { group, newOwnerId: resolvedNewOwnerId } =
+      await transferOwnershipFunction(userId, chatId, newOwnerId);
+
+    emitOwnershipTransferred(chatId, resolvedNewOwnerId);
 
     res.status(200).json({
       message: "Ownership transferred successfully",
-      chat,
+      chat: group,
     });
   } catch (error) {
     handleChatError(res, error as Error);

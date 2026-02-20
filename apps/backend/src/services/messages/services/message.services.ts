@@ -8,17 +8,6 @@ import {
   Forbidden,
 } from "../../../utils/errors/httpErrors.js";
 
-
-import { toMessageSocketPayload } from "../utils/normalizeMessage.js";
-import { 
-  emitDeleteMessage, 
-  emitEditMessage, 
-  emitMessageReaction, 
-  emitMessagesSeen, 
-  emitNewMessage, 
-  emitUnreadUpdate 
-} from "../../../socket/emitters/message.emmitter.js";
-
 /**
  * ------------------------------------------------------------------
  * Fetch Paginated Messages for a Chat
@@ -105,24 +94,25 @@ export const getUnreadCountsFunction = async (userId: string) => {
 
 /**
  * ------------------------------------------------------------------
- * Send Message + Emit Socket Events
+ * Send Message
  * ------------------------------------------------------------------
- * @desc    Creates a new message, updates unread counts,
- *          and emits real-time socket events
+ * @desc    Creates a new message and updates unread counts.
+ *          Socket emissions are handled by the controller.
  *
  * @param   chatId   - ID of the chat
  * @param   content  - Message text
  * @param   senderId - ID of the sender
  * @param   replyTo  - Optional message ID being replied to
  *
- * @returns Populated message document
+ * @returns {
+ *   populated: populated message document,
+ *   chatMembers: member ID strings,
+ *   unreadCounts: Map<memberId, count>
+ * }
  *
  * Side Effects:
  * - Updates Chat.lastMessage
  * - Increments unread counts for other members
- * - Emits:
- *   - `new_message` to chat room
- *   - `unread_update` to individual users
  */
 export const sendMessageFunction = async (
   chatId: string,
@@ -171,36 +161,32 @@ export const sendMessageFunction = async (
 
   await chat.save();
 
-  // Emit socket events
-  const payload = toMessageSocketPayload(populated);
-
-  emitNewMessage(chatId, payload);
-
-  chat.members.forEach((memberId) => {
-    const id = memberId.toString();
-    if (id !== senderId) {
-      emitUnreadUpdate(id, chatId, chat.unreadCounts.get(id) || 0);
-    }
-  });
-
-  return populated;
+  return {
+    populated,
+    chatMembers: chat.members.map((m) => m.toString()),
+    unreadCounts: chat.unreadCounts,
+  };
 };
 
 /**
  * ------------------------------------------------------------------
  * Toggle Reaction on Message
  * ------------------------------------------------------------------
- * @desc    Adds or removes a reaction for a message
+ * @desc    Adds or removes a reaction for a message.
+ *          Socket emissions are handled by the controller.
  *
  * @param   messageId - ID of the message
  * @param   userId    - ID of the reacting user
  * @param   emoji     - Emoji identifier
  *
- * @returns Updated message with populated reactions
+ * @returns {
+ *   populated: updated message with populated reactions,
+ *   chatId: string
+ * }
  *
  * Notes:
- * - Same emoji + user toggles reaction
- * - Emits `message_reaction` socket event
+ * - Same emoji + user toggles reaction off
+ * - Different emoji replaces existing reaction
  */
 export const toggleReactionFunction = async (
   messageId: string,
@@ -213,7 +199,6 @@ export const toggleReactionFunction = async (
   const message = await Message.findById(messageId);
   if (!message) throw NotFound("Message not found");
 
-  // Find any existing reaction by this user
   const existingReactionIndex = message.reactions.findIndex(
     (r) => r.user.toString() === userId
   );
@@ -222,14 +207,11 @@ export const toggleReactionFunction = async (
     const existingReaction = message.reactions[existingReactionIndex];
 
     if (existingReaction.emoji === emoji) {
-      // Same emoji clicked → remove reaction
       message.reactions.splice(existingReactionIndex, 1);
     } else {
-      // Different emoji clicked → replace reaction
       message.reactions[existingReactionIndex].emoji = emoji;
     }
   } else {
-    // No reaction yet → add new one
     message.reactions.push({
       emoji,
       user: new mongoose.Types.ObjectId(userId),
@@ -243,26 +225,21 @@ export const toggleReactionFunction = async (
     { path: "reactions.user", select: "username displayName profilePicture" },
   ]);
 
-  emitMessageReaction(
-    message.chat.toString(),
-    toMessageSocketPayload(populated)
-  );
-
-  return populated;
+  return {
+    populated,
+    chatId: message.chat.toString(),
+  };
 };
 
 /**
  * ------------------------------------------------------------------
  * Mark Chat as Read
  * ------------------------------------------------------------------
- * @desc    Resets unread count for a chat for the given user
+ * @desc    Resets unread count for a chat for the given user.
+ *          Socket emissions are handled by the controller.
  *
  * @param   userId - ID of the user
  * @param   chatId - ID of the chat
- *
- * Side Effects:
- * - Updates Chat.unreadCounts
- * - Emits `unread_update` to user socket
  */
 export const markChatAsReadFunction = async (
   userId: string,
@@ -277,8 +254,6 @@ export const markChatAsReadFunction = async (
   chat.unreadCounts.set(userId.toString(), 0);
   await chat.save();
 
-  emitUnreadUpdate(userId, chatId, 0);
-
   return true;
 };
 
@@ -286,16 +261,18 @@ export const markChatAsReadFunction = async (
  * ------------------------------------------------------------------
  * Mark Messages as Seen
  * ------------------------------------------------------------------
- * @desc    Marks all unseen messages in a chat as seen by the user
+ * @desc    Marks all unseen messages in a chat as seen by the user.
+ *          Socket emissions are handled by the controller.
  *
  * @param   userId - ID of the user
  * @param   chatId - ID of the chat
+ *
+ * @returns { success: true, modifiedCount: number }
  *
  * Side Effects:
  * - Updates Message.seenBy
  * - Removes user from deliveredTo
  * - Resets unread count
- * - Emits `messages_seen` socket event
  */
 export const markMessagesAsSeenFunction = async (
   userId: string,
@@ -320,25 +297,28 @@ export const markMessagesAsSeenFunction = async (
   chat.unreadCounts.set(userId.toString(), 0);
   await chat.save();
 
-  emitMessagesSeen(chatId, userId, updated.modifiedCount);
-
-  return { success: true };
+  return { success: true, modifiedCount: updated.modifiedCount };
 };
 
 /**
  * ------------------------------------------------------------------
  * Edit Message
  * ------------------------------------------------------------------
- * @desc    Edits message content (soft edit)
+ * @desc    Edits message content (soft edit).
+ *          Socket emissions are handled by the controller.
  *
  * @param   messageId  - ID of the message
  * @param   newContent - Updated message content
  * @param   userId     - ID of the requester
  *
+ * @returns {
+ *   populated: updated message,
+ *   chatId: string
+ * }
+ *
  * Notes:
  * - Only sender can edit
  * - Sets `edited = true`
- * - Emits `edit_message` socket event
  */
 export const editMessageFunction = async (
   messageId: string,
@@ -360,27 +340,31 @@ export const editMessageFunction = async (
   await message.save();
 
   const populated = await message.populate("sender", "username profilePicture");
-  emitEditMessage(
-    message.chat.toString(),
-    toMessageSocketPayload(populated)
-  );
 
-  return populated;
+  return {
+    populated,
+    chatId: message.chat.toString(),
+  };
 };
 
 /**
  * ------------------------------------------------------------------
  * Delete Message (Soft Delete)
  * ------------------------------------------------------------------
- * @desc    Soft deletes a message instead of removing it
+ * @desc    Soft deletes a message instead of removing it.
+ *          Socket emissions are handled by the controller.
  *
  * @param   messageId - ID of the message
  * @param   userId    - ID of the requester
  *
+ * @returns {
+ *   populated: updated message,
+ *   chatId: string
+ * }
+ *
  * Notes:
  * - Message is retained for audit/history
  * - Content replaced with placeholder
- * - Emits `delete_message` socket event
  */
 export const deleteMessageFunction = async (
   messageId: string,
@@ -400,11 +384,11 @@ export const deleteMessageFunction = async (
   await message.save();
 
   const populated = await message.populate("sender", "username profilePicture");
-  emitDeleteMessage(
-    message.chat.toString(),
-    toMessageSocketPayload(populated)
-  );
-  return populated;
+
+  return {
+    populated,
+    chatId: message.chat.toString(),
+  };
 };
 
 /**
@@ -450,16 +434,10 @@ export const searchMessagesFunction = async (
     deleted: false,
   };
 
-  // -------------------------
-  // TEXT SEARCH
-  // -------------------------
   if (query && query.trim() !== "") {
     filter.$text = { $search: query };
   }
 
-  // -------------------------
-  // DATE FILTER
-  // -------------------------
   if (date) {
     const start = new Date(date);
     start.setHours(0, 0, 0, 0);
@@ -523,47 +501,21 @@ export const searchMessagesFunction = async (
  *            - The target message itself
  *            - `limit` messages AFTER the target
  *
- *          This ensures:
- *            ✓ Efficient loading
- *            ✓ Smooth scroll anchoring
- *            ✓ Scalable chat performance
- *
  * @param   messageId - Target message ID
  * @param   userId    - Authenticated user ID (must belong to chat)
  * @param   limit     - Number of messages before/after (default: 20)
  *
  * @returns {
  *   target:  Message,
- *   before:  Message[],   // chronological (older → newer)
- *   after:   Message[]    // chronological (older → newer)
+ *   before:  Message[],
+ *   after:   Message[]
  * }
- *
- * @security
- *   - Verifies user belongs to the chat before returning data
- *
- * @performance
- *   - Uses compound index: 
- *       messageSchema.index({ chat: 1, createdAt: -1 });
- *   - Queries efficiently using:
- *       chat + createdAt
- *
- * @use-case
- *   - Search result jump
- *   - Reply-to jump
- *   - Message permalink
- * ------------------------------------------------------------------
  */
-
 export const getMessageContextFunction = async (
   messageId: string,
   userId: string,
   limit: number = 20
 ) => {
-
-  // --------------------------------------------------
-  // Common populate configuration
-  // This ensures returned messages match Redux MessageType
-  // --------------------------------------------------
   const populateConfig = [
     {
       path: "sender",
@@ -583,17 +535,9 @@ export const getMessageContextFunction = async (
     },
   ];
 
-  // --------------------------------------------------
-  // 1️⃣ Get target message (with populate)
-  // --------------------------------------------------
-  const target = await Message.findById(messageId)
-    .populate(populateConfig);
-
+  const target = await Message.findById(messageId).populate(populateConfig);
   if (!target) throw NotFound("Message not found");
 
-  // --------------------------------------------------
-  // 2️⃣ Validate user belongs to the chat
-  // --------------------------------------------------
   const chat = await Chat.findOne({
     _id: target.chat,
     members: userId,
@@ -601,38 +545,24 @@ export const getMessageContextFunction = async (
 
   if (!chat) throw Forbidden("Not allowed");
 
-  // --------------------------------------------------
-  // 3️⃣ Fetch messages BEFORE the target
-  // We sort descending first for efficiency,
-  // then reverse later to keep chronological order.
-  // --------------------------------------------------
   const before = await Message.find({
     chat: target.chat,
     createdAt: { $lt: target.createdAt },
     deleted: false,
   })
-    .sort({ createdAt: -1 }) // newest first
+    .sort({ createdAt: -1 })
     .limit(limit)
     .populate(populateConfig);
 
-  // --------------------------------------------------
-  // 4️⃣ Fetch messages AFTER the target
-  // These are naturally chronological (ascending)
-  // --------------------------------------------------
   const after = await Message.find({
     chat: target.chat,
     createdAt: { $gt: target.createdAt },
     deleted: false,
   })
-    .sort({ createdAt: 1 }) // oldest first
+    .sort({ createdAt: 1 })
     .limit(limit)
     .populate(populateConfig);
 
-  // --------------------------------------------------
-  // 5️⃣ Return structured context
-  // before is reversed so final order becomes:
-  // [older → newer] → target → [newer]
-  // --------------------------------------------------
   return {
     target,
     before: before.reverse(),
@@ -653,7 +583,7 @@ export const getNewerMessagesFunction = async (
     chat: chatId,
     createdAt: { $gt: afterDate },
   })
-    .sort({ createdAt: 1 }) 
+    .sort({ createdAt: 1 })
     .limit(limit)
     .populate("sender", "displayName username profilePicture")
     .populate({

@@ -14,6 +14,15 @@ import {
   toggleReactionFunction,
 } from "../services/message.services.js";
 import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
+import { toMessageSocketPayload } from "../utils/normalizeMessage.js";
+import {
+  emitDeleteMessage,
+  emitEditMessage,
+  emitMessageReaction,
+  emitMessagesSeen,
+  emitNewMessage,
+  emitUnreadUpdate,
+} from "../../../socket/emitters/message.emmitter.js";
 
 /**
  * ------------------------------------------------------------------
@@ -26,11 +35,6 @@ import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
  * Query Params:
  * - page?: number   → Page number (default: 1)
  * - limit?: number  → Messages per page (default: 20)
- *
- * Notes:
- * - Messages are returned newest-first from DB
- * - Pagination metadata is included
- * - Business logic is handled in service layer
  */
 export const getAllMessages = async (
   req: Request,
@@ -64,9 +68,9 @@ export const getAllMessages = async (
  * - content: string
  * - replyTo?: string
  *
- * Notes:
- * - Updates unread counts for other members
- * - Emits `new_message` and `unread_update` socket events
+ * Emits:
+ * - `new_message` to chat room
+ * - `unread_update` to each non-sender member
  */
 export const sendMessage = async (
   req: Request<{}, {}, MessageBody>,
@@ -82,19 +86,28 @@ export const sendMessage = async (
     if (!chatId) throw BadRequest("ChatId is required");
     if (!content) throw BadRequest("Message content is required");
 
-    const message = await sendMessageFunction(
+    const { populated, chatMembers, unreadCounts } = await sendMessageFunction(
       chatId,
       content,
       senderId,
       replyTo
     );
 
-    res.status(201).json(message);
+    const payload = toMessageSocketPayload(populated);
+
+    emitNewMessage(chatId, payload);
+
+    chatMembers.forEach((memberId) => {
+      if (memberId !== senderId) {
+        emitUnreadUpdate(memberId, chatId, unreadCounts.get(memberId) || 0);
+      }
+    });
+
+    res.status(201).json(populated);
   } catch (err) {
     next(err);
   }
 };
-
 
 /**
  * ------------------------------------------------------------------
@@ -107,10 +120,8 @@ export const sendMessage = async (
  * Body:
  * - emoji: string
  *
- * Notes:
- * - If reaction exists → removed
- * - If not → added
- * - Emits `message_reaction` socket event
+ * Emits:
+ * - `message_reaction` to chat room
  */
 export const toggleReaction = async (
   req: Request,
@@ -121,13 +132,15 @@ export const toggleReaction = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const updated = await toggleReactionFunction(
+    const { populated, chatId } = await toggleReactionFunction(
       req.params.messageId,
       userId,
       req.body.emoji
     );
 
-    res.status(200).json(updated);
+    emitMessageReaction(chatId, toMessageSocketPayload(populated));
+
+    res.status(200).json(populated);
   } catch (err) {
     next(err);
   }
@@ -140,10 +153,6 @@ export const toggleReaction = async (
  * @desc    Retrieves unread message count per chat for user
  * @route   GET /api/message/unread
  * @access  Private
- *
- * Notes:
- * - Used during app bootstrap
- * - Returned as { chatId: count }
  */
 export const getUnreadCounts = async (
   req: Request,
@@ -169,8 +178,8 @@ export const getUnreadCounts = async (
  * @route   POST /api/message/mark-read/:chatId
  * @access  Private
  *
- * Notes:
- * - Emits `unread_update` to the user socket
+ * Emits:
+ * - `unread_update` to user socket
  */
 export const markChatAsRead = async (
   req: Request,
@@ -181,7 +190,12 @@ export const markChatAsRead = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    await markChatAsReadFunction(userId, req.params.chatId);
+    const chatId = req.params.chatId;
+
+    await markChatAsReadFunction(userId, chatId);
+
+    emitUnreadUpdate(userId, chatId, 0);
+
     res.status(200).json({ success: true });
   } catch (err) {
     next(err);
@@ -196,9 +210,8 @@ export const markChatAsRead = async (
  * @route   POST /api/message/mark-seen/:chatId
  * @access  Private
  *
- * Notes:
- * - Updates `seenBy` and `deliveredTo`
- * - Emits `messages_seen` socket event
+ * Emits:
+ * - `messages_seen` to chat room
  */
 export const markMessagesAsSeen = async (
   req: Request,
@@ -209,12 +222,16 @@ export const markMessagesAsSeen = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const result = await markMessagesAsSeenFunction(
+    const chatId = req.params.chatId;
+
+    const { success, modifiedCount } = await markMessagesAsSeenFunction(
       userId,
-      req.params.chatId
+      chatId
     );
 
-    res.status(200).json(result);
+    emitMessagesSeen(chatId, userId, modifiedCount);
+
+    res.status(200).json({ success });
   } catch (err) {
     next(err);
   }
@@ -228,9 +245,8 @@ export const markMessagesAsSeen = async (
  * @route   PUT /api/message/:messageId
  * @access  Private (Sender only)
  *
- * Notes:
- * - Sets `edited = true`
- * - Emits `edit_message` socket event
+ * Emits:
+ * - `edit_message` to chat room
  */
 export const editMessage = async (
   req: Request<MessageParams, {}, MessageBody>,
@@ -247,13 +263,15 @@ export const editMessage = async (
     if (!messageId) throw BadRequest("MessageId is required");
     if (!content) throw BadRequest("Content is required");
 
-    const message = await editMessageFunction(
+    const { populated, chatId } = await editMessageFunction(
       messageId,
       content,
       userId
     );
 
-    res.status(200).json(message);
+    emitEditMessage(chatId, toMessageSocketPayload(populated));
+
+    res.status(200).json(populated);
   } catch (err) {
     next(err);
   }
@@ -267,10 +285,8 @@ export const editMessage = async (
  * @route   DELETE /api/message/:messageId
  * @access  Private (Sender only)
  *
- * Notes:
- * - Message is not removed from DB
- * - Content replaced with placeholder
- * - Emits `delete_message` socket event
+ * Emits:
+ * - `delete_message` to chat room
  */
 export const deleteMessage = async (
   req: Request<MessageParams>,
@@ -284,12 +300,14 @@ export const deleteMessage = async (
     const messageId = req.params.messageId;
     if (!messageId) throw BadRequest("MessageId is required");
 
-    const message = await deleteMessageFunction(
+    const { populated, chatId } = await deleteMessageFunction(
       messageId,
       userId
     );
 
-    res.status(200).json(message);
+    emitDeleteMessage(chatId, toMessageSocketPayload(populated));
+
+    res.status(200).json(populated);
   } catch (err) {
     next(err);
   }
@@ -353,18 +371,13 @@ export const getMessageContext = async (
 
     const limit = Number(req.query.limit) || 20;
 
-    const result = await getMessageContextFunction(
-      messageId,
-      userId,
-      limit
-    );
+    const result = await getMessageContextFunction(messageId, userId, limit);
 
     res.status(200).json(result);
   } catch (err) {
     next(err);
   }
 };
-
 
 export const getNewerMessages = async (
   req: Request,
@@ -374,11 +387,16 @@ export const getNewerMessages = async (
   try {
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
+
     const { chatId } = req.params;
     const after = req.query.after as string;
     const limit = Number(req.query.limit) || 20;
+
     if (!after) throw BadRequest("'after' timestamp is required");
+
     const result = await getNewerMessagesFunction(chatId, after, limit);
     res.status(200).json(result);
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 };

@@ -7,15 +7,6 @@ import {
   Forbidden,
 } from "../../../utils/errors/httpErrors.js";
 
-import {
-  emitFriendRemoved,
-  emitFriendRequestAccepted,
-  emitFriendRequestCancelled,
-  emitFriendRequestReceived,
-  emitFriendRequestRejected,
-  emitFriendRequestSent,
-} from "../../../socket/emitters/friend.emitter.js";
-
 import { toFriendRequestSocketPayload } from "../utils/normalizeFriendRequest.js";
 
 /**
@@ -23,10 +14,6 @@ import { toFriendRequestSocketPayload } from "../utils/normalizeFriendRequest.js
  * Get Friend List
  * ------------------------------------------------------------------
  * @desc    Fetches the authenticated user's friend list
- *
- * Rules:
- * - User must exist
- * - Password is never exposed (handled via populate select)
  */
 export const getFriendList = async (userId: string) => {
   if (!userId) throw Unauthorized();
@@ -68,6 +55,13 @@ export const fetchRequests = async (userId: string) => {
  * Send Friend Request
  * ------------------------------------------------------------------
  * @desc    Sends a friend request to another user by username
+ *          Socket emissions are handled by the controller.
+ *
+ * @returns {
+ *   request:  created request document,
+ *   payload:  normalized socket payload,
+ *   toUserId: recipient user ID string
+ * }
  *
  * Validation Rules:
  * - Cannot send request to yourself
@@ -117,25 +111,31 @@ export const sendFriendRequest = async (
     { path: "to", select: "username displayName profilePicture" },
   ]);
 
-  const payload = toFriendRequestSocketPayload(populated);
-
-  emitFriendRequestReceived(toUser.id, payload);
-  emitFriendRequestSent(fromUserId, payload);
-
-  return request;
+  return {
+    request,
+    payload: toFriendRequestSocketPayload(populated),
+    toUserId: toUser.id.toString(),
+  };
 };
 
 /**
  * ------------------------------------------------------------------
  * Accept Friend Request
  * ------------------------------------------------------------------
- * @desc    Accepts a pending friend request
+ * @desc    Accepts a pending friend request.
+ *          Socket emissions are handled by the controller.
+ *
+ * @returns {
+ *   request:    updated request document,
+ *   payload:    normalized socket payload,
+ *   fromUserId: sender ID string,
+ *   toUserId:   recipient ID string
+ * }
  *
  * Rules:
  * - Only recipient can accept
  * - Friendship is added bidirectionally
  */
-// In your backend service (document 4), update acceptFriendRequest:
 export const acceptFriendRequest = async (
   requestId: string,
   userId: string
@@ -147,7 +147,6 @@ export const acceptFriendRequest = async (
     throw Forbidden("Not authorized to accept this request");
   }
 
-  // ✅ Extract IDs BEFORE populating
   const fromUserId = request.from.toString();
   const toUserId = request.to.toString();
 
@@ -167,22 +166,27 @@ export const acceptFriendRequest = async (
     { path: "to", select: "username displayName profilePicture" },
   ]);
 
-  const payload = toFriendRequestSocketPayload(populated);
-
-  // ✅ Emit with proper ID strings
-  emitFriendRequestAccepted(fromUserId, payload);
-  emitFriendRequestAccepted(toUserId, payload);
-
-  return request;
+  return {
+    request,
+    payload: toFriendRequestSocketPayload(populated),
+    fromUserId,
+    toUserId,
+  };
 };
 
 /**
  * ------------------------------------------------------------------
  * Reject Friend Request
  * ------------------------------------------------------------------
- * @desc    Rejects a pending friend request
+ * @desc    Rejects a pending friend request.
+ *          Socket emissions are handled by the controller.
+ *
+ * @returns {
+ *   request:    updated request document,
+ *   fromUserId: sender ID string (for emitting rejection)
+ *   requestId:  request ID string
+ * }
  */
-// Already correct ✓
 export const rejectFriendRequest = async (
   requestId: string,
   userId: string
@@ -197,25 +201,21 @@ export const rejectFriendRequest = async (
   request.status = "rejected";
   await request.save();
 
-  // This is correct - emitting to the sender (from)
-  emitFriendRequestRejected(
-    request.from.toString(),
-    request._id.toString()
-  );
-
-  return request;
+  return {
+    request,
+    fromUserId: request.from.toString(),
+    requestId: request._id.toString(),
+  };
 };
 
 /**
  * ------------------------------------------------------------------
  * Remove Friend
  * ------------------------------------------------------------------
- * @desc    Removes an existing friendship (bidirectional)
+ * @desc    Removes an existing friendship (bidirectional).
+ *          Socket emissions are handled by the controller.
  */
-export const removeFriend = async (
-  userId: string,
-  friendId: string
-) => {
+export const removeFriend = async (userId: string, friendId: string) => {
   const user = await UserModel.findById(userId);
   if (!user) throw Unauthorized();
 
@@ -234,9 +234,6 @@ export const removeFriend = async (
     $pull: { friendList: user._id },
   });
 
-  emitFriendRemoved(userId, friendId);
-  emitFriendRemoved(friendId, userId);
-
   return true;
 };
 
@@ -244,7 +241,13 @@ export const removeFriend = async (
  * ------------------------------------------------------------------
  * Cancel Sent Friend Request
  * ------------------------------------------------------------------
- * @desc    Cancels a pending friend request sent by the user
+ * @desc    Cancels a pending friend request sent by the user.
+ *          Socket emissions are handled by the controller.
+ *
+ * @returns {
+ *   toUserId:  recipient ID string (for emitting cancellation),
+ *   requestId: request ID string
+ * }
  */
 export const cancelFriendRequest = async (
   requestId: string,
@@ -261,11 +264,10 @@ export const cancelFriendRequest = async (
     throw BadRequest("Cannot cancel processed request");
   }
 
+  const toUserId = request.to.toString();
+  const reqId = request._id.toString();
+
   await request.deleteOne();
 
-  emitFriendRequestCancelled(
-    request.to.toString(),
-    request._id.toString()
-  );
-  return { success: true };
+  return { toUserId, requestId: reqId };
 };

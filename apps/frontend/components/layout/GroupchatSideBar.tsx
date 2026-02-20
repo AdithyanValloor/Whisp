@@ -110,14 +110,14 @@ export default function GroupSidebar({
     return { ...m, role: "member" };
   });
 
-  console.log("MEMBER WITH ROLES : =====================", membersWithRoles);
-  
+  const isLastMember = group.members.length === 1;
+  const needsTransfer = isOwner && !isLastMember;
 
-console.log(
-  "Duplicate check:",
-  new Set(membersWithRoles.map(m => m._id)).size,
-  membersWithRoles.length
-);
+  console.log(
+    "Duplicate check:",
+    new Set(membersWithRoles.map((m) => m._id)).size,
+    membersWithRoles.length,
+  );
 
   console.log("creatorId:", creatorId);
   console.log(
@@ -405,24 +405,39 @@ console.log(
         <ConfirmModal
           open
           title={
-            isOwner ? `Transfer Ownership Required` : `Exit ${group.chatName}`
+            needsTransfer
+              ? "Transfer Ownership Required"
+              : isLastMember
+                ? `Delete ${group.chatName}?`
+                : `Leave ${group.chatName}?`
           }
-          confirmText={isOwner ? "Continue" : "Leave Group"}
+          confirmText={
+            needsTransfer
+              ? "Continue"
+              : isLastMember
+                ? "Delete Group"
+                : "Leave Group"
+          }
           cancelText="Cancel"
           onCancel={() => setShowLeaveModal(false)}
           onConfirm={() => {
             setShowLeaveModal(false);
-            if (isOwner) {
+
+            if (needsTransfer) {
               setShowTransferModal(true);
             } else {
               onLeaveGroup?.();
             }
           }}
           description={
-            isOwner
-              ? `You are the owner of this group. 
-           You must transfer ownership to another member before leaving.`
-              : `Are you sure you want to leave this group? 
+            needsTransfer
+              ? `You are the owner of this group.
+           You must transfer ownership before leaving.`
+              : isLastMember
+                ? `You are the last member of this group.
+           Leaving will permanently delete it.
+           You will never be able to rejoin.`
+                : `Are you sure you want to leave this group?
            You won't be able to rejoin unless invited again.`
           }
         />

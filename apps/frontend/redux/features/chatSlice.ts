@@ -4,9 +4,6 @@ import { sendMessage } from "./messageSlice";
 
 /* -------------------- TYPES -------------------- */
 
-/**
- * Minimal user representation used within chat contexts.
- */
 export interface ChatUser {
   _id: string;
   username: string;
@@ -17,19 +14,12 @@ export interface ChatUser {
   };
 }
 
-/**
- * Reaction metadata attached to a message.
- */
 export interface MessageReaction {
   _id: string;
   emoji: string;
   user: string;
 }
 
-/**
- * Normalized message model used in chat state.
- * References related entities by ID.
- */
 export interface ChatMessage {
   _id: string;
   chat: string;
@@ -45,10 +35,6 @@ export interface ChatMessage {
   updatedAt: string;
 }
 
-/**
- * Chat / conversation model.
- * Contains participants and metadata, with an optional last-message preview.
- */
 export interface Chat {
   _id: string;
   members: ChatUser[];
@@ -62,10 +48,6 @@ export interface Chat {
   updatedAt: string;
 }
 
-/**
- * Chat slice state.
- * Tracks chat list, active chat selection, and request status.
- */
 interface ChatState {
   chats: Chat[];
   listLoading: boolean;
@@ -78,9 +60,6 @@ interface CreateGroupResponse {
   groupChat: Chat;
 }
 
-/**
- * Chat reponse type
- */
 interface ChatResponse {
   message: string;
   chat: Chat;
@@ -88,43 +67,30 @@ interface ChatResponse {
 
 /* -------------------- THUNKS -------------------- */
 
-/**
- * Fetch all chats accessible to the current user.
- */
-export const fetchChats = createAsyncThunk<
-  Chat[],
-  void,
-  { rejectValue: string }
->("chat/fetchChats", async (_, { rejectWithValue }) => {
-  try {
-    const res = await api.get<Chat[]>("/chat");
-    return res.data;
-  } catch {
-    return rejectWithValue("Failed to fetch chats");
+export const fetchChats = createAsyncThunk<Chat[], void, { rejectValue: string }>(
+  "chat/fetchChats",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get<Chat[]>("/chat");
+      return res.data;
+    } catch {
+      return rejectWithValue("Failed to fetch chats");
+    }
   }
-});
+);
 
-/**
- * Create or access a direct chat with another user.
- */
-export const accessChat = createAsyncThunk<
-  Chat,
-  string,
-  { rejectValue: string }
->("chat/accessChat", async (userId, { rejectWithValue }) => {
-  try {
-    const res = await api.post<Chat>("/chat/access", { userId });
-    return res.data;
-  } catch {
-    return rejectWithValue("Failed to access chat");
+export const accessChat = createAsyncThunk<Chat, string, { rejectValue: string }>(
+  "chat/accessChat",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const res = await api.post<Chat>("/chat/access", { userId });
+      return res.data;
+    } catch {
+      return rejectWithValue("Failed to access chat");
+    }
   }
-});
+);
 
-/* -------------------- GROUP THUNKS ------------------ */
-
-/**
- * Create a new group chat with selected members.
- */
 export const createGroupChat = createAsyncThunk<
   Chat,
   { name: string; userIds: string[] },
@@ -138,9 +104,6 @@ export const createGroupChat = createAsyncThunk<
   }
 });
 
-/**
- * Add new members to an existing group.
- */
 export const addMembers = createAsyncThunk<
   Chat,
   { chatId: string; members: string[] },
@@ -154,9 +117,6 @@ export const addMembers = createAsyncThunk<
   }
 });
 
-/**
- * Remove a member from a group.
- */
 export const removeMembers = createAsyncThunk<
   Chat,
   { chatId: string; member: string },
@@ -170,9 +130,6 @@ export const removeMembers = createAsyncThunk<
   }
 });
 
-/**
- * Grant or revoke admin privileges for a group member.
- */
 export const toggleAdmin = createAsyncThunk<
   Chat,
   { chatId: string; member: string; makeAdmin: boolean },
@@ -186,41 +143,30 @@ export const toggleAdmin = createAsyncThunk<
   }
 });
 
-/**
- * Leave a group chat.
- */
-export const leaveGroup = createAsyncThunk<
-  string,
-  { chatId: string },
-  { rejectValue: string }
->("group/leaveGroup", async (data, { rejectWithValue }) => {
-  try {
-    await api.post("/group/leave", data);
-    return data.chatId;
-  } catch {
-    return rejectWithValue("Failed to leave group");
+export const leaveGroup = createAsyncThunk<string, { chatId: string }, { rejectValue: string }>(
+  "group/leaveGroup",
+  async (data, { rejectWithValue }) => {
+    try {
+      await api.post("/group/leave", data);
+      return data.chatId;
+    } catch {
+      return rejectWithValue("Failed to leave group");
+    }
   }
-});
+);
 
-/**
- * Delete group ( owner only )
- */
-export const deleteGroup = createAsyncThunk<
-  string,
-  { chatId: string },
-  { rejectValue: string }
->("group/deleteGroup", async (data, { rejectWithValue }) => {
-  try {
-    await api.delete("/group/delete", { data });
-    return data.chatId;
-  } catch {
-    return rejectWithValue("Failed to delete group");
+export const deleteGroup = createAsyncThunk<string, { chatId: string }, { rejectValue: string }>(
+  "group/deleteGroup",
+  async (data, { rejectWithValue }) => {
+    try {
+      await api.delete("/group/delete", { data });
+      return data.chatId;
+    } catch {
+      return rejectWithValue("Failed to delete group");
+    }
   }
-});
+);
 
-/***
- * Transfer group ownership
- */
 export const transferOwnership = createAsyncThunk<
   Chat,
   { chatId: string; newOwnerId: string },
@@ -248,26 +194,109 @@ const chatSlice = createSlice({
   initialState,
   reducers: {
     /**
-     * Update the latest message for a chat and
-     * re-order chats based on recent activity.
+     * Update the latest message for a chat and re-order chats by recent activity.
      */
     updateChatLatestMessage: (
       state,
-      action: PayloadAction<{ chatId: string; message: ChatMessage }>,
+      action: PayloadAction<{ chatId: string; message: ChatMessage }>
     ) => {
       const { chatId, message } = action.payload;
-
       const chat = state.chats.find((c) => c._id === chatId);
       if (!chat) return;
-
       chat.lastMessage = message;
-
-      // Re-sort chats by latest activity
       state.chats.sort(
         (a, b) =>
           new Date(b.lastMessage?.createdAt ?? 0).getTime() -
-          new Date(a.lastMessage?.createdAt ?? 0).getTime(),
+          new Date(a.lastMessage?.createdAt ?? 0).getTime()
       );
+    },
+
+    /**
+     * Add a chat/group to the top of the list.
+     * Used by: group_created, added_to_group
+     */
+    addChat: (state, action: PayloadAction<Chat>) => {
+      state.chats.unshift(action.payload);
+    },
+
+    /**
+     * Insert or replace a chat in the list by ID.
+     * Used by: group_updated, members_added
+     */
+    upsertChat: (state, action: PayloadAction<Chat>) => {
+      const idx = state.chats.findIndex((c) => c._id === action.payload._id);
+      if (idx !== -1) {
+        state.chats[idx] = action.payload;
+      } else {
+        state.chats.unshift(action.payload);
+      }
+    },
+
+    /**
+     * Remove a chat from the list by ID.
+     * Used by: removed_from_group, left_group, group_deleted
+     */
+    removeChat: (state, action: PayloadAction<string>) => {
+      state.chats = state.chats.filter((c) => c._id !== action.payload);
+    },
+
+    /**
+     * Remove a single member from a group's members and admin arrays.
+     * Used by: member_left
+     */
+    removeChatMember: (
+      state,
+      action: PayloadAction<{ chatId: string; userId: string }>
+    ) => {
+      const { chatId, userId } = action.payload;
+      const chat = state.chats.find((c) => c._id === chatId);
+      if (!chat) return;
+      chat.members = chat.members.filter((m) => m._id !== userId);
+      chat.admin = chat.admin.filter((a) => a._id !== userId);
+    },
+
+    /**
+     * Promote or demote a member's admin status.
+     * Used by: admin_toggled
+     */
+    updateChatAdmin: (
+      state,
+      action: PayloadAction<{ chatId: string; memberId: string; isAdmin: boolean }>
+    ) => {
+      const { chatId, memberId, isAdmin } = action.payload;
+      const chat = state.chats.find((c) => c._id === chatId);
+      if (!chat) return;
+
+      if (isAdmin) {
+        const member = chat.members.find((m) => m._id === memberId);
+        if (member && !chat.admin.some((a) => a._id === memberId)) {
+          chat.admin.push(member);
+        }
+      } else {
+        chat.admin = chat.admin.filter((a) => a._id !== memberId);
+      }
+    },
+
+    /**
+     * Update createdBy when ownership is transferred.
+     * Also ensures the new owner is in the admin list.
+     * Used by: ownership_transferred
+     */
+    updateChatOwner: (
+      state,
+      action: PayloadAction<{ chatId: string; newOwnerId: string }>
+    ) => {
+      const { chatId, newOwnerId } = action.payload;
+      const chat = state.chats.find((c) => c._id === chatId);
+      if (!chat) return;
+
+      const newOwner = chat.members.find((m) => m._id === newOwnerId);
+      if (newOwner) {
+        chat.createdBy = newOwner;
+        if (!chat.admin.some((a) => a._id === newOwnerId)) {
+          chat.admin.push(newOwner);
+        }
+      }
     },
   },
 
@@ -280,12 +309,10 @@ const chatSlice = createSlice({
       })
       .addCase(fetchChats.fulfilled, (state, action) => {
         state.listLoading = false;
-
-        // Sort chats by most recent message
         state.chats = action.payload.sort(
           (a, b) =>
             new Date(b.lastMessage?.createdAt ?? 0).getTime() -
-            new Date(a.lastMessage?.createdAt ?? 0).getTime(),
+            new Date(a.lastMessage?.createdAt ?? 0).getTime()
         );
       })
       .addCase(fetchChats.rejected, (state, action) => {
@@ -300,11 +327,8 @@ const chatSlice = createSlice({
       })
       .addCase(accessChat.fulfilled, (state, action) => {
         state.accessLoading = false;
-
         const chat = action.payload;
-        const existing = state.chats.find((c) => c._id === chat._id);
-
-        if (!existing) {
+        if (!state.chats.some((c) => c._id === chat._id)) {
           state.chats.unshift(chat);
         }
       })
@@ -312,15 +336,18 @@ const chatSlice = createSlice({
         state.accessLoading = false;
         state.error = action.payload ?? "Failed to access chat";
       })
+
+      /* -------- CREATE GROUP -------- */
       .addCase(createGroupChat.pending, (state) => {
         state.accessLoading = true;
       })
-
       .addCase(createGroupChat.fulfilled, (state, action) => {
         state.accessLoading = false;
-        state.chats.unshift(action.payload);
+        // Guard against duplicate insertion (socket may fire group_created first)
+        if (!state.chats.some((c) => c._id === action.payload._id)) {
+          state.chats.unshift(action.payload);
+        }
       })
-
       .addCase(createGroupChat.rejected, (state, action) => {
         state.accessLoading = false;
         state.error = action.payload ?? "Failed to create group";
@@ -329,30 +356,30 @@ const chatSlice = createSlice({
       /* -------- GROUP MUTATIONS -------- */
       .addCase(addMembers.pending, (state, action) => {
         const { chatId, members } = action.meta.arg;
-
         const chat = state.chats.find((c) => c._id === chatId);
         if (!chat) return;
-
         members.forEach((id) => {
           if (!chat.members.some((m) => m._id === id)) {
-            const tempUser: ChatUser = {
+            chat.members.push({
               _id: id,
               username: "Loading...",
               displayName: "Loading...",
-              profilePicture: {
-                url: null,
-                public_id: null,
-              },
-            };
-
-            chat.members.push(tempUser);
+              profilePicture: { url: null, public_id: null },
+            });
           }
         });
       })
-
       .addCase(addMembers.fulfilled, (state, action) => {
         const idx = state.chats.findIndex((g) => g._id === action.payload._id);
         if (idx !== -1) state.chats[idx] = action.payload;
+      })
+
+      .addCase(removeMembers.pending, (state, action) => {
+        const { chatId, member } = action.meta.arg;
+        const chat = state.chats.find((c) => c._id === chatId);
+        if (!chat) return;
+        chat.members = chat.members.filter((m) => m._id !== member);
+        chat.admin = chat.admin.filter((a) => a._id !== member);
       })
       .addCase(removeMembers.fulfilled, (state, action) => {
         const idx = state.chats.findIndex((g) => g._id === action.payload._id);
@@ -361,10 +388,8 @@ const chatSlice = createSlice({
 
       .addCase(toggleAdmin.pending, (state, action) => {
         const { chatId, member, makeAdmin } = action.meta.arg;
-
         const chat = state.chats.find((c) => c._id === chatId);
         if (!chat) return;
-
         if (makeAdmin) {
           const memberObj = chat.members.find((m) => m._id === member);
           if (memberObj && !chat.admin.some((a) => a._id === member)) {
@@ -374,20 +399,9 @@ const chatSlice = createSlice({
           chat.admin = chat.admin.filter((a) => a._id !== member);
         }
       })
-
       .addCase(toggleAdmin.fulfilled, (state, action) => {
         const idx = state.chats.findIndex((g) => g._id === action.payload._id);
         if (idx !== -1) state.chats[idx] = action.payload;
-      })
-
-      .addCase(removeMembers.pending, (state, action) => {
-        const { chatId, member } = action.meta.arg;
-
-        const chat = state.chats.find((c) => c._id === chatId);
-        if (!chat) return;
-
-        chat.members = chat.members.filter((m) => m._id !== member);
-        chat.admin = chat.admin.filter((a) => a._id !== member);
       })
 
       /* -------- LEAVE GROUP -------- */
@@ -406,9 +420,9 @@ const chatSlice = createSlice({
         if (idx !== -1) state.chats[idx] = action.payload;
       })
 
+      /* -------- SEND MESSAGE (update last message preview) -------- */
       .addCase(sendMessage.fulfilled, (state, action) => {
         const msg = action.payload;
-
         const chat = state.chats.find((c) => c._id === msg.chat);
         if (!chat) return;
 
@@ -430,11 +444,20 @@ const chatSlice = createSlice({
         state.chats.sort(
           (a, b) =>
             new Date(b.lastMessage?.createdAt ?? 0).getTime() -
-            new Date(a.lastMessage?.createdAt ?? 0).getTime(),
+            new Date(a.lastMessage?.createdAt ?? 0).getTime()
         );
       });
   },
 });
 
-export const { updateChatLatestMessage } = chatSlice.actions;
+export const {
+  updateChatLatestMessage,
+  addChat,
+  upsertChat,
+  removeChat,
+  removeChatMember,
+  updateChatAdmin,
+  updateChatOwner,
+} = chatSlice.actions;
+
 export default chatSlice.reducer;

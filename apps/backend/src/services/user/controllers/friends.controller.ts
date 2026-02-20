@@ -13,6 +13,14 @@ import {
   BadRequest,
   Unauthorized,
 } from "../../../utils/errors/httpErrors.js";
+import {
+  emitFriendRemoved,
+  emitFriendRequestAccepted,
+  emitFriendRequestCancelled,
+  emitFriendRequestReceived,
+  emitFriendRequestRejected,
+  emitFriendRequestSent,
+} from "../../../socket/emitters/friend.emitter.js";
 
 /**
  * ------------------------------------------------------------------
@@ -49,6 +57,10 @@ export const getAllFriends = async (
  * @desc    Sends a friend request to another user by username
  * @route   POST /api/friends
  * @access  Private
+ *
+ * Emits:
+ * - `friend_request_received` to recipient
+ * - `friend_request_sent` to sender
  */
 export const addFriend = async (
   req: AuthRequest,
@@ -62,7 +74,13 @@ export const addFriend = async (
     if (!userId) throw Unauthorized();
     if (!username) throw BadRequest("Username is required");
 
-    const request = await sendFriendRequest(userId, username);
+    const { request, payload, toUserId } = await sendFriendRequest(
+      userId,
+      username
+    );
+
+    emitFriendRequestReceived(toUserId, payload);
+    emitFriendRequestSent(userId, payload);
 
     res.status(200).json({
       message: "Friend request sent",
@@ -109,6 +127,9 @@ export const getAllRequests = async (
  * @desc    Accepts a pending friend request
  * @route   POST /api/friends/accept
  * @access  Private
+ *
+ * Emits:
+ * - `friend_request_accepted` to both sender and recipient
  */
 export const acceptReq = async (
   req: AuthRequest,
@@ -122,7 +143,11 @@ export const acceptReq = async (
     if (!userId) throw Unauthorized();
     if (!id) throw BadRequest("Request ID is required");
 
-    const request = await acceptFriendRequest(id, userId);
+    const { request, payload, fromUserId, toUserId } =
+      await acceptFriendRequest(id, userId);
+
+    emitFriendRequestAccepted(fromUserId, payload);
+    emitFriendRequestAccepted(toUserId, payload);
 
     res.status(200).json({
       message: "Friend request accepted",
@@ -140,6 +165,9 @@ export const acceptReq = async (
  * @desc    Rejects a pending friend request
  * @route   POST /api/friends/reject
  * @access  Private
+ *
+ * Emits:
+ * - `friend_request_rejected` to sender
  */
 export const rejectReq = async (
   req: AuthRequest,
@@ -153,7 +181,12 @@ export const rejectReq = async (
     if (!userId) throw Unauthorized();
     if (!id) throw BadRequest("Request ID is required");
 
-    const request = await rejectFriendRequest(id, userId);
+    const { request, fromUserId, requestId } = await rejectFriendRequest(
+      id,
+      userId
+    );
+
+    emitFriendRequestRejected(fromUserId, requestId);
 
     res.status(200).json({
       message: "Friend request rejected",
@@ -171,6 +204,9 @@ export const rejectReq = async (
  * @desc    Removes an existing friend relationship
  * @route   DELETE /api/friends
  * @access  Private
+ *
+ * Emits:
+ * - `friend_removed` to both users
  */
 export const removeFriend = async (
   req: AuthRequest,
@@ -185,6 +221,9 @@ export const removeFriend = async (
     if (!id) throw BadRequest("Friend ID is required");
 
     await removeFriendService(userId, id);
+
+    emitFriendRemoved(userId, id);
+    emitFriendRemoved(id, userId);
 
     res.status(200).json({
       message: "Friend removed successfully",
@@ -201,6 +240,9 @@ export const removeFriend = async (
  * @desc    Cancels a previously sent friend request
  * @route   POST /api/friends/cancel
  * @access  Private
+ *
+ * Emits:
+ * - `friend_request_cancelled` to recipient
  */
 export const cancelReq = async (
   req: AuthRequest,
@@ -214,11 +256,12 @@ export const cancelReq = async (
     if (!userId) throw Unauthorized();
     if (!id) throw BadRequest("Request ID is required");
 
-    const response = await cancelFriendRequest(id, userId);
+    const { toUserId, requestId } = await cancelFriendRequest(id, userId);
+
+    emitFriendRequestCancelled(toUserId, requestId);
 
     res.status(200).json({
       message: "Friend request canceled",
-      response,
     });
   } catch (err) {
     next(err);

@@ -21,6 +21,7 @@ export const fetchChatsFunction = async (userId: string) => {
 
   const chats = await Chat.find({
     members: { $in: [userId] },
+    isDeleted: { $ne: true },
   })
     .populate("members", "-password")
     .populate("admin", "-password")
