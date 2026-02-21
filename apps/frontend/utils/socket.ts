@@ -146,6 +146,7 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
     /* -------------------- EDIT MESSAGE -------------------- */
 
     socket.on("edit_message", (msg) => {
+      console.log("EDIT SOCKET:", msg);
       store.dispatch(editMessage({ message: normalizeSocketMessage(msg) }));
     });
 

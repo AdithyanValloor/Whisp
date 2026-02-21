@@ -1,10 +1,13 @@
 import type { Socket } from "socket.io";
-import { userJoined, heartbeat, getOnlineUsers } from "../presence.js";
+import {
+  userJoined,
+  heartbeat,
+  getOnlineUsers,
+  userDisconnected,
+} from "../presence.js";
 import { Chat } from "../../services/chat/models/chat.model.js";
 
-
 export const registerConnectionHandlers = (socket: Socket): void => {
-
   /**
    * ---------------------------------------------------
    * Join Private User Room
@@ -12,6 +15,8 @@ export const registerConnectionHandlers = (socket: Socket): void => {
    */
   socket.on("join", async (userId: string) => {
     if (!userId) return;
+
+    socket.data.userId = userId;
 
     socket.join(userId);
     userJoined(userId);
@@ -21,7 +26,7 @@ export const registerConnectionHandlers = (socket: Socket): void => {
 
   /**
    * ---------------------------------------------------
-   * Join Chat Room (SECURE)
+   * Join Chat Room
    * ---------------------------------------------------
    */
   socket.on("joinGroup", async ({ chatId, userId }) => {
@@ -56,5 +61,18 @@ export const registerConnectionHandlers = (socket: Socket): void => {
   socket.on("heartbeat", ({ userId }: { userId: string }) => {
     if (!userId) return;
     heartbeat(userId);
+  });
+
+  /**
+   * ---------------------------------------------------
+   * Heartbeat
+   * ---------------------------------------------------
+   */
+
+  socket.on("disconnect", () => {
+    const userId = socket.data.userId;
+    if (!userId) return;
+
+    userDisconnected(userId);
   });
 };

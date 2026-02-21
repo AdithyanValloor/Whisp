@@ -1,11 +1,12 @@
-"use client"
+"use client";
 
-import { loginUser } from "@/redux/features/authSlice"
-import { useAppDispatch } from "@/redux/hooks"
-import { Eye, EyeClosed } from "lucide-react"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { loginUser } from "@/redux/features/authSlice";
+import { useAppDispatch } from "@/redux/hooks";
+import { Eye, EyeClosed } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { motion } from "framer-motion";
 
 type Errors = {
   email: string;
@@ -23,21 +24,7 @@ export default function LoginPage() {
   });
 
   const dispatch = useAppDispatch();
-  const router = useRouter()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validate()) return;
-
-    try {
-      const res = await dispatch(loginUser({ email, password })).unwrap();
-      console.log("RES : ", res);
-      router.push("/chat");
-    } catch (err) {
-      setError("Something went wrong. Please try again later.");
-    }
-  };
+  const router = useRouter();
 
   const validate = () => {
     let valid = true;
@@ -63,93 +50,114 @@ export default function LoginPage() {
     return valid;
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!validate()) return;
+
+    try {
+      await dispatch(loginUser({ email, password })).unwrap();
+      router.push("/chat");
+    } catch {
+      setError("Invalid credentials. Please try again.");
+    }
+  };
+
   return (
-    <div className="h-screen flex items-center justify-center bg-base-200">
-      <div className="flex w-full md:w-1/2 lg:w-1/3 bg-base-100 rounded-2xl shadow-lg p-5 flex-col justify-center lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm flex flex-col items-center">
-          <h2 className="mt-5 text-center text-2xl font-bold tracking-tight">
-            Login
-          </h2>
-        </div>
+    <div className="h-screen flex items-center justify-center bg-base-200 px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="relative w-full max-w-md bg-base-100 border border-base-content/10 rounded-2xl shadow-lg p-6 overflow-hidden"
+      >
+        <h2 className="text-xl font-semibold text-base-content text-center">
+          Welcome Back
+        </h2>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form onSubmit={handleSubmit} className="space-y-6 relative">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {/* Email */}
+          <div>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value.toLowerCase())}
+              placeholder="Email"
+              className={`
+                w-full h-10 px-4 text-sm rounded-xl
+                bg-base-300 text-base-content
+                outline-base-content/10 hover:outline
+                focus:outline
+                ${
+                  errors.email
+                    ? "border border-red-500"
+                    : "border border-base-content/10"
+                }
+              `}
+            />
+            {errors.email && (
+              <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+            )}
+          </div>
 
-            {/* Email Input */}
+          {/* Password */}
+          <div>
             <div className="relative">
               <input
-                id="email"
-                name="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value.toLowerCase())}
-                className={`w-full h-10 pl-3 pr-3 rounded-full border ${
-                  errors.email ? "border-red-500" : "border-base-300"
-                } bg-base focus:outline-none focus:ring-2 focus:ring-[#004030] transition`}
-                placeholder="Enter your email"
-              />
-              {errors.email && (
-                <p className="text-red-500 font-light text-xs mt-1 absolute">
-                  {errors.email}
-                </p>
-              )}
-            </div>
-
-            {/* Password Input */}
-            <div className="relative">
-              <input
-                id="password"
-                name="password"
                 type={showPass ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full h-10 pl-3 pr-10 rounded-full border ${
-                  errors.password ? "border-red-500" : "border-base-300"
-                } bg-base focus:outline-none focus:ring-2 focus:ring-[#004030] transition`}
-                placeholder="Enter your password"
+                placeholder="Password"
+                className={`
+                  w-full h-10 px-4 pr-10 text-sm rounded-xl
+                  bg-base-300 text-base-content
+                  outline-base-content/10 hover:outline
+                  focus:outline
+                  ${
+                    errors.password
+                      ? "border border-red-500"
+                      : "border border-base-content/10"
+                  }
+                `}
               />
               <div
                 onClick={() => setShowPass((prev) => !prev)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-600 hover:text-gray-900"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content cursor-pointer opacity-60 hover:opacity-100"
               >
                 {showPass ? <Eye size={18} /> : <EyeClosed size={18} />}
               </div>
-              {errors.password && (
-                <p className="text-red-500 font-light text-xs mt-1 absolute">
-                  {errors.password}
-                </p>
-              )}
             </div>
 
-            {/* Submit Button */}
-            <div>
-              <button
-                type="submit"
-                className="w-full h-10 rounded-full bg-[#004030] text-white font-semibold shadow hover:opacity-90 transition"
-              >
-                Sign in
-              </button>
-            </div>
-
-            {/* Global error */}
-            {error && (
-              <p className="text-red-500 w-full text-center absolute -bottom-8 text-sm">
-                {error}
-              </p>
+            {errors.password && (
+              <p className="text-xs text-red-500 mt-1">{errors.password}</p>
             )}
-          </form>
+          </div>
 
-          <p className="mt-10 text-center text-sm text-gray-500">
-            Not a whisperer?{" "}
-            <Link
-              href="/register"
-              className="font-semibold text-[#004030] hover:opacity-90"
-            >
-              Register
-            </Link>
-          </p>
-        </div>
-      </div>
+          {/* Submit */}
+          <button
+            type="submit"
+            className="w-full h-10 rounded-xl border border-base-content/10 bg-cyan-900 text-white cursor-pointer text-md font-semibold hover:opacity-90 transition"
+          >
+            Sign In
+          </button>
+
+          {error && <p className="text-center text-sm text-red-500">{error}</p>}
+        </form>
+
+        <p className="mt-6 text-center text-base-content/70 text-sm opacity-70">
+          Not a whisperer?{" "}
+          <Link
+            href="/register"
+            className="font-semibold text-white hover:opacity-80"
+          >
+            Register
+          </Link>
+        </p>
+
+        {/* Accent bar */}
+        <div className="absolute bottom-0 left-0 w-full h-[3px] bg-cyan-900" />
+      </motion.div>
     </div>
   );
 }

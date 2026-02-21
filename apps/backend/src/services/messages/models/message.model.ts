@@ -22,6 +22,15 @@ export interface IMessage extends Document {
     user: Types.ObjectId;
   }[];
 
+  linkPreview?: {
+    url?: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    siteName?: string;
+    isLargeImage?: Boolean,
+  };
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -89,7 +98,19 @@ const messageSchema: Schema<IMessage> = new Schema(
         },
       },
     ],
+    linkPreview: {
+      type: {
+        url: String,
+        title: String,
+        description: String,
+        image: String,
+        siteName: String,
+        isLargeImage: Boolean,
+      },
+      default: undefined,
+    },
   },
+
   { timestamps: true },
 );
 

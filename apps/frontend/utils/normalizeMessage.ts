@@ -23,6 +23,7 @@ export function normalizeSocketMessage(msg: ChatMessage): MessageType {
     deleted: msg.deleted,
     deliveredTo: msg.deliveredTo,
     seenBy: msg.seenBy,
+    linkPreview: msg.linkPreview,
     replyTo: msg.replyTo
       ? {
           _id: msg.replyTo._id,

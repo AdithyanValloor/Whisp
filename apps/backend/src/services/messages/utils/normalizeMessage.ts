@@ -38,6 +38,8 @@ export const toMessageSocketPayload = (doc: any): MessageSocketPayload => {
         }
       : null,
 
+    linkPreview: doc.linkPreview ?? null,
+
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };

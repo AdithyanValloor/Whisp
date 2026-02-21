@@ -14,7 +14,6 @@ import type { Socket } from "socket.io-client";
 import Image from "next/image";
 import logoDark from "@/public/LogoDark.png";
 import logoLight from "@/public/LogoLight.png";
-import { themes } from "@/config/themeConfig";
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
@@ -95,7 +94,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
    */
   if (!user || !bootstrapDone) {
     return (
-      <div className="h-screen flex items-center justify-center bg-base-200">
+      <div className="h-screen flex items-center justify-center text-base-content bg-base-200">
         <span className="loading loading-spinner loading-xl" />
       </div>
     );

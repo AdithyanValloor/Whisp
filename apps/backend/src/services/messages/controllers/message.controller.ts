@@ -24,6 +24,8 @@ import {
   emitNewMessage,
   emitUnreadUpdate,
 } from "../../../socket/emitters/message.emmitter.js";
+import { fetchLinkPreview } from "../utils/linkPreview.js";
+import { Message } from "../models/message.model.js";
 
 /**
  * ------------------------------------------------------------------
@@ -87,7 +89,13 @@ export const sendMessage = async (
     if (!chatId) throw BadRequest("ChatId is required");
     if (!content) throw BadRequest("Message content is required");
 
-    const { populated, chatMembers, unreadCounts } = await sendMessageFunction(
+    const {
+      populated,
+      messageId,
+      firstUrl,
+      chatMembers,
+      unreadCounts,
+    } = await sendMessageFunction(
       chatId,
       content,
       senderId,
@@ -100,11 +108,46 @@ export const sendMessage = async (
 
     chatMembers.forEach((memberId) => {
       if (memberId !== senderId) {
-        emitUnreadUpdate(memberId, chatId, unreadCounts.get(memberId) || 0);
+        emitUnreadUpdate(
+          memberId,
+          chatId,
+          unreadCounts.get(memberId) || 0
+        );
       }
     });
 
     res.status(201).json(populated);
+
+    if (firstUrl) {
+      fetchLinkPreview(firstUrl)
+        .then(async (preview) => {
+          if (!preview) return;
+
+          const message = await Message.findById(messageId);
+          if (!message) return;
+
+          message.linkPreview = preview;
+          await message.save();
+
+          const updated = await message.populate([
+            { path: "sender", select: "displayName username profilePicture" },
+            {
+              path: "replyTo",
+              select: "content sender",
+              populate: {
+                path: "sender",
+                select: "username displayName",
+              },
+            },
+          ]);
+
+          emitEditMessage(
+            chatId,
+            toMessageSocketPayload(updated)
+          );
+        })
+        .catch(() => {});
+    }
   } catch (err) {
     next(err);
   }

@@ -1,4 +1,3 @@
-//src/services/messages/types/message.sockets.ts
 
 export interface MessageSocketPayload {
   _id: string;
@@ -38,6 +37,16 @@ export interface MessageSocketPayload {
       displayName?: string;
     };
   } | null;
+
+  linkPreview?: {
+    url?: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    siteName?: string;
+    isLargeImage?: boolean;
+  } | null;
+
 
   createdAt: string;
   updatedAt: string;

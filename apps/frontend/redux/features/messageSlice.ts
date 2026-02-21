@@ -44,6 +44,14 @@ export interface MessageType {
     emoji: string;
     user: { _id: string; username: string };
   }[];
+  linkPreview?: {
+    url?: string;
+    title?: string;
+    description?: string;
+    image?: string;
+    siteName?: string;
+    isLargeImage?: boolean;
+  };
 }
 
 /**
@@ -140,8 +148,6 @@ export const sendMessage = createAsyncThunk<
   MessageType,
   { chatId: string; content: string; replyTo?: string | null },
   { rejectValue: string }
-
-  
 >("messages/send", async (data, { rejectWithValue }) => {
   try {
     const res = await api.post("/message", data, {
@@ -440,7 +446,18 @@ const messagesSlice = createSlice({
      * Update message content/state from socket edits.
      */
     editMessage: (state, action: PayloadAction<{ message: MessageType }>) => {
-      state.byId[action.payload.message._id] = action.payload.message;
+      const incoming = action.payload.message;
+      const existing = state.byId[incoming._id];
+
+      if (!existing) {
+        state.byId[incoming._id] = incoming;
+        return;
+      }
+
+      state.byId[incoming._id] = {
+        ...existing,
+        ...incoming,
+      };
     },
 
     /**

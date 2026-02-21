@@ -7,6 +7,8 @@ import { Eye, EyeClosed } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { motion } from "framer-motion";
+import axios from "axios";
 
 export default function RegisterPage() {
   const [displayName, setDisplayName] = useState("");
@@ -31,9 +33,6 @@ export default function RegisterPage() {
 
     if (!username.trim()) {
       newErrors.username = "Username is required";
-      valid = false;
-    } else if (username.length < 3) {
-      newErrors.username = "Must be at least 3 characters";
       valid = false;
     } else if (!/^[a-zA-Z][a-zA-Z0-9]{2,19}$/.test(username)) {
       newErrors.username =
@@ -78,129 +77,134 @@ export default function RegisterPage() {
       if (res.type === "auth/loginUser/fulfilled") {
         router.push("/chat");
       }
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Registration failed");
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || "Registration failed");
+      } else {
+        setError("Registration failed");
+      }
     }
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-base-200">
-      <div className="flex w-full md:w-1/2 lg:w-1/3 bg-base-100 rounded-2xl shadow-lg p-5 flex-col justify-center lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-sm flex flex-col items-center">
-          <h2 className="mt-5 text-center text-2xl font-bold tracking-tight">
-            Create an Account
-          </h2>
-        </div>
+    <div className="h-screen flex items-center justify-center bg-base-200 px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="relative w-full max-w-md bg-base-100 border border-base-content/10 rounded-2xl overflow-hidden shadow-lg p-6"
+      >
+        <h2 className="text-xl font-semibold text-base-content text-center">
+          Create an Account
+        </h2>
 
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
-          <form onSubmit={handleSubmit} className="space-y-6 relative">
-            {/* Display Name */}
-            <div className="relative">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {/* Input Field Template */}
+          {[
+            {
+              label: "Display Name",
+              value: displayName,
+              setter: setDisplayName,
+              name: "displayName",
+              type: "text",
+            },
+            {
+              label: "Username",
+              value: username,
+              setter: (v: string) => setUsername(v.toLowerCase()),
+              name: "username",
+              type: "text",
+            },
+            {
+              label: "Email",
+              value: email,
+              setter: (v: string) => setEmail(v.toLowerCase()),
+              name: "email",
+              type: "email",
+            },
+          ].map((field) => (
+            <div key={field.name}>
               <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Display name"
-                className={`w-full h-10 pl-3 pr-3 rounded-full border ${
-                  errors.displayName ? "border-red-500" : "border-base-300"
-                } bg-base focus:outline-none focus:ring-2 focus:ring-[#004030] transition`}
+                type={field.type}
+                value={field.value}
+                onChange={(e) => field.setter(e.target.value)}
+                placeholder={field.label}
+                className={`
+                  w-full h-10 px-4 text-sm rounded-xl
+                  bg-base-300 text-base-content
+                  outline-base-content/10 hover:outline
+                  focus:outline
+                  ${
+                    errors[field.name]
+                      ? "border border-red-500"
+                      : "border border-base-content/10"
+                  }
+                `}
               />
-              {errors.displayName && (
-                <p className="text-red-500 font-light text-xs mt-1 absolute">
-                  {errors.displayName}
+              {errors[field.name] && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors[field.name]}
                 </p>
               )}
             </div>
+          ))}
 
-            {/* Username */}
-            <div className="relative">
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                placeholder="Username"
-                className={`w-full h-10 pl-3 pr-3 rounded-full border ${
-                  errors.username ? "border-red-500" : "border-base-300"
-                } bg-base focus:outline-none focus:ring-2 focus:ring-[#004030] transition`}
-              />
-              {errors.username && (
-                <p className="text-red-500 font-light text-xs mt-1 absolute">
-                  {errors.username}
-                </p>
-              )}
-            </div>
-
-            {/* Email */}
-            <div className="relative">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value.toLowerCase())}
-                placeholder="Email"
-                className={`w-full h-10 pl-3 pr-3 rounded-full border ${
-                  errors.email ? "border-red-500" : "border-base-300"
-                } bg-base focus:outline-none focus:ring-2 focus:ring-[#004030] transition`}
-              />
-              {errors.email && (
-                <p className="text-red-500 font-light text-xs mt-1 absolute">
-                  {errors.email}
-                </p>
-              )}
-            </div>
-
-            {/* Password */}
+          {/* Password */}
+          <div>
             <div className="relative">
               <input
                 type={showPass ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className={`w-full h-10 pl-3 pr-10 rounded-full border ${
-                  errors.password ? "border-red-500" : "border-base-300"
-                } bg-base focus:outline-none focus:ring-2 focus:ring-[#004030] transition`}
+                className={`
+                  w-full h-10 px-4 pr-10 text-sm rounded-xl
+                  bg-base-300 text-base-content
+                  outline-base-content/10 hover:outline
+                  focus:outline
+                  ${
+                    errors.password
+                      ? "border border-red-500"
+                      : "border border-base-content/10"
+                  }
+                `}
               />
               <div
                 onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-600 hover:text-gray-900"
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-base-content opacity-60 hover:opacity-100"
               >
                 {showPass ? <Eye size={18} /> : <EyeClosed size={18} />}
               </div>
-              {errors.password && (
-                <p className="text-red-500 font-light text-xs mt-1 absolute">
-                  {errors.password}
-                </p>
-              )}
             </div>
-
-            {/* Register Button */}
-            <div>
-              <button
-                type="submit"
-                className="w-full h-10 rounded-full bg-[#004030] text-white font-semibold shadow hover:opacity-90 transition"
-              >
-                Register
-              </button>
-            </div>
-
-            {/* Global Error */}
-            {error && (
-              <p className="text-red-500 w-full text-center absolute -bottom-8 text-sm">
-                {error}
-              </p>
+            {errors.password && (
+              <p className="text-xs text-red-500 mt-1">{errors.password}</p>
             )}
-          </form>
+          </div>
 
-          <p className="mt-10 text-center text-sm text-gray-500">
-            Already a whisperer?{" "}
-            <Link
-              href="/login"
-              className="font-semibold text-[#004030] hover:opacity-90"
-            >
-              Login
-            </Link>
-          </p>
-        </div>
-      </div>
+          {/* Button */}
+          <button
+            type="submit"
+            className="w-full h-10 rounded-xl border border-base-content/10 bg-cyan-900 text-white cursor-pointer text-md font-semibold hover:opacity-90 transition"
+          >
+            Register
+          </button>
+
+          {error && <p className="text-center text-sm text-red-500">{error}</p>}
+        </form>
+
+        <p className="mt-6 text-center text-sm text-base-content/70 opacity-70">
+          Already a whisperer?{" "}
+          <Link
+            href="/login"
+            className="font-semibold text-white hover:opacity-80"
+          >
+            Login
+          </Link>
+        </p>
+
+        {/* Accent Bar */}
+        <div className="absolute bottom-0 left-0 w-full h-[3px] bg-cyan-900" />
+      </motion.div>
     </div>
   );
 }

@@ -721,7 +721,7 @@ export default function Messages({
   const GROUP_INTERVAL = 300;
 
   return (
-    <div className="relative flex-1 flex flex-col h-full">
+    <div className="relative flex-1 scroll-smooth flex flex-col h-full">
       <div
         ref={containerRef}
         onScroll={handleScroll}

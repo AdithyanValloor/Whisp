@@ -143,6 +143,20 @@ export default function GroupSidebar({
     return () => document.removeEventListener("click", handleClickOutside);
   }, [openDropdownId, handleClickOutside]);
 
+  useEffect(() => {
+    const handleGlobalRightClick = () => {
+      if (openDropdownId) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener("contextmenu", handleGlobalRightClick);
+
+    return () => {
+      document.removeEventListener("contextmenu", handleGlobalRightClick);
+    };
+  }, [openDropdownId]);
+
   const toggleUserSelection = (id: string) => {
     setSelectedUsers((prev) => {
       const next = new Set(prev);
@@ -233,7 +247,11 @@ export default function GroupSidebar({
                     handleProfileSelect(m);
                   }}
                   onContextMenu={(e) => {
-                    if (isAdmin && m._id !== currentUserId) {
+                    if (
+                      canManageMembers &&
+                      m._id !== currentUserId &&
+                      m.role !== "owner"
+                    ) {
                       e.preventDefault();
                       e.stopPropagation();
 
@@ -395,7 +413,7 @@ export default function GroupSidebar({
       <AddMembersModal
         show={showAddModal}
         onClose={() => {
-          setShowAddModal(false)
+          setShowAddModal(false);
           setSelectedUsers(new Set());
         }}
         availableFriends={availableFriends}

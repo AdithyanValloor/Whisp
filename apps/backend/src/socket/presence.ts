@@ -8,31 +8,70 @@
 
 import { getIO } from "./io.js";
 
-const presence = new Map<string, number>();
-const TIMEOUT = 35_000;
+type PresenceEntry = {
+  lastActive: number;
+  connections: number;
+};
+
+const presence = new Map<string, PresenceEntry>();
+const TIMEOUT = 75_000;
+
+/* -------------------- USER JOIN -------------------- */
 
 export const userJoined = (userId: string): void => {
-  const wasOffline = !presence.has(userId);
+  const existing = presence.get(userId);
 
-  presence.set(userId, Date.now());
+  if (existing) {
+    existing.connections += 1;
+    existing.lastActive = Date.now();
+    return;
+  }
 
-  if (wasOffline) {
+  presence.set(userId, {
+    lastActive: Date.now(),
+    connections: 1,
+  });
+
+  getIO().emit("presence_update", {
+    userId,
+    status: "online",
+  });
+};
+
+/* -------------------- HEARTBEAT -------------------- */
+
+export const heartbeat = (userId: string): void => {
+  const entry = presence.get(userId);
+  if (!entry) return;
+
+  entry.lastActive = Date.now();
+};
+
+/* -------------------- USER DISCONNECTED -------------------- */
+
+export const userDisconnected = (userId: string): void => {
+  const entry = presence.get(userId);
+  if (!entry) return;
+
+  entry.connections -= 1;
+
+  if (entry.connections <= 0) {
+    presence.delete(userId);
+
     getIO().emit("presence_update", {
       userId,
-      status: "online",
+      status: "offline",
     });
   }
 };
 
-export const heartbeat = (userId: string): void => {
-  presence.set(userId, Date.now());
-};
+/* -------------------- CLEANUP FALLBACK -------------------- */
 
 export const cleanupPresence = (): void => {
   const now = Date.now();
 
-  for (const [userId, lastActive] of presence.entries()) {
-    if (now - lastActive > TIMEOUT) {
+  for (const [userId, entry] of presence.entries()) {
+    if (now - entry.lastActive > TIMEOUT) {
       presence.delete(userId);
 
       getIO().emit("presence_update", {
@@ -42,6 +81,8 @@ export const cleanupPresence = (): void => {
     }
   }
 };
+
+/* -------------------- ONLINE USERS -------------------- */
 
 export const getOnlineUsers = (): string[] => {
   return [...presence.keys()];

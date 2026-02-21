@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import { Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import ProfileView from "../layout/profileView";
@@ -74,7 +80,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     (state) => state.unread.perChat[chat._id] || 0,
   );
 
-  const lastMessageId = messages.at(-1)?._id;
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasFetchedRef = useRef<Set<string>>(new Set());
   const markAsSeenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -113,6 +118,15 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
       setActiveChatId(null);
     };
   }, [chat._id]);
+
+  const lastMessage = messages.at(-1);
+
+  useLayoutEffect(() => {
+    const container = document.querySelector(".messages-container");
+    if (!container) return;
+
+    container.scrollTop = container.scrollHeight;
+  }, [lastMessage?.linkPreview]);
 
   // Detect mobile screen
   useEffect(() => {

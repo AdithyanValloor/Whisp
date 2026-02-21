@@ -7,6 +7,7 @@ import {
   NotFound,
   Forbidden,
 } from "../../../utils/errors/httpErrors.js";
+import { extractFirstUrl, fetchLinkPreview } from "../utils/linkPreview.js";
 
 /**
  * ------------------------------------------------------------------
@@ -127,7 +128,11 @@ export const sendMessageFunction = async (
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
 
-  const deliveredTo = chat.members.filter((id) => id.toString() !== senderId);
+  const deliveredTo = chat.members.filter(
+    (id) => id.toString() !== senderId
+  );
+
+  const firstUrl = extractFirstUrl(content);
 
   const message = await Message.create({
     sender: senderId,
@@ -135,6 +140,7 @@ export const sendMessageFunction = async (
     chat: chatId,
     deliveredTo,
     replyTo: replyTo || null,
+    linkPreview: null,
   });
 
   const populated = await message.populate([
@@ -142,7 +148,10 @@ export const sendMessageFunction = async (
     {
       path: "replyTo",
       select: "content sender",
-      populate: { path: "sender", select: "username displayName" },
+      populate: {
+        path: "sender",
+        select: "username displayName",
+      },
     },
   ]);
 
@@ -161,11 +170,12 @@ export const sendMessageFunction = async (
 
   return {
     populated,
+    messageId: message._id.toString(),
+    firstUrl,
     chatMembers: chat.members.map((m) => m.toString()),
     unreadCounts: chat.unreadCounts,
   };
 };
-
 
 /**
  * ------------------------------------------------------------------
@@ -235,6 +245,7 @@ export const forwardMessageFunction = async (
       deliveredTo,
       forwarded: true,
       forwardedFrom: original._id,
+      linkPreview: original.linkPreview || null, 
     });
 
     chat.lastMessage = forwardedMessage._id;
@@ -485,9 +496,19 @@ export const deleteMessageFunction = async (
 
   message.content = "This message was deleted";
   message.deleted = true;
+  message.edited = false;
+  message.replyTo = null;
+  message.forwarded = false;
+  message.forwardedFrom = null;
+  message.reactions = [];
+  message.linkPreview = undefined;
+
   await message.save();
 
-  const populated = await message.populate("sender", "username profilePicture");
+  const populated = await message.populate(
+    "sender",
+    "username displayName profilePicture"
+  );
 
   return {
     populated,

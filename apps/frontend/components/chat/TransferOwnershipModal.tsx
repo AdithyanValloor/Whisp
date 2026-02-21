@@ -73,9 +73,9 @@ export default function TransferOwnershipModal({
             className="relative z-10 bg-base-200 flex flex-col 
              w-full max-w-md 
              max-h-[85vh] 
-             rounded-xl border border-base-content/10 shadow-xl"
+             rounded-xl border border-base-content/10 shadow-xl overflow-hidden"
           >
-            <div className="flex flex-col h-full p-4">
+            <div className="flex flex-col h-full p-4 min-h-0">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-lg">Transfer Ownership</h3>
@@ -103,7 +103,7 @@ export default function TransferOwnershipModal({
               )}
 
               {/* Scrollable List */}
-              <div className="flex-1 overflow-y-auto mt-3 pr-1">
+              <div className="flex-1 min-h-0 overflow-y-auto mt-3 pr-1">
                 {filteredMembers.length === 0 ? (
                   <p className="text-sm text-center opacity-60">
                     No members found

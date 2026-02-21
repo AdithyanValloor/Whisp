@@ -33,6 +33,15 @@ export interface MessageReaction {
   user: MessageUser;
 }
 
+export interface LinkPreview {
+  url?: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+  isLargeImage?: boolean;
+}
+
 /**
  * Core message type (REST + Socket compatible)
  */
@@ -51,6 +60,7 @@ export interface ChatMessage {
 
   replyTo: ChatMessage | null;
   reactions: MessageReaction[];
+  linkPreview?: LinkPreview;
 
   createdAt: string;
   updatedAt: string;

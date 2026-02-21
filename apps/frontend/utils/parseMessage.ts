@@ -8,6 +8,6 @@ export function parseMessageText(text: string): string {
   return text.replace(
     urlRegex,
     (url) =>
-      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-[#33ddff] underline hover:text-primary-focus">${url}</a>`
+      `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-cyan-500 hover:underline hover:text-primary-focus">${url}</a>`
   );
 }

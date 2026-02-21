@@ -5,6 +5,7 @@ import { MessageType } from "@/redux/features/messageSlice";
 import { renderTwemoji } from "@/utils/renderEmoji";
 import { parseMessageText } from "@/utils/parseMessage";
 import { Check, CheckCheck, Forward } from "lucide-react";
+import LinkPreviewCard from "../Message/LinkPreviewCard";
 
 interface ChatBubbleProps {
   msg: MessageType;
@@ -90,7 +91,7 @@ export default function ChatBubble({
   return (
     <div
       className={`chat relative text-base-content p-0 border-1 border-transparent
-        ${msg.reactions && msg.reactions.length > 0 ? "pb-5" : ""}
+        ${!msg.deleted && msg.reactions && msg.reactions.length > 0 ? "pb-5" : ""}
         ${isMe ? "chat-end" : "chat-start"}
         hover:bg-base-content/10 rounded-sm px-4 transition-colors
         ${highlightedMessageId === msg._id ? "bg-cyan-900/30" : ""}
@@ -188,12 +189,13 @@ export default function ChatBubble({
                   : "!rounded-bl-2xl"
                 : ""
             }
-            px-1 py-1
-            ${isMe ? "bg-cyan-900 text-white" : "bg-base-100"}
+            px-2 py-2
+            ${isMe ? "bg-cyan-900 text-white text-sm" : "bg-base-100"}
             ${grouped ? (isMe ? "mx-10" : "mx-10") : ""}
-            ${msg.deleted ? "italic opacity-80" : ""}
+            ${msg.deleted ? "italic opacity-50" : ""}
             break-words overflow-hidden whitespace-pre-wrap
-            max-w-[75%] sm:max-w-[65%] md:max-w-[55%] xl:max-w-[50%]`}
+            max-w-[65%] sm:max-w-[55%] md:max-w-[48%] xl:max-w-[42%]            
+            `}
         >
           {msg.forwarded && !msg.deleted && (
             <div className={`flex items-center italic gap-1 opacity-50 pl-3 px-2`}>
@@ -242,7 +244,10 @@ export default function ChatBubble({
                   ? "This message was deleted"
                   : renderTwemoji(parseMessageText(msg.content)),
               }}
-            />
+              />
+              {msg.linkPreview && (
+                <LinkPreviewCard preview={msg.linkPreview} />
+              )}
             {msg.edited && !msg.deleted && (
               <div className={`flex py-1 ${isMe ? "justify-end" : ""}`}>
                 <span
@@ -272,10 +277,10 @@ export default function ChatBubble({
         </div>
       )}
 
-      {msg.reactions && msg.reactions.length > 0 && (
+      {!msg.deleted && msg.reactions && msg.reactions.length > 0 && (
         <div
-          className={`absolute flex flex-wrap gap-[2px] px-[6px] py-[1px] rounded-full text-sm select-none twemoji-container
-            ${isMe ? "right-15 bottom-7 justify-end" : "left-15 bottom-7 justify-start"}`}
+          className={`absolute flex flex-wrap gap-[2px] px-[6px] py-[1px] rounded-full text-sm bottom-7 select-none twemoji-container
+            ${isMe ? "right-16 justify-end" : "left-16 justify-start"}`}
           style={{ transform: "translateY(100%)" }}
         >
           {Object.entries(
@@ -289,7 +294,7 @@ export default function ChatBubble({
           ).map(([emoji, count]) => (
             <span
               key={emoji}
-              className="flex items-center bg-base-100 border border-base-content/8 shadow justify-center p-1 gap-[4px] rounded-full cursor-pointer transition-all"
+              className="flex items-center bg-accent-content border border-base-content/8 shadow justify-center p-0.5 gap-[4px] rounded-full cursor-pointer transition-all"
               onClick={() => handleReaction(msg, emoji)}
             >
               <span
