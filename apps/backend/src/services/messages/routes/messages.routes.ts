@@ -10,7 +10,8 @@ import {
     toggleReaction,
     searchMessages,
     getMessageContext,
-    getNewerMessages
+    getNewerMessages,
+    forwardMessage
 } from "../controllers/message.controller.js"
 import { protect } from "../../auth/auth.middleware.js"
 
@@ -33,6 +34,9 @@ router.get("/:chatId", protect, getAllMessages)
 
 // Send a new message
 router.post("/", protect, sendMessage)
+
+// Forward a message
+router.post("/forward", protect, forwardMessage)
 
 // Edit a message by id
 router.put("/:messageId", protect, editMessage)

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   fetchMessages,
+  forwardMessageApi,
   MessageType,
   toggleReaction,
 } from "@/redux/features/messageSlice";
@@ -15,6 +16,8 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { clearJumpTo, fetchNewerMessages } from "@/redux/features/messageSlice";
 import UniversalEmojiPicker from "../GlobalComponents/UniversalEmojiPicker";
+import ForwardModal from "../GlobalComponents/Forward";
+import { useRouter } from "next/navigation";
 
 interface MessagesProps {
   chatId: string;
@@ -22,6 +25,8 @@ interface MessagesProps {
   onEdit: (msg: MessageType | null) => void;
   onDelete: (msg: MessageType) => void;
   setReplyingTo: (msg: MessageType | null) => void;
+  forwardMessage: MessageType | null;
+  setForward: (msg: MessageType | null) => void;
   replyingTo: MessageType | null;
   editingMessage: MessageType | null;
   typingUsers: Record<string, string>;
@@ -36,11 +41,13 @@ export default function Messages({
   onEdit,
   onDelete,
   setReplyingTo,
+  setForward,
   replyingTo,
   typingUsers,
   editingMessage,
   scrollToMessage,
   highlightedMessageId,
+  forwardMessage,
 }: MessagesProps) {
   const dispatch = useAppDispatch();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -52,9 +59,12 @@ export default function Messages({
   const prevMessagesLengthRef = useRef(0);
   const animatedMessageIdRef = useRef<string | null>(null);
   const jumpLockRef = useRef(false);
+  const router = useRouter();
 
   const jumpTo = useAppSelector((s) => s.messages.jumpTo);
   const chatMeta = useAppSelector((s) => s.messages.meta[chatId]);
+  const { chats, accessLoading } = useAppSelector((state) => state.chat);
+
   const loadingNewerRef = useRef(false);
   const loadNewerDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -68,6 +78,10 @@ export default function Messages({
   const [unreadDividerIndex, setUnreadDividerIndex] = useState<number | null>(
     null,
   );
+  const [showForwardModal, SetShowForwardModal] = useState(false);
+  // const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
+
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -335,6 +349,41 @@ export default function Messages({
     if (isNearTop() && hasMore && !loadingMore && !loadingOlderRef.current) {
       loadMore();
     }
+  };
+
+  const toggleChatSelection = (id: string) => {
+    setSelectedChats((prev) => {
+      const next = new Set(prev);
+
+      if (next.has(id)) {
+        next.delete(id);
+        return next;
+      }
+
+      if (next.size >= 5) {
+        return next;
+      }
+
+      next.add(id);
+      return next;
+    });
+  };
+
+  const handleForwardSelected = () => {
+    if (!forwardMessage) return;
+
+    const firstChatId = Array.from(selectedChats)[0];
+    router.push(`/chat/${firstChatId}`);
+
+    dispatch(
+      forwardMessageApi({
+        messageId: forwardMessage._id,
+        targetChatIds: Array.from(selectedChats),
+      }),
+    );
+
+    SetShowForwardModal(false);
+    setSelectedChats(new Set());
   };
 
   // Scroll to bottom on initial load
@@ -669,7 +718,7 @@ export default function Messages({
   }, [replyingTo, editingMessage]);
 
   let groupStart: MessageType | null = null;
-  const GROUP_INTERVAL = 300; // 5 minutes
+  const GROUP_INTERVAL = 300;
 
   return (
     <div className="relative flex-1 flex flex-col h-full">
@@ -822,9 +871,11 @@ export default function Messages({
                       isMe={isMe}
                       openFullPicker={openFullPicker}
                       msg={msg}
+                      SetShowForwardModal={() => SetShowForwardModal(true)}
                       handleReply={handleReply}
                       closeContextMenu={closeContextMenu}
                       setReplyingTo={setReplyingTo}
+                      setForward={setForward}
                       onEdit={onEdit}
                       onDelete={onDelete}
                     />
@@ -862,6 +913,18 @@ export default function Messages({
             handleReaction(msg, emoji);
           }
         }}
+      />
+
+      <ForwardModal
+        show={showForwardModal}
+        onClose={() => {
+          SetShowForwardModal(false);
+          setSelectedChats(new Set());
+        }}
+        chats={chats}
+        selectedChats={selectedChats}
+        toggleChatSelection={toggleChatSelection}
+        handleForwardSelected={handleForwardSelected}
       />
 
       <AnimatePresence>

@@ -29,6 +29,17 @@ export interface MessageType {
     content: string;
     sender: { _id: string; username: string; displayName?: string };
   } | null;
+  forwarded?: boolean;
+  forwardedFrom?: {
+    _id: string;
+    content: string;
+    sender: {
+      _id: string;
+      username: string;
+      displayName?: string;
+      profilePicture?: { url: string | null };
+    };
+  } | null;
   reactions?: {
     emoji: string;
     user: { _id: string; username: string };
@@ -43,7 +54,7 @@ export interface ChatMeta {
   totalPages: number;
   hasMore: boolean;
   hasMoreNewer?: boolean;
-  newestLoadedAt?: string; 
+  newestLoadedAt?: string;
 }
 
 /**
@@ -51,7 +62,7 @@ export interface ChatMeta {
  * Uses normalized storage for efficient updates and lookups.
  */
 interface MessagesState {
-  byId: Record<string, MessageType>;    
+  byId: Record<string, MessageType>;
   messages: Record<string, string[]>;
   meta: Record<string, ChatMeta | undefined>;
   jumpTo: { chatId: string; messageId: string } | null;
@@ -71,7 +82,7 @@ const initialState: MessagesState = {
   byId: {},
   messages: {},
   meta: {},
-  jumpTo: null,   
+  jumpTo: null,
   search: {
     results: [],
     loading: false,
@@ -107,9 +118,7 @@ export const fetchMessages = createAsyncThunk<
         ? { chatId: arg, page: 1, limit: 20 }
         : { chatId: arg.chatId, page: arg.page ?? 1, limit: arg.limit ?? 20 };
 
-    const res = await api.get(
-      `/message/${chatId}?page=${page}&limit=${limit}`
-    );
+    const res = await api.get(`/message/${chatId}?page=${page}&limit=${limit}`);
 
     const payload = res.data;
 
@@ -131,6 +140,8 @@ export const sendMessage = createAsyncThunk<
   MessageType,
   { chatId: string; content: string; replyTo?: string | null },
   { rejectValue: string }
+
+  
 >("messages/send", async (data, { rejectWithValue }) => {
   try {
     const res = await api.post("/message", data, {
@@ -143,24 +154,51 @@ export const sendMessage = createAsyncThunk<
 });
 
 /**
+ * Forward a message.
+ */
+export const forwardMessageApi = createAsyncThunk<
+  MessageType[],
+  { messageId: string; targetChatIds: string[] },
+  { rejectValue: string }
+>(
+  "messages/forward",
+  async ({ messageId, targetChatIds }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(
+        "/message/forward",
+        { messageId, targetChatIds },
+        { withCredentials: true },
+      );
+
+      return res.data;
+    } catch {
+      return rejectWithValue("Failed to forward message");
+    }
+  },
+);
+
+/**
  * Toggle a reaction on a message.
  */
 export const toggleReaction = createAsyncThunk<
   MessageType,
   { messageId: string; emoji: string },
   { rejectValue: string }
->("messages/toggleReaction", async ({ messageId, emoji }, { rejectWithValue }) => {
-  try {
-    const res = await api.post(
-      `/message/react/${messageId}`,
-      { emoji },
-      { withCredentials: true }
-    );
-    return res.data;
-  } catch {
-    return rejectWithValue("Failed to toggle reaction");
-  }
-});
+>(
+  "messages/toggleReaction",
+  async ({ messageId, emoji }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(
+        `/message/react/${messageId}`,
+        { emoji },
+        { withCredentials: true },
+      );
+      return res.data;
+    } catch {
+      return rejectWithValue("Failed to toggle reaction");
+    }
+  },
+);
 
 /**
  * Mark all messages in a chat as read (server-side).
@@ -171,12 +209,16 @@ export const markChatAsRead = createAsyncThunk<
   { rejectValue: string }
 >("messages/markChatAsRead", async (chatId, { rejectWithValue }) => {
   try {
-    await api.post(`/message/mark-read/${chatId}`, {}, { withCredentials: true });
+    await api.post(
+      `/message/mark-read/${chatId}`,
+      {},
+      { withCredentials: true },
+    );
     return { chatId };
   } catch (err) {
     if (axios.isAxiosError(err)) {
       return rejectWithValue(
-        err.response?.data?.message ?? "Failed to mark chat as read"
+        err.response?.data?.message ?? "Failed to mark chat as read",
       );
     }
     return rejectWithValue("Failed to mark chat as read");
@@ -192,12 +234,16 @@ export const markMessagesAsSeen = createAsyncThunk<
   { rejectValue: string }
 >("messages/markMessagesAsSeen", async (chatId, { rejectWithValue }) => {
   try {
-    await api.post(`/message/mark-seen/${chatId}`, {}, { withCredentials: true });
+    await api.post(
+      `/message/mark-seen/${chatId}`,
+      {},
+      { withCredentials: true },
+    );
     return { chatId };
   } catch (err) {
     if (axios.isAxiosError(err)) {
       return rejectWithValue(
-        err.response?.data?.message ?? "Failed to mark messages as seen"
+        err.response?.data?.message ?? "Failed to mark messages as seen",
       );
     }
     return rejectWithValue("Failed to mark messages as seen");
@@ -211,18 +257,21 @@ export const editMessageApi = createAsyncThunk<
   MessageType,
   { chatId: string; messageId: string; content: string },
   { rejectValue: string }
->("messages/editMessage", async ({ messageId, content }, { rejectWithValue }) => {
-  try {
-    const res = await api.put(
-      `/message/${messageId}`,
-      { content },
-      { withCredentials: true }
-    );
-    return res.data;
-  } catch {
-    return rejectWithValue("Failed to edit message");
-  }
-});
+>(
+  "messages/editMessage",
+  async ({ messageId, content }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(
+        `/message/${messageId}`,
+        { content },
+        { withCredentials: true },
+      );
+      return res.data;
+    } catch {
+      return rejectWithValue("Failed to edit message");
+    }
+  },
+);
 
 /**
  * Soft-delete a message.
@@ -297,47 +346,52 @@ export const fetchMessageContext = createAsyncThunk<
   },
   { messageId: string; chatId: string },
   { rejectValue: string }
->("messages/fetchContext", async ({ messageId, chatId }, { rejectWithValue }) => {
-  try {
-    const res = await api.get(`/message/context/${messageId}`);
-    return {
-      chatId,
-      target: res.data.target,
-      before: res.data.before,
-      after: res.data.after,
-    };
-  } catch {
-    return rejectWithValue("Failed to fetch message context");
-  }
-});
+>(
+  "messages/fetchContext",
+  async ({ messageId, chatId }, { rejectWithValue }) => {
+    try {
+      const res = await api.get(`/message/context/${messageId}`);
+      return {
+        chatId,
+        target: res.data.target,
+        before: res.data.before,
+        after: res.data.after,
+      };
+    } catch {
+      return rejectWithValue("Failed to fetch message context");
+    }
+  },
+);
 
 // New thunk — fetches messages created AFTER a given timestamp (downward scroll)
 export const fetchNewerMessages = createAsyncThunk<
   { chatId: string; messages: MessageType[]; hasMore: boolean },
   { chatId: string; after: string; limit?: number },
   { rejectValue: string }
->("messages/fetchNewer", async ({ chatId, after, limit = 20 }, { rejectWithValue }) => {
-  try {
-    const res = await api.get(
-      `/message/${chatId}/newer?after=${encodeURIComponent(after)}&limit=${limit}`
-    );
-    return {
-      chatId,
-      messages: res.data.messages ?? res.data,
-      hasMore: res.data.hasMore ?? false,
-    };
-  } catch {
-    return rejectWithValue("Failed to fetch newer messages");
-  }
-});
+>(
+  "messages/fetchNewer",
+  async ({ chatId, after, limit = 20 }, { rejectWithValue }) => {
+    try {
+      const res = await api.get(
+        `/message/${chatId}/newer?after=${encodeURIComponent(after)}&limit=${limit}`,
+      );
+      return {
+        chatId,
+        messages: res.data.messages ?? res.data,
+        hasMore: res.data.hasMore ?? false,
+      };
+    } catch {
+      return rejectWithValue("Failed to fetch newer messages");
+    }
+  },
+);
 
 /* -------------------- HELPERS -------------------- */
-
 
 export function insertMessageSorted(
   state: MessagesState,
   chatId: string,
-  message: MessageType
+  message: MessageType,
 ) {
   state.byId[message._id] = message;
 
@@ -348,7 +402,7 @@ export function insertMessageSorted(
   const index = prevIds.findIndex(
     (id) =>
       new Date(state.byId[id].createdAt).getTime() >
-      new Date(message.createdAt).getTime()
+      new Date(message.createdAt).getTime(),
   );
 
   let nextIds: string[];
@@ -377,7 +431,7 @@ const messagesSlice = createSlice({
      */
     insertMessage: (
       state,
-      action: PayloadAction<{ chatId: string; message: MessageType }>
+      action: PayloadAction<{ chatId: string; message: MessageType }>,
     ) => {
       insertMessageSorted(state, action.payload.chatId, action.payload.message);
     },
@@ -385,20 +439,14 @@ const messagesSlice = createSlice({
     /**
      * Update message content/state from socket edits.
      */
-    editMessage: (
-      state,
-      action: PayloadAction<{ message: MessageType }>
-    ) => {
+    editMessage: (state, action: PayloadAction<{ message: MessageType }>) => {
       state.byId[action.payload.message._id] = action.payload.message;
     },
 
     /**
      * Apply soft-delete updates from socket events.
      */
-    deleteMessage: (
-      state,
-      action: PayloadAction<{ message: MessageType }>
-    ) => {
+    deleteMessage: (state, action: PayloadAction<{ message: MessageType }>) => {
       state.byId[action.payload.message._id] = action.payload.message;
     },
 
@@ -407,7 +455,11 @@ const messagesSlice = createSlice({
      */
     updateMessageDelivery: (
       state,
-      action: PayloadAction<{ chatId: string; messageId: string; userId: string }>
+      action: PayloadAction<{
+        chatId: string;
+        messageId: string;
+        userId: string;
+      }>,
     ) => {
       const msg = state.byId[action.payload.messageId];
       if (!msg) return;
@@ -423,7 +475,7 @@ const messagesSlice = createSlice({
      */
     updateMessageSeen: (
       state,
-      action: PayloadAction<{ messageId: string; userId: string }>
+      action: PayloadAction<{ messageId: string; userId: string }>,
     ) => {
       const msg = state.byId[action.payload.messageId];
       if (!msg) return;
@@ -434,7 +486,7 @@ const messagesSlice = createSlice({
       }
 
       msg.deliveredTo = msg.deliveredTo?.filter(
-        (id) => id !== action.payload.userId
+        (id) => id !== action.payload.userId,
       );
     },
 
@@ -443,7 +495,7 @@ const messagesSlice = createSlice({
      */
     markAllMessagesSeen: (
       state,
-      action: PayloadAction<{ chatId: string; userId: string }>
+      action: PayloadAction<{ chatId: string; userId: string }>,
     ) => {
       const { chatId, userId } = action.payload;
       const messageIds = state.messages[chatId] || [];
@@ -471,9 +523,12 @@ const messagesSlice = createSlice({
      */
     setJumpTo: (
       state,
-      action: PayloadAction<{ chatId: string; messageId: string }>
+      action: PayloadAction<{ chatId: string; messageId: string }>,
     ) => {
-      state.jumpTo = { chatId: action.payload.chatId, messageId: action.payload.messageId };
+      state.jumpTo = {
+        chatId: action.payload.chatId,
+        messageId: action.payload.messageId,
+      };
     },
   },
 
@@ -509,7 +564,7 @@ const messagesSlice = createSlice({
       .addCase(sendMessage.pending, (state) => {
         state.sendLoading = true;
       })
-     .addCase(sendMessage.fulfilled, (state, action) => {
+      .addCase(sendMessage.fulfilled, (state, action) => {
         state.sendLoading = false;
 
         const msg = action.payload;
@@ -518,6 +573,15 @@ const messagesSlice = createSlice({
       .addCase(sendMessage.rejected, (state, action) => {
         state.sendLoading = false;
         state.error = action.payload ?? "Failed to send message";
+      })
+
+      /* -------- FORWARD MESSAGE -------- */
+      .addCase(forwardMessageApi.fulfilled, (state, action) => {
+        const forwardedMessages = action.payload;
+
+        forwardedMessages.forEach((msg) => {
+          insertMessageSorted(state, msg.chat, msg);
+        });
       })
 
       /* -------- EDIT / DELETE / REACT -------- */
@@ -556,7 +620,7 @@ const messagesSlice = createSlice({
       .addCase(searchMessagesApi.rejected, (state) => {
         state.search.loading = false;
       })
-      
+
       .addCase(fetchMessageContext.fulfilled, (state, action) => {
         const { chatId, before, target, after } = action.payload;
 
@@ -586,7 +650,7 @@ const messagesSlice = createSlice({
         if (state.meta[chatId]) {
           state.meta[chatId]!.hasMoreNewer = hasMore;
         }
-      })
+      });
   },
 });
 

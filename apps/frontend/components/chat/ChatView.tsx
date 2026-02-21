@@ -70,6 +70,9 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     selectMessagesByChat(state, chat._id),
   );
   const typingUsers = useAppSelector((s) => s.typing.byChat[chat._id] ?? {});
+  const unreadCount = useAppSelector(
+    (state) => state.unread.perChat[chat._id] || 0,
+  );
 
   const lastMessageId = messages.at(-1)?._id;
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -94,6 +97,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   });
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null);
+  const [forward, setForward] = useState<MessageType | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     string | null
@@ -168,49 +172,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     router.push("/chat");
   };
 
-  // Stable mark as seen function
-  const markChatAsSeen = useCallback(async () => {
-    if (!isPageVisible || isMarkingRef.current || messages.length === 0) {
-      return;
-    }
-
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage?.sender._id === currentUser._id) {
-      return;
-    }
-
-    isMarkingRef.current = true;
-    console.log("✅ Marking chat as read/seen:", chat._id);
-
-    try {
-      dispatch(resetUnread(chat._id));
-      await dispatch(markChatAsRead(chat._id)).unwrap();
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      await dispatch(markMessagesAsSeen(chat._id)).unwrap();
-      console.log(`👁️ Chat ${chat._id} marked successfully`);
-    } catch (err) {
-      console.error("❌ Failed to mark chat:", err);
-    } finally {
-      isMarkingRef.current = false;
-    }
-  }, [chat._id, dispatch, isPageVisible, messages, currentUser._id]);
-
-  // Track page visibility
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const visible = !document.hidden;
-      setIsPageVisible(visible);
-
-      if (visible && messages.length > 0 && hasMarkedInitialRef.current) {
-        markChatAsSeen();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () =>
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [messages.length, markChatAsSeen]);
-
   // Reset state when chat changes
   useEffect(() => {
     console.log("🔄 Chat changed to:", chat._id);
@@ -272,32 +233,15 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
 
   useEffect(() => {
     if (!isPageVisible) return;
-    if (!lastMessageId) return;
+    if (unreadCount === 0) return;
 
-    const lastMessage = messages[messages.length - 1];
+    console.log("🔄 Resetting unread on chat open:", chat._id);
 
-    if (lastMessage.sender._id === currentUser._id) return;
+    dispatch(resetUnread(chat._id));
 
-    if (isMarkingRef.current) return;
-
-    isMarkingRef.current = true;
-
-    const timer = setTimeout(async () => {
-      try {
-        console.log("👁️ Marking chat as seen:", chat._id);
-
-        dispatch(resetUnread(chat._id));
-        await dispatch(markChatAsRead(chat._id)).unwrap();
-        await dispatch(markMessagesAsSeen(chat._id)).unwrap();
-      } catch (err) {
-        console.error("❌ Mark as seen failed:", err);
-      } finally {
-        isMarkingRef.current = false;
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [lastMessageId, chat._id, currentUser._id, dispatch]);
+    dispatch(markChatAsRead(chat._id));
+    dispatch(markMessagesAsSeen(chat._id));
+  }, [chat._id, unreadCount, isPageVisible, dispatch]);
 
   // Socket event listeners
   const handleTyping = () => {
@@ -414,6 +358,8 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
           replyingTo={replyingTo}
           editingMessage={editingMessage}
           setReplyingTo={setReplyingTo}
+          forwardMessage={forward}
+          setForward={setForward}
           onEdit={(msg) => {
             setReplyingTo(null);
             setEditingMessage(msg);

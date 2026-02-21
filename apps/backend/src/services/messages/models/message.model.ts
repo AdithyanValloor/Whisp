@@ -1,7 +1,7 @@
 import { Schema, Document, model, Types } from "mongoose";
 
 export interface IMessage extends Document {
-  _id: Types.ObjectId;  
+  _id: Types.ObjectId;
   chat: Types.ObjectId;
   sender: Types.ObjectId;
   content: string;
@@ -14,6 +14,9 @@ export interface IMessage extends Document {
 
   replyTo?: Types.ObjectId | null;
 
+  forwarded: boolean;
+  forwardedFrom?: Types.ObjectId | null;
+
   reactions: {
     emoji: string;
     user: Types.ObjectId;
@@ -23,8 +26,8 @@ export interface IMessage extends Document {
   updatedAt: Date;
 }
 
-const messageSchema:Schema<IMessage> = new Schema(
-{
+const messageSchema: Schema<IMessage> = new Schema(
+  {
     chat: {
       type: Schema.Types.ObjectId,
       ref: "Chat",
@@ -64,6 +67,15 @@ const messageSchema:Schema<IMessage> = new Schema(
       ref: "Message",
       default: null,
     },
+    forwarded: {
+      type: Boolean,
+      default: false,
+    },
+    forwardedFrom: {
+      type: Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
     reactions: [
       {
         emoji: {
@@ -78,14 +90,13 @@ const messageSchema:Schema<IMessage> = new Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-// For chat pagination 
+// For chat pagination
 messageSchema.index({ chat: 1, createdAt: -1 });
 
 // Optional
 messageSchema.index({ chat: 1, content: "text" });
-
 
 export const Message = model<IMessage>("Message", messageSchema);

@@ -3,6 +3,7 @@ import { MessageBody, MessageParams } from "../types/message.types.js";
 import {
   deleteMessageFunction,
   editMessageFunction,
+  forwardMessageFunction,
   getAllMessagesFunction,
   getMessageContextFunction,
   getNewerMessagesFunction,
@@ -104,6 +105,67 @@ export const sendMessage = async (
     });
 
     res.status(201).json(populated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * ------------------------------------------------------------------
+ * Forward Message
+ * ------------------------------------------------------------------
+ * @desc    Forwards an existing message to one or more target chats.
+ *          Creates new message documents with `forwarded = true`.
+ *
+ * @route   POST /api/message/forward
+ * @access  Private
+ *
+ * Body:
+ * - messageId: string
+ * - targetChatIds: string[]
+ *
+ * Emits:
+ * - `new_message` to each target chat room
+ * - `unread_update` to each non-sender member
+ */
+
+export const forwardMessage = async (
+  req: Request<{}, {}, MessageBody>,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const senderId = req.user?.id;
+    if (!senderId) throw Unauthorized();
+
+    const { messageId, targetChatIds } = req.body;
+    
+    if (!messageId || !Array.isArray(targetChatIds) || targetChatIds.length === 0) throw BadRequest("MessageId and targeted chatIds are required")
+
+    const results = await forwardMessageFunction(
+      messageId,
+      targetChatIds,
+      senderId
+    );
+
+    results.forEach(({ chatId, message, chatMembers, unreadCounts }) => {
+      emitNewMessage(chatId, toMessageSocketPayload(message));
+
+      chatMembers.forEach((memberId) => {
+        if (memberId !== senderId) {
+          emitUnreadUpdate(
+            memberId,
+            chatId,
+            unreadCounts.get(memberId) || 0
+          );
+        }
+      });
+    });
+
+    res.status(201).json(
+      results.map(r => r.message)
+    );
+
   } catch (err) {
     next(err);
   }

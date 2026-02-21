@@ -30,8 +30,10 @@ export interface MessageParams {
  * - POST   /api/message/react/:messageId
  */
 export interface MessageBody {
-  chatId?: string;          // required for sendMessage
-  content?: string;         // required for send/edit
-  replyTo?: string | null;  // optional reply message id
-  emoji?: string;           // required for reaction
+  chatId?: string;
+  content?: string;
+  replyTo?: string | null;
+  emoji?: string;
+  messageId?: string | null;
+  targetChatIds?: string[]; 
 }

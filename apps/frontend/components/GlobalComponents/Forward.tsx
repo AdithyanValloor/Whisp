@@ -1,12 +1,15 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, Send, X } from "lucide-react";
 import FriendCard from "../Message/FriendCard";
-import IconButton from "../GlobalComponents/IconButtons";
-import SearchInput from "../GlobalComponents/SearchInput";
+import IconButton from "./IconButtons";
+import SearchInput from "./SearchInput";
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { IoSend } from "react-icons/io5";
+import { Chat } from "@/redux/features/chatSlice";
+import { useAppSelector } from "@/redux/hooks";
 
 interface User {
   _id: string;
@@ -15,36 +18,43 @@ interface User {
   profilePicture?: { url: string | null };
 }
 
-interface AddMembersModalProps {
+interface ForwardModalProps {
   show: boolean;
   onClose: () => void;
-  availableFriends: User[];
-  selectedUsers: Set<string>;
-  toggleUserSelection: (id: string) => void;
-  handleAddSelected: () => void;
+  chats: Chat[];
+  selectedChats: Set<string>;
+  toggleChatSelection: (id: string) => void;
+  handleForwardSelected: () => void;
 }
 
-export default function AddMembersModal({
+export default function ForwardModal({
   show,
   onClose,
-  availableFriends,
-  selectedUsers,
-  toggleUserSelection,
-  handleAddSelected,
-}: AddMembersModalProps) {
+  chats,
+  selectedChats,
+  toggleChatSelection,
+  handleForwardSelected,
+}: ForwardModalProps) {
+  const currentUser = useAppSelector((state) => state.auth.user);
+
+  const getChatDisplayName = (chat: Chat) => {
+    if (chat.isGroup) return chat.chatName;
+
+    const other = chat.members.find((m) => m._id !== currentUser?._id);
+    return other?.displayName ?? other?.username ?? "Unknown";
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredFriends = useMemo(() => {
-    if (!searchQuery.trim()) return availableFriends;
+  const filteredChats = useMemo(() => {
+    if (!searchQuery.trim()) return chats;
 
     const query = searchQuery.toLowerCase();
 
-    return availableFriends.filter(
-      (friend) =>
-        friend.displayName?.toLowerCase().includes(query) ||
-        friend.username.toLowerCase().includes(query),
+    return chats.filter((chat) =>
+      getChatDisplayName(chat).toLowerCase().includes(query),
     );
-  }, [availableFriends, searchQuery]);
+  }, [chats, searchQuery, currentUser]);
 
   if (typeof document === "undefined") return null;
 
@@ -70,21 +80,29 @@ export default function AddMembersModal({
             exit={{ opacity: 0, scale: 0.97, y: 5 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className="relative z-10 bg-base-200 flex flex-col 
-                       w-full max-w-md 
-                       max-h-[85vh] 
-                       rounded-xl border border-base-content/10 shadow-xl"
+             w-full max-w-md 
+             max-h-[85vh] 
+             rounded-xl border border-base-content/10 shadow-xl overflow-hidden"
           >
-            <div className="flex flex-col h-full p-4">
+            <div className="flex flex-col h-full p-4 min-h-0">
               {/* Header */}
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg">Add Members</h3>
-                <IconButton onClick={onClose} ariaLabel="Close modal">
-                  <X size={18} />
-                </IconButton>
+              <div>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">Forward Message</h3>
+                  {/* <span className="text-xs opacity-60">
+                    {selectedChats.size}/5 selected
+                  </span> */}
+                  <IconButton onClick={onClose} ariaLabel="Close modal">
+                    <X size={18} />
+                  </IconButton>
+                </div>
+                <p className="opacity-70 text-sm">
+                  Select where you want to share this message.
+                </p>
               </div>
 
               {/* Search only if large list */}
-              {availableFriends.length > 10 && (
+              {chats.length > 10 && (
                 <div className="mt-3">
                   <SearchInput
                     value={searchQuery}
@@ -96,20 +114,20 @@ export default function AddMembersModal({
               )}
 
               {/* Scrollable List */}
-              <div className="flex-1 overflow-y-auto mt-3 pr-1">
-                {filteredFriends.length === 0 ? (
+              <div className="flex-1 min-h-0 overflow-y-auto mt-3 pr-1">
+                {filteredChats.length === 0 ? (
                   <p className="text-sm text-center opacity-60">
-                    No friends to add
+                    No friends to foreward
                   </p>
                 ) : (
                   <ul>
-                    {filteredFriends.map((u) => {
-                      const isSelected = selectedUsers.has(u._id);
+                    {filteredChats.map((chat) => {
+                      const isSelected = selectedChats.has(chat._id);
 
                       return (
                         <li
-                          key={u._id}
-                          onClick={() => toggleUserSelection(u._id)}
+                          key={chat._id}
+                          onClick={() => toggleChatSelection(chat._id)}
                           className={`relative my-1 rounded-lg cursor-pointer border transition ${
                             isSelected
                               ? "bg-[#004030]/10 border-[#004030]"
@@ -117,13 +135,18 @@ export default function AddMembersModal({
                           }`}
                         >
                           <FriendCard
+                            modal
                             groupMember={{
-                              _id: u._id,
-                              username: u.username,
-                              displayName: u.displayName ?? u.username,
-                              profilePicture: u.profilePicture,
+                              _id: chat._id,
+                              username: getChatDisplayName(chat),
+                              displayName: getChatDisplayName(chat),
+                              profilePicture: chat.isGroup
+                                ? { url: null }
+                                : chat.members.find(
+                                    (m) => m._id !== currentUser?._id,
+                                  )?.profilePicture,
                             }}
-                            msgId={u._id}
+                            msgId={chat._id}
                           />
 
                           {isSelected && (
@@ -150,11 +173,11 @@ export default function AddMembersModal({
                 </button>
                 <button
                   type="button"
-                  onClick={handleAddSelected}
-                  disabled={selectedUsers.size === 0}
-                  className="w-full p-2 cursor-pointer bg-[#004030] text-white rounded-xl hover:bg-[#006644] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleForwardSelected}
+                  disabled={selectedChats.size === 0}
+                  className="w-full p-2 flex items-center justify-center gap-3 cursor-pointer bg-[#004030] text-white rounded-xl hover:bg-[#006644] transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add Selected
+                  Foreward <IoSend strokeWidth={1.3} size={20} />
                 </button>
               </div>
             </div>

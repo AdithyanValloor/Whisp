@@ -394,7 +394,10 @@ export default function GroupSidebar({
 
       <AddMembersModal
         show={showAddModal}
-        onClose={() => setShowAddModal(false)}
+        onClose={() => {
+          setShowAddModal(false)
+          setSelectedUsers(new Set());
+        }}
         availableFriends={availableFriends}
         selectedUsers={selectedUsers}
         toggleUserSelection={toggleUserSelection}

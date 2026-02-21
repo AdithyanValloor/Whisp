@@ -2,7 +2,10 @@
 
 import { ArrowLeft, Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { searchMessagesApi, type MessageType } from "@/redux/features/messageSlice";
+import {
+  searchMessagesApi,
+  type MessageType,
+} from "@/redux/features/messageSlice";
 import SearchInput from "../GlobalComponents/SearchInput";
 import IconButton from "../GlobalComponents/IconButtons";
 import DateFilter from "./DatePicker";
@@ -11,7 +14,12 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 
 interface ChatSearchComponentProps {
   onClose: () => void;
-  currentUser: { _id: string; username: string; displayName?: string; profilePic?: string };
+  currentUser: {
+    _id: string;
+    username: string;
+    displayName?: string;
+    profilePic?: string;
+  };
   chatId: string;
   onSelectMessage: (id: string) => void;
 }
@@ -20,7 +28,7 @@ export default function ChatSearchComponent({
   onClose,
   currentUser,
   chatId,
-  onSelectMessage
+  onSelectMessage,
 }: ChatSearchComponentProps) {
   const [query, setQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
@@ -28,19 +36,19 @@ export default function ChatSearchComponent({
   const dispatch = useAppDispatch();
 
   const searchResults = useAppSelector(
-    (state) => state.messages.search.results
+    (state) => state.messages.search.results,
   );
 
   const searchLoading = useAppSelector(
-    (state) => state.messages.search.loading
+    (state) => state.messages.search.loading,
   );
 
   const searchMessages = useAppSelector((state) =>
-    searchResults.map((id) => state.messages.byId[id])
+    searchResults.map((id) => state.messages.byId[id]),
   );
 
   console.log("SEARCH RES :", searchMessages);
-  
+
   useEffect(() => {
     const hasQuery = query.trim().length > 0;
     const hasDate = !!selectedDate;
@@ -54,7 +62,7 @@ export default function ChatSearchComponent({
           query,
           date: selectedDate?.toISOString(),
           page: 1,
-        })
+        }),
       );
     }, 400); // debounce
 
@@ -73,7 +81,14 @@ export default function ChatSearchComponent({
     <div className="h-full w-full text-base-content flex flex-col bg-base-200 shadow">
       {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-base-content/8 bg-base-200">
-        <IconButton ariaLabel="Close search" onClick={onClose}>
+        <IconButton
+          ariaLabel="Close search"
+          onClick={() => {
+            setQuery("");
+            setSelectedDate(null);
+            onClose();
+          }}
+        >
           <ArrowLeft size={18} />
         </IconButton>
 
@@ -91,10 +106,7 @@ export default function ChatSearchComponent({
         </div>
 
         {/* Date picker here */}
-        <DateFilter
-          value={selectedDate}
-          onChange={setSelectedDate}
-        />
+        <DateFilter value={selectedDate} onChange={setSelectedDate} />
       </div>
 
       {/* Results */}
@@ -113,23 +125,23 @@ export default function ChatSearchComponent({
 
         <div className="flex flex-col gap-1">
           {searchMessages.map((msg) => (
-            
             <div
               key={msg._id}
               onClick={() => onSelectMessage(msg._id)}
               className="p-2 rounded-lg hover:bg-base-content/10 cursor-pointer transition"
             >
               <p className="text-sm line-clamp-2">
-                <span className="opacity-60">{getSenderLabel(msg)}:</span> {msg.content}
+                <span className="opacity-60">{getSenderLabel(msg)}:</span>{" "}
+                {msg.content}
               </p>
               <p className="text-[11px] opacity-60 mt-0.5">
                 {/* {new Date(msg.createdAt).toLocaleString()} */}
-                {new Date(msg.createdAt).toLocaleString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                {new Date(msg.createdAt).toLocaleString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
               </p>
             </div>

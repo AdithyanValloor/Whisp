@@ -21,6 +21,8 @@ interface ContextMenuProps {
   handleReply: (msg: MessageType) => void;
   closeContextMenu: () => void;
   setReplyingTo: (msg: MessageType | null) => void;
+  setForward: (msg: MessageType | null) => void;
+  SetShowForwardModal: () => void;
   onEdit?: (msg: MessageType) => void;
   onDelete?: (msg: MessageType) => void;
 }
@@ -34,6 +36,8 @@ export default function ContextMenu({
   handleReply,
   closeContextMenu,
   setReplyingTo,
+  setForward,
+  SetShowForwardModal,
   onEdit,
   onDelete,
 }: ContextMenuProps) {
@@ -65,10 +69,11 @@ export default function ContextMenu({
       show: true,
     },
     {
-      label: "Foreward",
+      label: "Forward",
       icon: Forward,
       action: () => {
-        handleReply(msg);
+        setForward(msg);
+        SetShowForwardModal();
         closeContextMenu();
       },
       show: true,
@@ -81,7 +86,7 @@ export default function ContextMenu({
         onEdit?.(msg);
         closeContextMenu();
       },
-      show: isMe,
+      show: isMe && !msg.forwarded,
     },
     {
       label: "Copy",

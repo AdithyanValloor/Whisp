@@ -46,6 +46,7 @@ interface BaseFriendCardProps {
   onClick?: () => void;
   ClassName?: string;
   openDropdown?: boolean;
+  modal?: boolean;
 }
 
 interface InboxFriendCardProps extends BaseFriendCardProps {
@@ -76,6 +77,7 @@ export default function FriendCard(props: FriendCardProps) {
     forceActive,
     ClassName,
     openDropdown,
+    modal
   } = props;
 
   const isInbox = props.ifInbox === true;
@@ -290,7 +292,7 @@ export default function FriendCard(props: FriendCardProps) {
             <h3 className="font-semibold truncate flex-1 text-base-content">
               {userData.displayName || userData.name}
             </h3>
-            {lastMessageTime && (
+            {!modal && lastMessageTime && (
               <p
                 className={`text-[12px] font-semibold text-base-content opacity-60 ${unread ? "text-green-500" : ""}`}
               >

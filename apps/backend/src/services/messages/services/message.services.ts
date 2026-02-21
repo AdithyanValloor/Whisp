@@ -32,7 +32,7 @@ import {
 export const getAllMessagesFunction = async (
   chatId: string,
   page: number,
-  limit: number
+  limit: number,
 ) => {
   if (!chatId) throw BadRequest("ChatId is required");
 
@@ -118,7 +118,7 @@ export const sendMessageFunction = async (
   chatId: string,
   content: string,
   senderId: string,
-  replyTo?: string | null
+  replyTo?: string | null,
 ) => {
   if (!senderId) throw Unauthorized();
   if (!chatId) throw BadRequest("ChatId is required");
@@ -127,9 +127,7 @@ export const sendMessageFunction = async (
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
 
-  const deliveredTo = chat.members.filter(
-    (id) => id.toString() !== senderId
-  );
+  const deliveredTo = chat.members.filter((id) => id.toString() !== senderId);
 
   const message = await Message.create({
     sender: senderId,
@@ -168,6 +166,112 @@ export const sendMessageFunction = async (
   };
 };
 
+
+/**
+ * ------------------------------------------------------------------
+ * Forward Message (Core Logic)
+ * ------------------------------------------------------------------
+ * @desc    Duplicates an existing message into one or more target chats.
+ *
+ * @param   messageId      - ID of original message
+ * @param   targetChatIds  - Array of destination chat IDs
+ * @param   senderId       - Authenticated user ID
+ *
+ * @returns Array<{
+ *   chatId: string,
+ *   message: PopulatedMessage,
+ *   chatMembers: string[],
+ *   unreadCounts: Map<string, number>
+ * }>
+ *
+ * Notes:
+ * - Sets `forwarded = true`
+ * - Sets `forwardedFrom = originalMessageId`
+ * - Updates Chat.lastMessage
+ * - Increments unread counts
+ * - Validates sender membership in both origin and target chats
+ */
+
+export const forwardMessageFunction = async (
+  messageId: string,
+  targetChatIds: string[],
+  senderId: string,
+) => {
+  if (!senderId) throw Unauthorized();
+  if (!messageId) throw BadRequest("MessageId is required");
+  if (!targetChatIds || targetChatIds.length === 0)
+    throw BadRequest("At least one target chat is required");
+
+  const original = await Message.findById(messageId);
+
+  if (!original) throw NotFound("Original message not found");
+
+  const originChat = await Chat.findOne({
+    _id: original.chat,
+    members: senderId,
+  });
+
+  if (!originChat) {
+    throw Forbidden("Not allowed to forward this message");
+  }
+
+  const results = [];
+
+  for (const chatId of targetChatIds) {
+    const chat = await Chat.findById(chatId);
+    if (!chat) continue;
+
+    // Ensure sender is member
+    if (!chat.members.some((m) => m.toString() === senderId)) {
+      continue;
+    }
+
+    const deliveredTo = chat.members.filter((id) => id.toString() !== senderId);
+
+    const forwardedMessage = await Message.create({
+      chat: chatId,
+      sender: senderId,
+      content: original.content,
+      deliveredTo,
+      forwarded: true,
+      forwardedFrom: original._id,
+    });
+
+    chat.lastMessage = forwardedMessage._id;
+    chat.unreadCounts ??= new Map();
+
+    chat.members.forEach((memberId) => {
+      const id = memberId.toString();
+      if (id !== senderId) {
+        chat.unreadCounts.set(id, (chat.unreadCounts.get(id) || 0) + 1);
+      }
+    });
+
+    await chat.save();
+
+    const populated = await forwardedMessage.populate([
+      { path: "sender", select: "displayName username profilePicture" },
+      {
+        path: "forwardedFrom",
+        select: "content sender",
+        populate: {
+          path: "sender",
+          select: "username displayName profilePicture",
+        },
+      },
+    ]);
+
+    results.push({
+      chatId,
+      message: populated,
+      chatMembers: chat.members.map((m) => m.toString()),
+      unreadCounts: chat.unreadCounts,
+    });
+  }
+
+  return results;
+};
+
 /**
  * ------------------------------------------------------------------
  * Toggle Reaction on Message
@@ -191,7 +295,7 @@ export const sendMessageFunction = async (
 export const toggleReactionFunction = async (
   messageId: string,
   userId: string,
-  emoji: string
+  emoji: string,
 ) => {
   if (!userId) throw Unauthorized();
   if (!emoji) throw BadRequest("Emoji is required");
@@ -200,7 +304,7 @@ export const toggleReactionFunction = async (
   if (!message) throw NotFound("Message not found");
 
   const existingReactionIndex = message.reactions.findIndex(
-    (r) => r.user.toString() === userId
+    (r) => r.user.toString() === userId,
   );
 
   if (existingReactionIndex !== -1) {
@@ -243,7 +347,7 @@ export const toggleReactionFunction = async (
  */
 export const markChatAsReadFunction = async (
   userId: string,
-  chatId: string
+  chatId: string,
 ) => {
   if (!userId) throw Unauthorized();
   if (!chatId) throw BadRequest("ChatId is required");
@@ -276,7 +380,7 @@ export const markChatAsReadFunction = async (
  */
 export const markMessagesAsSeenFunction = async (
   userId: string,
-  chatId: string
+  chatId: string,
 ) => {
   if (!userId) throw Unauthorized();
   if (!chatId) throw BadRequest("ChatId is required");
@@ -286,12 +390,12 @@ export const markMessagesAsSeenFunction = async (
 
   const updated = await Message.updateMany(
     { chat: chatId, sender: { $ne: userId }, seenBy: { $ne: userId } },
-    { $addToSet: { seenBy: userId } }
+    { $addToSet: { seenBy: userId } },
   );
 
   await Message.updateMany(
     { chat: chatId, sender: { $ne: userId }, deliveredTo: userId },
-    { $pull: { deliveredTo: userId } }
+    { $pull: { deliveredTo: userId } },
   );
 
   chat.unreadCounts.set(userId.toString(), 0);
@@ -323,7 +427,7 @@ export const markMessagesAsSeenFunction = async (
 export const editMessageFunction = async (
   messageId: string,
   newContent: string,
-  userId: string
+  userId: string,
 ) => {
   if (!userId) throw Unauthorized();
   if (!newContent) throw BadRequest("Content is required");
@@ -368,7 +472,7 @@ export const editMessageFunction = async (
  */
 export const deleteMessageFunction = async (
   messageId: string,
-  userId: string
+  userId: string,
 ) => {
   if (!userId) throw Unauthorized();
 
@@ -417,7 +521,7 @@ export const searchMessagesFunction = async (
   query?: string,
   date?: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
 ) => {
   if (!chatId) throw BadRequest("ChatId is required");
   if (!userId) throw Unauthorized();
@@ -455,12 +559,12 @@ export const searchMessagesFunction = async (
 
   const messages = await Message.find(
     filter,
-    query ? { score: { $meta: "textScore" } } : {}
+    query ? { score: { $meta: "textScore" } } : {},
   )
     .sort(
       query
         ? { score: { $meta: "textScore" }, createdAt: -1 }
-        : { createdAt: -1 }
+        : { createdAt: -1 },
     )
     .skip(skip)
     .limit(limit)
@@ -514,7 +618,7 @@ export const searchMessagesFunction = async (
 export const getMessageContextFunction = async (
   messageId: string,
   userId: string,
-  limit: number = 20
+  limit: number = 20,
 ) => {
   const populateConfig = [
     {
@@ -573,7 +677,7 @@ export const getMessageContextFunction = async (
 export const getNewerMessagesFunction = async (
   chatId: string,
   after: string,
-  limit: number = 20
+  limit: number = 20,
 ) => {
   if (!chatId) throw BadRequest("ChatId is required");
 
@@ -589,7 +693,10 @@ export const getNewerMessagesFunction = async (
     .populate({
       path: "replyTo",
       select: "content sender createdAt",
-      populate: { path: "sender", select: "username displayName profilePicture" },
+      populate: {
+        path: "sender",
+        select: "username displayName profilePicture",
+      },
     })
     .populate("reactions.user", "username displayName profilePicture");
 
