@@ -12,8 +12,6 @@ export interface IChat extends Document {
   admin: Types.ObjectId[];
   createdBy?: Types.ObjectId;
 
-  unreadCounts: Map<string, number>;
-
   isDeleted: boolean;
   deletedAt: Date;
 
@@ -58,12 +56,6 @@ const ChatSchema: Schema<IChat> = new Schema(
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: "User",
-    },
-
-    unreadCounts: {
-      type: Map,
-      of: Number,
-      default: {},
     },
 
     isDeleted: {

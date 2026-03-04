@@ -1,6 +1,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
 import axios from "axios";
+import { resetUnread } from "./unreadSlice";
+import { RootState } from "../store";
+import { clearChat, deleteChat } from "./chatSlice";
 
 /* -------------------- TYPES -------------------- */
 
@@ -207,54 +210,41 @@ export const toggleReaction = createAsyncThunk<
 );
 
 /**
- * Mark all messages in a chat as read (server-side).
- */
-export const markChatAsRead = createAsyncThunk<
-  { chatId: string },
-  string,
-  { rejectValue: string }
->("messages/markChatAsRead", async (chatId, { rejectWithValue }) => {
-  try {
-    await api.post(
-      `/message/mark-read/${chatId}`,
-      {},
-      { withCredentials: true },
-    );
-    return { chatId };
-  } catch (err) {
-    if (axios.isAxiosError(err)) {
-      return rejectWithValue(
-        err.response?.data?.message ?? "Failed to mark chat as read",
-      );
-    }
-    return rejectWithValue("Failed to mark chat as read");
-  }
-});
-
-/**
  * Mark messages as seen by the current user.
  */
 export const markMessagesAsSeen = createAsyncThunk<
-  { chatId: string },
+  { chatId: string; userId: string },
   string,
-  { rejectValue: string }
->("messages/markMessagesAsSeen", async (chatId, { rejectWithValue }) => {
-  try {
-    await api.post(
-      `/message/mark-seen/${chatId}`,
-      {},
-      { withCredentials: true },
-    );
-    return { chatId };
-  } catch (err) {
-    if (axios.isAxiosError(err)) {
-      return rejectWithValue(
-        err.response?.data?.message ?? "Failed to mark messages as seen",
+  { state: RootState; rejectValue: string }
+>(
+  "messages/markMessagesAsSeen",
+  async (chatId, { dispatch, getState, rejectWithValue }) => {
+    try {
+      await api.post(
+        `/message/mark-seen/${chatId}`,
+        {},
+        { withCredentials: true },
       );
+
+      const state = getState();
+      const user = state.auth.user;
+
+      if (!user) {
+        return rejectWithValue("User not authenticated");
+      }
+
+      const userId = user._id;
+
+      dispatch(resetUnread(chatId));
+
+      dispatch(markAllMessagesSeen({ chatId, userId }));
+
+      return { chatId, userId };
+    } catch (err) {
+      return rejectWithValue("Failed to mark messages as seen");
     }
-    return rejectWithValue("Failed to mark messages as seen");
-  }
-});
+  },
+);
 
 /**
  * Edit an existing message.
@@ -426,6 +416,7 @@ export function insertMessageSorted(
   state.messages[chatId] = nextIds;
 }
 
+
 /* -------------------- SLICE -------------------- */
 
 const messagesSlice = createSlice({
@@ -521,6 +512,8 @@ const messagesSlice = createSlice({
         const msg = state.byId[msgId];
         if (!msg) return;
 
+        if (msg.sender._id === userId) return;
+
         msg.seenBy ??= [];
         if (!msg.seenBy.includes(userId)) {
           msg.seenBy.push(userId);
@@ -546,6 +539,11 @@ const messagesSlice = createSlice({
         chatId: action.payload.chatId,
         messageId: action.payload.messageId,
       };
+    },
+    clearChatMessages: (state, action: PayloadAction<string>) => {
+      const chatId = action.payload;
+      delete state.messages[chatId];
+      delete state.meta[chatId];
     },
   },
 
@@ -667,6 +665,36 @@ const messagesSlice = createSlice({
         if (state.meta[chatId]) {
           state.meta[chatId]!.hasMoreNewer = hasMore;
         }
+      })
+      .addCase(clearChat.pending, (state, action) => {
+        const chatId = action.meta.arg;
+
+        const messageIds = state.messages[chatId] ?? [];
+        messageIds.forEach((id) => {
+          delete state.byId[id];
+        });
+
+        delete state.messages[chatId];
+        delete state.meta[chatId];
+
+        if (state.jumpTo?.chatId === chatId) {
+          state.jumpTo = null;
+        }
+      })
+      .addCase(deleteChat.pending, (state, action) => {
+        const chatId = action.meta.arg;
+
+        const messageIds = state.messages[chatId] ?? [];
+        messageIds.forEach((id) => {
+          delete state.byId[id];
+        });
+
+        delete state.messages[chatId];
+        delete state.meta[chatId];
+
+        if (state.jumpTo?.chatId === chatId) {
+          state.jumpTo = null;
+        }
       });
   },
 });
@@ -680,6 +708,7 @@ export const {
   insertMessage,
   clearJumpTo,
   setJumpTo,
+  clearChatMessages,
 } = messagesSlice.actions;
 
 export default messagesSlice.reducer;

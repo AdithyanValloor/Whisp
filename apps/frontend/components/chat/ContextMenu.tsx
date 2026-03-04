@@ -1,11 +1,14 @@
 "use client";
 
 import { MessageType } from "@/redux/features/messageSlice";
-import { SmilePlus, Reply, Pencil, Trash2, Copy, Forward } from "lucide-react";
 import { motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
 import { useEffect } from "react";
+import { MdAddReaction } from "react-icons/md";
+import { RiDeleteBin5Fill, RiEditFill, RiFileCopyFill, RiReplyFill, RiShareForwardFill } from "react-icons/ri";
+import { FaEdit } from "react-icons/fa";
+import { FaCopy, FaTrashCan } from "react-icons/fa6";
 
 interface ContextMenuProps {
   contextMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -53,7 +56,7 @@ export default function ContextMenu({
   const menuItems = [
     {
       label: "React",
-      icon: SmilePlus,
+      icon: MdAddReaction,
       action: () => {
         openFullPicker(msg._id);
       },
@@ -61,7 +64,7 @@ export default function ContextMenu({
     },
     {
       label: "Reply",
-      icon: Reply,
+      icon: RiReplyFill,
       action: () => {
         handleReply(msg);
         closeContextMenu();
@@ -70,7 +73,7 @@ export default function ContextMenu({
     },
     {
       label: "Forward",
-      icon: Forward,
+      icon: RiShareForwardFill,
       action: () => {
         setForward(msg);
         SetShowForwardModal();
@@ -80,7 +83,7 @@ export default function ContextMenu({
     },
     {
       label: "Edit",
-      icon: Pencil,
+      icon: RiEditFill,
       action: () => {
         setReplyingTo(null);
         onEdit?.(msg);
@@ -90,7 +93,7 @@ export default function ContextMenu({
     },
     {
       label: "Copy",
-      icon: Copy,
+      icon: RiFileCopyFill,
       action: () => {
         navigator.clipboard.writeText(msg.content);
         closeContextMenu();
@@ -99,7 +102,7 @@ export default function ContextMenu({
     },
     {
       label: "Delete",
-      icon: Trash2,
+      icon: RiDeleteBin5Fill,
       action: () => {
         onDelete?.(msg);
         closeContextMenu();
@@ -154,6 +157,7 @@ export default function ContextMenu({
                         text-sm 
                         transition-colors duration-150
                         cursor-pointer
+                        opacity-80
                         ${
                           item.danger
                             ? "text-red-400 hover:bg-red-400/10"
@@ -162,7 +166,7 @@ export default function ContextMenu({
                         onClick={item.action}
                       >
                         <span>{item.label}</span>
-                        <Icon size={16} className="opacity-70" />
+                        <Icon size={18}/>
                       </button>
                     </li>
                   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { UserPlus } from "lucide-react";
+import { UserRoundPlus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { addFriend } from "@/redux/features/friendsSlice";
@@ -50,7 +50,7 @@ export default function AddFriendInput() {
             setUsername(e.target.value);
             if (statusMsg) setStatusMsg("");
           }}
-          placeholder="Enter friend's Whip username"
+          placeholder="Enter friend's Whisp username"
           className="w-full h-12 pl-5 focus:outline-1 text-sm hover:outline-1 outline-base-content/10 rounded-full bg-base-300"
         />
 
@@ -62,7 +62,7 @@ export default function AddFriendInput() {
             disabled={!username.trim() || actionLoading}
             className="bg-[#004030] text-white p-2 rounded-full disabled:opacity-50 disabled:cursor-auto"
           >
-            <UserPlus size={20} />
+            <UserRoundPlus size={20} />
           </button>
         </div>
       </div>

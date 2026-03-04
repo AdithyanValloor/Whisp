@@ -1,13 +1,19 @@
 "use client";
 
 import { ArrowLeft, CalendarDays, EllipsisVertical } from "lucide-react";
-import { FaUserCheck, FaUserClock, FaUserPlus } from "react-icons/fa";
+import { FaUserCheck, FaUserClock, FaUserPlus } from "react-icons/fa6";
 import { useState } from "react";
 
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import IconButton from "../GlobalComponents/IconButtons";
 
-import { selectUserStatus, useAppDispatch, useAppSelector } from "@/redux/hooks";
+import {
+  selectIsBlocked,
+  selectIsBlockedByMe,
+  selectUserStatus,
+  useAppDispatch,
+  useAppSelector,
+} from "@/redux/hooks";
 import {
   addFriend,
   removeFriend,
@@ -19,6 +25,9 @@ import {
 } from "@/redux/features/friendsSlice";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { blockUser, unblockUser } from "@/redux/features/blockSlice";
+import { RootState } from "@/redux/store";
+import { MdBlock } from "react-icons/md";
 
 interface ProfileViewProps {
   user: {
@@ -40,16 +49,45 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
 
   const currentUser = useAppSelector((state) => state.auth.user);
   const friends = useAppSelector((state) => state.friends.friends);
-  const { incoming, outgoing } = useAppSelector((state) => state.friends.requests);
+  const { incoming, outgoing } = useAppSelector(
+    (state) => state.friends.requests,
+  );
 
   const [pendingAction, setPendingAction] = useState<FriendAction>(null);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
 
   const isLoading = (action: FriendAction) => pendingAction === action;
 
   const status = useAppSelector(selectUserStatus(user._id ?? ""));
-  
 
+  const isBlockedByMe = useAppSelector((state: RootState) =>
+    state.block.blockedUsers.some((u) => u._id === user._id),
+  );
+
+  const isBlocked = useAppSelector(
+    (state: RootState) =>
+      state.block.blockedUsers.some((u) => u._id === user._id) ||
+      state.block.blockedByUsers.includes(user._id),
+  );
+
+  const blockLoading = useAppSelector(
+    (state: RootState) => state.block.actionLoading,
+  );
+
+  const handleBlock = () => {
+    if (blockLoading) return;
+    setShowBlockModal(true);
+  };
+
+  const confirmBlock = () => {
+    if (isBlockedByMe) {
+      dispatch(unblockUser(user._id));
+    } else {
+      dispatch(blockUser(user._id));
+    }
+    setShowBlockModal(false);
+  };
   // --------------------------------------------------
   // Derived friend status (single source of truth)
   // --------------------------------------------------
@@ -69,22 +107,25 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
   const performAction = async (
     action: () => Promise<FriendRequest | string>,
     type: FriendAction,
-    after?: () => void
+    after?: () => void,
   ): Promise<void> => {
     try {
       setPendingAction(type);
       const result = await action();
-      
+
       // Optimistic update - don't wait for socket
-      if (type === 'accept' && result && typeof result !== 'string') {
+      if (type === "accept" && result && typeof result !== "string") {
         // The socket will confirm, but update UI immediately
-        const friend = result.from._id === currentUser?._id ? result.to : result.from;
-        dispatch(addFriendFromSocket({
-          requestId: result._id,
-          friend,
-        }));
+        const friend =
+          result.from._id === currentUser?._id ? result.to : result.from;
+        dispatch(
+          addFriendFromSocket({
+            requestId: result._id,
+            friend,
+          }),
+        );
       }
-      
+
       after?.();
     } catch (err) {
       console.error(err);
@@ -114,7 +155,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
           ariaLabel="Remove friend"
           onClick={() => setShowRemoveModal(true)}
         >
-          <FaUserCheck size={20} />
+          <FaUserCheck size={18} />
         </IconButton>
       );
     }
@@ -127,7 +168,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
           onClick={() =>
             performAction(
               () => dispatch(cancelFriend(outgoingReq._id)).unwrap(),
-              "cancel"
+              "cancel",
             )
           }
           className="bg-base-100 px-5 text-sm text-red-500"
@@ -144,11 +185,11 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
         onClick={() =>
           performAction(
             () => dispatch(addFriend(user.username)).unwrap(),
-            "add"
+            "add",
           )
         }
       >
-        {incomingReq ? <FaUserClock size={20} /> : <FaUserPlus size={20} />}
+        {incomingReq ? <FaUserClock size={18} /> : <FaUserPlus size={18} />}
       </IconButton>
     );
   };
@@ -182,33 +223,91 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
       animate="show"
       className="relative flex flex-col text-base-content w-full h-full px-3 bg-base-200 overflow-hidden"
     >
-
-      {onBack && 
-        <div className="absolute top-3 left-3">
-            <IconButton 
-              ariaLabel="Go back"
-              onClick={onBack}
-            >
-              <ArrowLeft size={19} />
-            </IconButton>
+      {onBack && (
+        <div className="absolute top-3 z-51 left-3">
+          <IconButton ariaLabel="Go back" onClick={onBack}>
+            <ArrowLeft size={18} />
+          </IconButton>
         </div>
-      }
+      )}
+
+      <AnimatePresence>
+        {isBlockedByMe && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-base-200/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="bg-base-100 border border-base-content/10 rounded-2xl shadow-lg p-6 w-[90%] max-w-sm text-center flex flex-col items-center gap-4"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+                <MdBlock className="text-red-500" size={24} />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-base font-semibold text-base-content">
+                  User Blocked
+                </h3>
+                <p className="text-sm text-base-content/70">
+                  You blocked{" "}
+                  <span className="font-medium">
+                    {user.displayName || user.username}
+                  </span>
+                  . You won&apos;t receive messages or friend requests from
+                  them.
+                </p>
+              </div>
+
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.05 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => dispatch(unblockUser(user._id))}
+                className="btn btn-sm bg-cyan-950 hover:bg-cyan-900 text-white border-none rounded-full p-4"
+              >
+                Unblock User
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {currentUser?._id !== user._id && (
         <div className="absolute top-3 right-3 flex items-center gap-2">
           {renderFriendButton()}
 
           <div className="dropdown dropdown-end">
             <IconButton ariaLabel="More actions" tabIndex={0}>
-              <EllipsisVertical size={20} />
+              <EllipsisVertical size={18} />
             </IconButton>
 
             <ul
               tabIndex={0}
-              className="menu dropdown-content mt-1 bg-base-100 rounded-xl z-10 w-32 p-2 shadow border border-base-content/10"
+              className="menu dropdown-content mt-1 bg-base-100 rounded-xl z-10 w-36 p-2 shadow border border-base-content/10"
             >
-              <li><a>Ignore</a></li>
-              <li><a className="text-red-500">Block</a></li>
-              <li><a className="text-red-500">Report User</a></li>
+              <li>
+                <button
+                  type="button"
+                  disabled={blockLoading}
+                  onClick={handleBlock}
+                  className="text-red-500 disabled:opacity-50"
+                >
+                  {blockLoading
+                    ? "..."
+                    : isBlockedByMe
+                      ? "Unblock User"
+                      : "Block User"}
+                </button>
+              </li>
+              <li>
+                <a className="text-red-500">Report User</a>
+              </li>
             </ul>
           </div>
         </div>
@@ -259,7 +358,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
                 onClick={() =>
                   performAction(
                     () => dispatch(acceptFriend(incomingReq._id)).unwrap(),
-                    "accept"
+                    "accept",
                   )
                 }
                 className="px-4 py-1.5 rounded-xl cursor-pointer border border-base-content/10 bg-green-700 text-white text-sm hover:bg-green-900"
@@ -272,7 +371,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
                 onClick={() =>
                   performAction(
                     () => dispatch(rejectFriend(incomingReq._id)).unwrap(),
-                    "reject"
+                    "reject",
                   )
                 }
                 className="px-4 py-1.5 rounded-xl cursor-pointer border border-base-content/10 bg-red-800 text-white text-sm hover:bg-red-900"
@@ -305,13 +404,13 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
           <CalendarDays size={14} />
           <span>Joined {joinedDate}</span>
         </div>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-[#004030]">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-cyan-900">
           Member
         </span>
       </motion.div>
 
       {/* Accent Bar */}
-      <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#004030]" />
+      <div className="absolute bottom-0 left-0 w-full h-[3px] bg-cyan-900" />
 
       {/* Remove Friend Modal */}
       {showRemoveModal && (
@@ -326,9 +425,30 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
             performAction(
               () => dispatch(removeFriend(user._id)).unwrap(),
               "remove",
-              () => setShowRemoveModal(false)
+              () => setShowRemoveModal(false),
             )
           }
+        />
+      )}
+
+      {/* Block confirm Modal */}
+      {showBlockModal && (
+        <ConfirmModal
+          open
+          title={
+            isBlockedByMe
+              ? `Unblock ${user.displayName || user.username}`
+              : `Block ${user.displayName || user.username}`
+          }
+          description={
+            isBlockedByMe
+              ? "Are you sure you want to unblock this user?"
+              : "Are you sure you want to block this user? They will be removed from your friends."
+          }
+          confirmText={isBlockedByMe ? "Unblock" : "Block"}
+          confirmLoading={blockLoading}
+          onCancel={() => setShowBlockModal(false)}
+          onConfirm={confirmBlock}
         />
       )}
     </motion.div>

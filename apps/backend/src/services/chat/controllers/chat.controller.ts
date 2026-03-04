@@ -2,9 +2,20 @@ import { Response, NextFunction } from "express";
 import { AuthRequest } from "../../user/types/authRequest.js";
 import {
   accessChatFunction,
+  clearChatForUser,
+  deleteChatForUser,
   fetchChatsFunction,
-} from "../services/chat.services.js";
-import { Unauthorized, BadRequest } from "../../../utils/errors/httpErrors.js";
+  markChatAsReadFunction,
+  markChatAsUnreadFunction,
+  toggleArchiveChatFunction,
+  togglePinChatFunction,
+} from "../services/chat.service.js";
+import {
+  Unauthorized,
+  BadRequest,
+  Forbidden,
+} from "../../../utils/errors/httpErrors.js";
+import { Chat } from "../models/chat.model.js";
 
 /**
  * ------------------------------------------------------------------
@@ -22,7 +33,7 @@ import { Unauthorized, BadRequest } from "../../../utils/errors/httpErrors.js";
 export const fetchChats = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -59,7 +70,7 @@ export const fetchChats = async (
 export const accessChat = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { userId }: { userId?: string } = req.body;
@@ -78,6 +89,142 @@ export const accessChat = async (
     const chat = await accessChatFunction(userId, currentUserId);
 
     res.status(200).json(chat);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const togglePinChat = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    const chat = await Chat.findOne({
+      _id: chatId,
+      members: userId,
+    });
+
+    if (!chat) throw Forbidden("Not allowed");
+
+    if (!userId) {
+      throw Unauthorized();
+    }
+
+    const result = await togglePinChatFunction(userId, chatId);
+
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const toggleArchiveChat = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    const chat = await Chat.findOne({
+      _id: chatId,
+      members: userId,
+    });
+
+    if (!chat) throw Forbidden("Not allowed");
+
+    if (!userId) {
+      throw Unauthorized();
+    }
+
+    const result = await toggleArchiveChatFunction(userId, chatId);
+
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markChatAsUnread = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("ChatId is required");
+
+    const result = await markChatAsUnreadFunction(userId, chatId);
+
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const markChatAsRead = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("ChatId is required");
+
+    const result = await markChatAsReadFunction(userId, chatId);
+
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const clearChat = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("ChatId is required");
+
+    await clearChatForUser(userId, chatId);
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteChat = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("ChatId is required");
+
+    await deleteChatForUser(userId, chatId);
+
+    res.status(200).json({ success: true, chatId });
   } catch (err) {
     next(err);
   }

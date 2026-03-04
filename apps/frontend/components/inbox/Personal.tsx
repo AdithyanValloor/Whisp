@@ -54,7 +54,7 @@ export default function Personal({
     return <p className="p-3">Loading chats...</p>;
   }
 
-  const personalChats = chats.filter((c) => !c.isGroup);
+  const personalChats = chats.filter((c) => !c.isGroup && !c.isArchived);
 
   if (personalChats.length === 0) {
     return <p className="p-3 text-center opacity-70">No personal chats yet</p>;

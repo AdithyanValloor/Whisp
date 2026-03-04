@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  /* themes: light, autumn, forest, garden, cupcake, emerald, valentine, lofi, retro, night, black, cmyk, dracula, dark, sunset, business, dim, halloween, bumblebee, abyss, lemonade; */
   themes: light, forest, sunset, business, dracula, lemonade, retro;
   exclude: rootscrollgutter;
 }
@@ -24,7 +23,6 @@ body {
     transform: translateY(0);
   }
 }
-
 
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;

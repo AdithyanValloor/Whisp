@@ -8,7 +8,7 @@ import {
   rejectFriendRequest,
   removeFriend as removeFriendService,
   sendFriendRequest,
-} from "../services/friend.services.js";
+} from "../services/friend.service.js";
 import {
   BadRequest,
   Unauthorized,

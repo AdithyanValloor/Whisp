@@ -9,6 +9,7 @@ import type { AuthUser } from "./authSlice";
 import type { Chat } from "./chatSlice";
 import type { FriendUser, FriendRequest } from "./friendsSlice";
 import axios from "axios";
+import { fetchBlockedUsers } from "./blockSlice";
 
 /**
  * Result returned after successful application bootstrap.
@@ -65,12 +66,13 @@ export const bootstrapApp = createAsyncThunk<
     /**
      * Fetch core data in parallel to reduce startup latency.
      */
-    const [friends, requests, chats, unread] =
+    const [friends, requests, chats, unread, blockedUsers] =
       await Promise.all([
         dispatch(fetchFriends()).unwrap(),
         dispatch(fetchRequests()).unwrap(),
         dispatch(fetchChats()).unwrap(),
         dispatch(fetchUnreadCounts()).unwrap(),
+        dispatch(fetchBlockedUsers()).unwrap(),
       ]);
 
 
@@ -110,6 +112,7 @@ export const bootstrapApp = createAsyncThunk<
       requests,
       chats,
       unread,
+      blockedUsers,
     };
   } catch (error: unknown) {
     console.error("❌ Bootstrap failed:", error);

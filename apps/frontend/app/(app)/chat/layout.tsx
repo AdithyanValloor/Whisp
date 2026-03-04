@@ -103,7 +103,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
   /* ---------- UI ---------- */
 
   return (
-    <div className="flex flex-col bg-base-300 h-screen">
+    <div className="flex flex-col bg-base-300 h-screen transition- ease-in-out duration-300">
       {/* Top bar */}
       <div className="h-10 flex items-center justify-center">
         {/* <Image

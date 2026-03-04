@@ -2,14 +2,7 @@
 
 import { useState } from "react";
 import { logoutUser } from "@/redux/features/authSlice";
-import {
-  Bell,
-  LogOut,
-  Palette,
-  UserCog,
-  UserLock,
-  UserPen,
-} from "lucide-react";
+import { Bell, Palette } from "lucide-react";
 import { SubPage } from "./UserSettingsSubPages";
 import EditProfileForm from "./EditProfilePage";
 import ThemeSettings from "./ThemeSettings";
@@ -17,6 +10,8 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
 import Image from "next/image";
 import defaultPFP from "@/public/default-pfp.png";
+import { LuLogOut, LuUserRoundCog, LuUserRoundPen } from "react-icons/lu";
+import { BsShieldLock } from "react-icons/bs";
 
 interface UserSettingsProps {
   onBack: () => void;
@@ -29,7 +24,6 @@ export default function UserSettings({
   activePage,
   setActivePage,
 }: UserSettingsProps) {
-  // const [activePage, setActivePage] = useState<string | null>(null);
   const [showLogout, setShowLogout] = useState(false);
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.profile.profile);
@@ -39,22 +33,21 @@ export default function UserSettings({
     window.location.href = "/login";
   };
 
-  // 🔥 Settings config array
   const settingsItems = [
     {
       label: "Profile",
-      icon: UserPen,
+      icon: LuUserRoundPen,
       action: () => setActivePage("Profile"),
     },
     {
       label: "Account",
-      icon: UserCog,
+      icon: LuUserRoundCog,
       action: () => setActivePage("Account"),
     },
     {
-      label: "Theme",
-      icon: Palette,
-      action: () => setActivePage("Theme"),
+      label: "Privacy",
+      icon: BsShieldLock,
+      action: () => setActivePage("Privacy"),
     },
     {
       label: "Notifications",
@@ -62,13 +55,13 @@ export default function UserSettings({
       action: () => setActivePage("Notifications"),
     },
     {
-      label: "Privacy",
-      icon: UserLock,
-      action: () => setActivePage("Privacy"),
+      label: "Theme",
+      icon: Palette,
+      action: () => setActivePage("Theme"),
     },
     {
       label: "Logout",
-      icon: LogOut,
+      icon: LuLogOut,
       action: () => setShowLogout(true),
       danger: true,
     },
@@ -81,10 +74,7 @@ export default function UserSettings({
           <EditProfileForm onBack={() => setActivePage(null)} />
         )}
         {activePage === "Account" && <p>Manage account settings…</p>}
-        {activePage === "Theme" && (
-          // <ThemeSettings onBack={() => setActivePage(null)} />
-          <ThemeSettings />
-        )}
+        {activePage === "Theme" && <ThemeSettings />}
         {activePage === "Notifications" && <p>Notification preferences…</p>}
         {activePage === "Privacy" && <p>Privacy controls…</p>}
       </SubPage>
@@ -130,7 +120,7 @@ export default function UserSettings({
                   {item.label}
                 </h3>
                 <Icon
-                  size={20}
+                  size={18}
                   className={`${item.danger ? "text-red-400" : "text-base-content"}`}
                 />
               </div>

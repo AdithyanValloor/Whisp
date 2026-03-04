@@ -1,5 +1,14 @@
 import { Router } from "express";
-import { fetchChats, accessChat } from "../controllers/chat.controller.js";
+import {
+  fetchChats,
+  accessChat,
+  togglePinChat,
+  toggleArchiveChat,
+  markChatAsUnread,
+  markChatAsRead,
+  clearChat,
+  deleteChat,
+} from "../controllers/chat.controller.js";
 import { protect } from "../../auth/auth.middleware.js";
 
 const router = Router();
@@ -10,4 +19,14 @@ router.get("/", protect, fetchChats);
 // Access a chat with another user (creates one if not exists)
 router.post("/access", protect, accessChat);
 
-export {router as chatRouter}
+router.patch("/pin/:chatId", protect, togglePinChat);
+router.patch("/archive/:chatId", protect, toggleArchiveChat);
+router.patch("/unread/:chatId", protect, markChatAsUnread);
+
+router.patch("/read/:chatId", protect, markChatAsRead);
+
+router.delete("/:chatId/clear", protect, clearChat);
+
+router.delete("/:chatId", protect, deleteChat);
+
+export { router as chatRouter };

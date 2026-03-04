@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import {
   fetchMessages,
   forwardMessageApi,
+  markMessagesAsSeen,
   MessageType,
   toggleReaction,
 } from "@/redux/features/messageSlice";
@@ -60,6 +67,10 @@ export default function Messages({
   const animatedMessageIdRef = useRef<string | null>(null);
   const jumpLockRef = useRef(false);
   const router = useRouter();
+  const hasMarkedRef = useRef(false);
+
+  // FIX 1: pressTimer must be a ref, not a `let` — avoids stale closure leaks
+  const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const jumpTo = useAppSelector((s) => s.messages.jumpTo);
   const chatMeta = useAppSelector((s) => s.messages.meta[chatId]);
@@ -67,6 +78,10 @@ export default function Messages({
 
   const loadingNewerRef = useRef(false);
   const loadNewerDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // FIX 2: Track active eased-scroll RAF so we can cancel on re-trigger
+  const easedScrollRafRef = useRef<number | null>(null);
+  const wasNearBottomOnActivateRef = useRef(false);
 
   const reactionTargetRef = useRef<MessageType | null>(null);
 
@@ -79,7 +94,6 @@ export default function Messages({
     null,
   );
   const [showForwardModal, SetShowForwardModal] = useState(false);
-  // const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
 
   const [contextMenu, setContextMenu] = useState<{
@@ -103,53 +117,127 @@ export default function Messages({
     selectMessagesByChat(state, chatId),
   );
 
-  let pressTimer: NodeJS.Timeout;
+  // FIX 3: Stable callbacks with useCallback to avoid stale closures in scroll handlers
+  const isNearBottom = useCallback(() => {
+    const c = containerRef.current;
+    if (!c) return true;
+    return c.scrollHeight - c.scrollTop - c.clientHeight < 150;
+  }, []);
 
-  const handleTouchStart = (msg: MessageType, e: React.TouchEvent) => {
-    pressTimer = setTimeout(() => {
-      const touch = e.touches[0];
-      if (!touch || !containerRef.current) return;
+  const isNearTop = useCallback(() => {
+    const c = containerRef.current;
+    if (!c) return false;
+    return c.scrollTop < 400;
+  }, []);
 
-      const touchX = touch.clientX;
-      const touchY = touch.clientY;
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (!containerRef.current) return;
+    containerRef.current.scrollTo({
+      top: containerRef.current.scrollHeight,
+      behavior: smooth ? "smooth" : "auto",
+    });
+  }, []);
 
-      // Context menu dimensions (actual size)
-      const menuWidth = 160;
-      const menuHeight = msg.sender._id === currentUser._id ? 220 : 160;
+  // FIX 4: Cancel any in-flight eased scroll before starting a new one
+  const scrollToBottomEased = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-      // Viewport dimensions
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const containerRect = containerRef.current.getBoundingClientRect();
+    // Cancel any previous animation
+    if (easedScrollRafRef.current !== null) {
+      cancelAnimationFrame(easedScrollRafRef.current);
+      easedScrollRafRef.current = null;
+    }
 
-      // Center horizontally, but adjust if needed
-      const finalX = Math.max(
-        10,
-        Math.min(touchX - menuWidth / 2, viewportWidth - menuWidth - 10),
-      );
-      let finalY = touchY;
+    const start = container.scrollTop;
+    const end = container.scrollHeight - container.clientHeight;
+    const distance = end - start;
 
-      // Determine vertical position
-      let position: "top" | "bottom" = "bottom";
-      const spaceBelow = viewportHeight - touchY;
-      const spaceAbove = touchY - containerRect.top;
+    if (distance <= 0) return;
 
-      if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
-        position = "top";
-        finalY = Math.max(containerRect.top + 10, touchY - menuHeight);
+    // For very short distances just snap — no point animating
+    if (distance < 80) {
+      container.scrollTop = end;
+      return;
+    }
+
+    const duration = Math.min(500, Math.max(200, distance * 0.3));
+    let startTime: number | null = null;
+
+    // Ease-out cubic: fast start, slow landing
+    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = timestamp - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = easeOutCubic(progress);
+
+      container.scrollTop = start + distance * eased;
+
+      if (progress < 1) {
+        easedScrollRafRef.current = requestAnimationFrame(step);
       } else {
-        finalY = Math.min(touchY, viewportHeight - menuHeight - 10);
+        container.scrollTop = end; // Final snap
+        easedScrollRafRef.current = null;
       }
+    };
 
-      setContextMenu({
-        x: finalX,
-        y: finalY,
-        msg,
-        position,
-      });
-    }, 600);
-  };
-  const handleTouchEnd = () => clearTimeout(pressTimer);
+    easedScrollRafRef.current = requestAnimationFrame(step);
+  }, []);
+
+  const scrollToBottomInstant = useCallback(() => {
+    setShowScrollBtn(false);
+    setShowNewMsgBadge(false);
+    setUnreadDividerIndex(null);
+    scrollToBottomEased();
+  }, [scrollToBottomEased]);
+
+  const handleTouchStart = useCallback(
+    (msg: MessageType, e: React.TouchEvent) => {
+      pressTimerRef.current = setTimeout(() => {
+        const touch = e.touches[0];
+        if (!touch || !containerRef.current) return;
+
+        const touchX = touch.clientX;
+        const touchY = touch.clientY;
+
+        const menuWidth = 160;
+        const menuHeight = msg.sender._id === currentUser._id ? 220 : 160;
+
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const containerRect = containerRef.current.getBoundingClientRect();
+
+        const finalX = Math.max(
+          10,
+          Math.min(touchX - menuWidth / 2, viewportWidth - menuWidth - 10),
+        );
+        let finalY = touchY;
+
+        let position: "top" | "bottom" = "bottom";
+        const spaceBelow = viewportHeight - touchY;
+        const spaceAbove = touchY - containerRect.top;
+
+        if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+          position = "top";
+          finalY = Math.max(containerRect.top + 10, touchY - menuHeight);
+        } else {
+          finalY = Math.min(touchY, viewportHeight - menuHeight - 10);
+        }
+
+        setContextMenu({ x: finalX, y: finalY, msg, position });
+      }, 600);
+    },
+    [currentUser._id],
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    if (pressTimerRef.current) {
+      clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  }, []);
 
   // Reset on chat change
   useEffect(() => {
@@ -168,6 +256,12 @@ export default function Messages({
       animatedMessageIdRef.current = null;
       prevChatIdRef.current = chatId;
       jumpLockRef.current = false;
+
+      // Cancel any in-flight eased scroll from previous chat
+      if (easedScrollRafRef.current !== null) {
+        cancelAnimationFrame(easedScrollRafRef.current);
+        easedScrollRafRef.current = null;
+      }
     }
     if (loadNewerDebounceRef.current) {
       clearTimeout(loadNewerDebounceRef.current);
@@ -175,76 +269,24 @@ export default function Messages({
     }
   }, [chatId]);
 
-  const isNearBottom = () => {
-    const c = containerRef.current;
-    if (!c) return true;
-    return c.scrollHeight - c.scrollTop - c.clientHeight < 150;
-  };
-
-  const isNearTop = () => {
-    const c = containerRef.current;
-    if (!c) return false;
-    return c.scrollTop < 400;
-  };
-
-  const scrollToBottom = (smooth = true) => {
-    if (!containerRef.current) return;
-    containerRef.current.scrollTo({
-      top: containerRef.current.scrollHeight,
-      behavior: smooth ? "smooth" : "auto",
-    });
-  };
-
-  const scrollToBottomInstant = () => {
-    setShowScrollBtn(false);
-    setShowNewMsgBadge(false);
-    setUnreadDividerIndex(null);
-    scrollToBottomEased();
-  };
-
-  // Eased scroll: fast start, decelerates near the bottom (like iOS momentum)
-  const scrollToBottomEased = () => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const start = container.scrollTop;
-    const end = container.scrollHeight - container.clientHeight;
-    const distance = end - start;
-
-    if (distance <= 0) return;
-
-    // For short distances just snap — no point animating 5px
-    if (distance < 80) {
-      container.scrollTop = end;
-      return;
-    }
-
-    const duration = Math.min(500, Math.max(200, distance * 0.3)); // scale with distance, cap at 500ms
-    let startTime: number | null = null;
-
-    // Ease-out cubic: fast start, slow landing
-    const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-
-    const step = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = timestamp - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = easeOutCubic(progress);
-
-      container.scrollTop = start + distance * eased;
-
-      if (progress < 1) {
-        requestAnimationFrame(step);
-      } else {
-        // Final snap to guarantee we land exactly at bottom
-        container.scrollTop = end;
-      }
-    };
-    requestAnimationFrame(step);
-  };
+  const clearedAt = useAppSelector(
+    (s) => s.chat.chats.find((c) => c._id === chatId)?.clearedAt ?? null,
+  );
 
   useEffect(() => {
     if (!jumpTo || jumpTo.chatId !== chatId) return;
+
+    const targetMsg = messages.find((m) => m._id === jumpTo.messageId);
+
+    if (!targetMsg) {
+      dispatch(clearJumpTo());
+      return;
+    }
+
+    if (clearedAt && new Date(targetMsg.createdAt) <= new Date(clearedAt)) {
+      dispatch(clearJumpTo());
+      return;
+    }
 
     jumpLockRef.current = true;
 
@@ -262,7 +304,6 @@ export default function Messages({
 
       dispatch(clearJumpTo());
 
-      // Calculate center position manually — avoids fighting with pagination scroll adjustments
       const container = containerRef.current!;
       const containerRect = container.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
@@ -274,7 +315,6 @@ export default function Messages({
 
       container.scrollTo({ top: target, behavior: "smooth" });
 
-      // Hold lock so pagination doesn't fire while scroll is settling
       setTimeout(() => {
         jumpLockRef.current = false;
       }, 800);
@@ -283,7 +323,7 @@ export default function Messages({
     requestAnimationFrame(() => attemptCenter(8));
   }, [jumpTo, chatId, dispatch]);
 
-  const loadNewer = async () => {
+  const loadNewer = useCallback(async () => {
     if (loadingNewerRef.current) return;
     if (!chatMeta?.hasMoreNewer) return;
     if (jumpLockRef.current) return;
@@ -305,7 +345,7 @@ export default function Messages({
         fetchNewerMessages({ chatId, after: lastMsg.createdAt, limit: 20 }),
       ).unwrap();
 
-      // Preserve scroll position after new messages appended at bottom
+      // FIX 5: Double RAF is sufficient — triple was redundant
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (!containerRef.current) return;
@@ -321,9 +361,78 @@ export default function Messages({
         loadingNewerRef.current = false;
       }, 150);
     }
-  };
+  }, [chatId, chatMeta?.hasMoreNewer, dispatch, messages]);
 
-  const handleScroll = () => {
+  const safeScrollToMessage = useCallback(
+    (messageId: string) => {
+      const target = messages.find((m) => m._id === messageId);
+      if (!target) return;
+      if (clearedAt && new Date(target.createdAt) <= new Date(clearedAt))
+        return;
+      scrollToMessage(messageId);
+    },
+    [messages, clearedAt, scrollToMessage],
+  );
+
+  useEffect(() => {
+    hasMarkedRef.current = false;
+  }, [chatId]);
+
+  // FIX 6: loadMore defined before handleScroll so it's in scope
+  const loadMore = useCallback(async () => {
+    if (!containerRef.current || loadingOlderRef.current || !hasMore) return;
+    // FIX 7: Don't block older load on newer load — they operate on opposite ends
+    if (jumpLockRef.current) return;
+
+    loadingOlderRef.current = true;
+    setLoadingMore(true);
+
+    const container = containerRef.current;
+    const scrollHeightBefore = container.scrollHeight;
+    const scrollTopBefore = container.scrollTop;
+    const clientHeight = container.clientHeight;
+    const distanceFromBottom =
+      scrollHeightBefore - scrollTopBefore - clientHeight;
+
+    try {
+      const nextPage = pageRef.current + 1;
+      const res = await dispatch(
+        fetchMessages({ chatId, page: nextPage, limit: 20 }),
+      ).unwrap();
+
+      if (res.messages.length === 0 || res.messages.length < 20) {
+        setHasMore(false);
+      } else {
+        pageRef.current = nextPage;
+        if (chatMeta && !chatMeta.hasMore) {
+          setHasMore(false);
+        }
+      }
+
+      if (res.messages.length > 0) {
+        // FIX 5: Double RAF is sufficient and more predictable than triple
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!containerRef.current) return;
+            const newScrollTop =
+              containerRef.current.scrollHeight -
+              distanceFromBottom -
+              containerRef.current.clientHeight;
+            containerRef.current.scrollTop = newScrollTop;
+          });
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load more messages:", err);
+    } finally {
+      setTimeout(() => {
+        setLoadingMore(false);
+        loadingOlderRef.current = false;
+      }, 100);
+    }
+  }, [chatId, chatMeta, dispatch, hasMore]);
+
+  const handleScroll = useCallback(() => {
     if (!containerRef.current) return;
 
     const nearBottom = isNearBottom();
@@ -333,7 +442,11 @@ export default function Messages({
       setShowNewMsgBadge(false);
       setUnreadDividerIndex(null);
 
-      // Load newer messages when scrolling down past the context window
+      if (!hasMarkedRef.current) {
+        hasMarkedRef.current = true;
+        dispatch(markMessagesAsSeen(chatId));
+      }
+
       if (chatMeta?.hasMoreNewer) {
         if (loadNewerDebounceRef.current)
           clearTimeout(loadNewerDebounceRef.current);
@@ -345,46 +458,47 @@ export default function Messages({
       setShowScrollBtn(true);
     }
 
-    // Load older messages when scrolling up
     if (isNearTop() && hasMore && !loadingMore && !loadingOlderRef.current) {
       loadMore();
     }
-  };
+  }, [
+    chatId,
+    chatMeta?.hasMoreNewer,
+    dispatch,
+    hasMore,
+    isNearBottom,
+    isNearTop,
+    loadMore,
+    loadNewer,
+    loadingMore,
+  ]);
 
-  const toggleChatSelection = (id: string) => {
+  const toggleChatSelection = useCallback((id: string) => {
     setSelectedChats((prev) => {
       const next = new Set(prev);
-
       if (next.has(id)) {
         next.delete(id);
         return next;
       }
-
-      if (next.size >= 5) {
-        return next;
-      }
-
+      if (next.size >= 5) return next;
       next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const handleForwardSelected = () => {
+  const handleForwardSelected = useCallback(() => {
     if (!forwardMessage) return;
-
     const firstChatId = Array.from(selectedChats)[0];
     router.push(`/chat/${firstChatId}`);
-
     dispatch(
       forwardMessageApi({
         messageId: forwardMessage._id,
         targetChatIds: Array.from(selectedChats),
       }),
     );
-
     SetShowForwardModal(false);
     setSelectedChats(new Set());
-  };
+  }, [dispatch, forwardMessage, router, selectedChats]);
 
   // Scroll to bottom on initial load
   useEffect(() => {
@@ -394,12 +508,10 @@ export default function Messages({
     isInitialLoadRef.current = false;
     setIsInitialLoading(false);
 
-    // Instant scroll to bottom
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
 
-    // Double-check after render
     requestAnimationFrame(() => {
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
@@ -412,7 +524,6 @@ export default function Messages({
     const closeMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.closest(".universal-emoji-picker-container")) return;
-
       if (contextMenuRef.current && !contextMenuRef.current.contains(target)) {
         setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
         setShowFullPicker({ visible: false, msgId: null });
@@ -422,17 +533,7 @@ export default function Messages({
     return () => window.removeEventListener("click", closeMenu);
   }, []);
 
-  // Handle new messages - animate only the genuinely new last message.
-  //
-  // Strategy: a message is "genuinely new" when ALL of these are true:
-  //   1. Its _id differs from the last one we recorded (lastMessageIdRef).
-  //   2. It was appended at the end (messages.length grew by 1, not by a
-  //      large batch which would indicate pagination).
-  //   3. We are not currently loading older messages (loadingOlderRef).
-  //
-  // We store the target _id in animatedMessageIdRef so the render loop can
-  // read it synchronously without causing a re-render, and we never flip a
-  // boolean that could be re-evaluated on unrelated renders.
+  // Handle new messages
   useEffect(() => {
     if (!messages.length) return;
     if (loadingOlderRef.current) return;
@@ -440,28 +541,25 @@ export default function Messages({
     const lastMessage = messages.at(-1);
     if (!lastMessage?._id) return;
 
+    const isMyMessage = lastMessage.sender._id === currentUser._id;
+    if (!isMyMessage) {
+      hasMarkedRef.current = false;
+    }
+
     const isNewMessage = lastMessage._id !== lastMessageIdRef.current;
 
     if (isNewMessage) {
       const prevLength = prevMessagesLengthRef.current;
       const grewByOne = prevLength > 0 && messages.length === prevLength + 1;
 
-      // Only animate single new messages (sent/received), not paginated batches
       if (grewByOne) {
         animatedMessageIdRef.current = lastMessage._id;
-
-        // Clear the animation target after the animation duration so that
-        // any subsequent re-render of this same message won't re-animate it.
         const timeout = setTimeout(() => {
           animatedMessageIdRef.current = null;
         }, 500);
-
-        // Clean up the timeout if the effect re-runs before it fires
-        // (the ref itself is already cleared; this just avoids the no-op call)
         return () => clearTimeout(timeout);
       }
 
-      const isMyMessage = lastMessage.sender._id === currentUser._id;
       const nearBottom = isNearBottom();
 
       if (isMyMessage || nearBottom) {
@@ -477,23 +575,47 @@ export default function Messages({
     }
 
     prevMessagesLengthRef.current = messages.length;
-  }, [messages, currentUser._id]);
+  }, [messages, currentUser._id, isNearBottom, scrollToBottom]);
 
-  // Auto-scroll on new reaction if near bottom
+  // Persistent observer — fires post-reflow so nearBottom check uses real geometry
   useEffect(() => {
-    if (!messages.length) return;
-    if (loadingOlderRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const nearBottom = isNearBottom();
-    if (!nearBottom) return;
+    let rafId: number | null = null;
+    let prevScrollHeight = container.scrollHeight;
 
-    // Small delay so DOM updates first
-    const timeout = setTimeout(() => {
-      scrollToBottom(true);
-    }, 80);
+    const observer = new ResizeObserver(() => {
+      if (loadingOlderRef.current || jumpLockRef.current) return;
 
-    return () => clearTimeout(timeout);
-  }, [messages.map((m) => m.reactions?.length).join(",")]);
+      const newScrollHeight = container.scrollHeight;
+      if (newScrollHeight <= prevScrollHeight) {
+        prevScrollHeight = newScrollHeight;
+        return;
+      }
+      prevScrollHeight = newScrollHeight;
+
+      // Post-reflow nearBottom check — accurate after bubble height changes
+      const nearBottom =
+        newScrollHeight - container.scrollTop - container.clientHeight < 180;
+      if (!nearBottom) return;
+
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        containerRef.current?.scrollTo({
+          top: containerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+        rafId = null;
+      });
+    });
+
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [chatId]);
 
   // Scroll when typing
   useEffect(() => {
@@ -501,81 +623,22 @@ export default function Messages({
     if (isNearBottom()) {
       setTimeout(() => scrollToBottom(true), 100);
     }
-  }, [typingUsers]);
+  }, [typingUsers, isNearBottom, scrollToBottom]);
 
-  // Telegram-style pagination with improved scroll preservation
-  const loadMore = async () => {
-    if (!containerRef.current || loadingOlderRef.current || !hasMore) return;
-    if (loadingNewerRef.current || jumpLockRef.current) return;
-    // if (loadingNewerRef.current) return;
-
-    loadingOlderRef.current = true;
-    setLoadingMore(true);
-
-    const container = containerRef.current;
-
-    // Store current scroll metrics
-    const scrollHeightBefore = container.scrollHeight;
-    const scrollTopBefore = container.scrollTop;
-    const clientHeight = container.clientHeight;
-
-    // Calculate distance from bottom (Telegram approach)
-    const distanceFromBottom =
-      scrollHeightBefore - scrollTopBefore - clientHeight;
-
-    try {
-      const nextPage = pageRef.current + 1;
-      const res = await dispatch(
-        fetchMessages({ chatId, page: nextPage, limit: 20 }),
-      ).unwrap();
-
-      // Stop pagination if no messages returned OR fewer than requested (reached the beginning)
-      if (res.messages.length === 0 || res.messages.length < 20) {
-        setHasMore(false);
-      } else {
-        pageRef.current = nextPage;
-        // If Redux tells us we've reached the end, trust it
-        if (chatMeta && !chatMeta.hasMore) {
-          setHasMore(false);
-        }
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (easedScrollRafRef.current !== null) {
+        cancelAnimationFrame(easedScrollRafRef.current);
       }
-
-      // Only adjust scroll if we got messages
-      if (res.messages.length > 0) {
-        // Multiple RAF for stable positioning (Telegram uses this approach)
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (!containerRef.current) return;
-
-            const scrollHeightAfter = containerRef.current.scrollHeight;
-            const clientHeightAfter = containerRef.current.clientHeight;
-
-            // Maintain the same distance from bottom
-            const newScrollTop =
-              scrollHeightAfter - distanceFromBottom - clientHeightAfter;
-
-            // Apply scroll position
-            containerRef.current.scrollTop = newScrollTop;
-
-            // Triple RAF for extra stability on slower devices
-            requestAnimationFrame(() => {
-              if (containerRef.current) {
-                containerRef.current.scrollTop = newScrollTop;
-              }
-            });
-          });
-        });
+      if (loadNewerDebounceRef.current) {
+        clearTimeout(loadNewerDebounceRef.current);
       }
-    } catch (err) {
-      console.error("Failed to load more messages:", err);
-    } finally {
-      // Delay flag reset to prevent rapid successive loads
-      setTimeout(() => {
-        setLoadingMore(false);
-        loadingOlderRef.current = false;
-      }, 100);
-    }
-  };
+      if (pressTimerRef.current) {
+        clearTimeout(pressTimerRef.current);
+      }
+    };
+  }, []);
 
   const isNewDay = (curr: MessageType, prev?: MessageType) => {
     if (!prev) return true;
@@ -585,104 +648,89 @@ export default function Messages({
     );
   };
 
-  const handleReply = (msg: MessageType) => {
-    onEdit(null);
-    setReplyingTo(msg);
-    setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
-  };
+  const handleReply = useCallback(
+    (msg: MessageType) => {
+      onEdit(null);
+      setReplyingTo(msg);
+      setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
+    },
+    [onEdit, setReplyingTo],
+  );
 
-  const handleReaction = (msg: MessageType, emoji: string) => {
-    console.log("REACTION :", msg, emoji);
-    dispatch(toggleReaction({ messageId: msg._id, emoji }));
-    reactionTargetRef.current = null;
-    setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
-    setShowFullPicker({ visible: false, msgId: null });
-  };
+  const handleReaction = useCallback(
+    (msg: MessageType, emoji: string) => {
+      dispatch(toggleReaction({ messageId: msg._id, emoji }));
+      reactionTargetRef.current = null;
+      setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
+      setShowFullPicker({ visible: false, msgId: null });
+    },
+    [dispatch],
+  );
 
-  const openContextMenu = (e: React.MouseEvent, msg: MessageType) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const openContextMenu = useCallback(
+    (e: React.MouseEvent, msg: MessageType) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (contextMenu.msg?._id === msg._id) {
-      closeContextMenu();
-      return;
-    }
-
-    if (!containerRef.current) return;
-
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
-
-    // Check if this is the current user's message
-    const isUserMessage = msg.sender._id === currentUser._id;
-
-    // Context menu dimensions (actual size from component: w-40 = 160px)
-    const menuWidth = 160;
-    const menuHeight = isUserMessage ? 220 : 160; // Taller if user's own message (has edit/delete)
-
-    // Viewport dimensions
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const containerRect = containerRef.current.getBoundingClientRect();
-
-    // Calculate initial position at mouse pointer
-    let finalX = mouseX;
-    let finalY = mouseY;
-
-    // Adjust X position if menu would overflow right edge
-    if (finalX + menuWidth > viewportWidth) {
-      finalX = viewportWidth - menuWidth - 10; // 10px padding from edge
-    }
-
-    // Adjust X position if menu would overflow left edge
-    if (finalX < 10) {
-      finalX = 10;
-    }
-
-    // Determine if menu should open above or below cursor
-    let position: "top" | "bottom" = "bottom";
-
-    // Check if there's enough space below
-    const spaceBelow = viewportHeight - mouseY;
-    const spaceAbove = mouseY - containerRect.top;
-
-    if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
-      // Open above cursor
-      position = "top";
-      finalY = mouseY - menuHeight;
-
-      // Make sure it doesn't overflow top
-      if (finalY < containerRect.top + 10) {
-        finalY = containerRect.top + 10;
+      if (contextMenu.msg?._id === msg._id) {
+        setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
+        setShowFullPicker({ visible: false, msgId: null });
+        return;
       }
-    } else {
-      // Open below cursor
-      position = "bottom";
 
-      // Make sure it doesn't overflow bottom
-      if (finalY + menuHeight > viewportHeight) {
-        finalY = viewportHeight - menuHeight - 10;
+      if (!containerRef.current) return;
+
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      const isUserMessage = msg.sender._id === currentUser._id;
+      const menuWidth = 160;
+      const menuHeight = isUserMessage ? 220 : 160;
+
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const containerRect = containerRef.current.getBoundingClientRect();
+
+      let finalX = mouseX;
+      let finalY = mouseY;
+
+      if (finalX + menuWidth > viewportWidth)
+        finalX = viewportWidth - menuWidth - 10;
+      if (finalX < 10) finalX = 10;
+
+      let position: "top" | "bottom" = "bottom";
+      const spaceBelow = viewportHeight - mouseY;
+      const spaceAbove = mouseY - containerRect.top;
+
+      if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
+        position = "top";
+        finalY = mouseY - menuHeight;
+        if (finalY < containerRect.top + 10) finalY = containerRect.top + 10;
+      } else {
+        position = "bottom";
+        if (finalY + menuHeight > viewportHeight)
+          finalY = viewportHeight - menuHeight - 10;
       }
-    }
 
-    setContextMenu({
-      x: finalX,
-      y: finalY,
-      msg,
-      position,
-    });
-    setShowFullPicker({ visible: false, msgId: null });
-  };
+      setContextMenu({ x: finalX, y: finalY, msg, position });
+      setShowFullPicker({ visible: false, msgId: null });
+    },
+    [contextMenu.msg?._id, currentUser._id],
+  );
 
-  const closeContextMenu = () => {
+  const closeContextMenu = useCallback(() => {
     setContextMenu({ x: 0, y: 0, msg: null, position: "bottom" });
     setShowFullPicker({ visible: false, msgId: null });
-  };
+  }, []);
 
-  const openFullPicker = (msgId: string) => {
-    reactionTargetRef.current = contextMenu.msg;
-    setShowFullPicker({ visible: true, msgId });
-  };
+  const openFullPicker = useCallback(
+    (msgId: string) => {
+      reactionTargetRef.current = contextMenu.msg;
+      setShowFullPicker({ visible: true, msgId });
+    },
+    [contextMenu.msg],
+  );
+
   // Freeze page scroll when context menu is open
   useEffect(() => {
     const prevent = (e: Event) => {
@@ -694,10 +742,8 @@ export default function Messages({
     if (contextMenu.msg && !contextMenu.msg.deleted) {
       const prevOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
-
       window.addEventListener("wheel", prevent, { passive: false });
       window.addEventListener("touchmove", prevent, { passive: false });
-
       return () => {
         document.body.style.overflow = prevOverflow;
         window.removeEventListener("wheel", prevent as EventListener);
@@ -706,15 +752,31 @@ export default function Messages({
     }
   }, [contextMenu.msg]);
 
+  // Capture scroll proximity BEFORE the input bar expands (pre-paint)
+  useLayoutEffect(() => {
+    if (replyingTo || editingMessage) {
+      wasNearBottomOnActivateRef.current = isNearBottom();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!replyingTo, !!editingMessage]);
+
+  // Fire exactly when the container resizes (input bar expands)
   useEffect(() => {
-    if (!replyingTo && !editingMessage) return;
+    const container = containerRef.current;
+    if (!container || (!replyingTo && !editingMessage)) return;
 
-    const nearBottom = isNearBottom();
-    if (!nearBottom) return;
-
-    requestAnimationFrame(() => {
-      scrollToBottom(true);
+    const observer = new ResizeObserver(() => {
+      if (!wasNearBottomOnActivateRef.current) return;
+      requestAnimationFrame(() => {
+        containerRef.current?.scrollTo({
+          top: containerRef.current.scrollHeight,
+          behavior: "smooth",
+        });
+      });
     });
+
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [replyingTo, editingMessage]);
 
   let groupStart: MessageType | null = null;
@@ -728,22 +790,6 @@ export default function Messages({
         className="messages-container flex-1 flex flex-col overflow-y-scroll pb-3
           scrollbar scrollbar-thumb-rounded-full scrollbar-track-rounded-full"
       >
-        {/* Initial loading skeleton */}
-        {/* {isInitialLoading && (
-          <div className="flex flex-col gap-4 p-4 animate-pulse">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className={`flex gap-3 ${i % 2 === 0 ? 'flex-row-reverse' : ''}`}>
-                <div className="w-10 h-10 rounded-full bg-base-300/50" />
-                <div className="flex flex-col gap-2 flex-1">
-                  <div className={`h-4 bg-base-300/50 rounded ${i % 2 === 0 ? 'w-3/4 ml-auto' : 'w-2/3'}`} />
-                  <div className={`h-12 bg-base-300/50 rounded-2xl ${i % 2 === 0 ? 'w-4/5 ml-auto' : 'w-3/4'}`} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )} */}
-
-        {/* Pagination loading with fade animation */}
         {loadingMore && !isInitialLoading && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -764,12 +810,10 @@ export default function Messages({
             messages.map((msg, index) => {
               let grouped = false;
               if (!groupStart) {
-                // First message in entire list
                 groupStart = msg;
                 grouped = false;
               } else {
                 const sameSender = msg.sender._id === groupStart.sender._id;
-
                 const diffSeconds =
                   (new Date(msg.createdAt).getTime() -
                     new Date(groupStart.createdAt).getTime()) /
@@ -778,14 +822,12 @@ export default function Messages({
                 if (sameSender && diffSeconds < GROUP_INTERVAL) {
                   grouped = true;
                 } else {
-                  // Start new group
                   groupStart = msg;
                   grouped = false;
                 }
               }
 
               const prev = messages[index - 1];
-
               const newDay = isNewDay(msg, prev);
               const next = messages[index + 1];
 
@@ -799,10 +841,6 @@ export default function Messages({
 
               const isLastInGroup = !nextInSameGroup;
               const isLastMessage = index === messages.length - 1;
-
-              // Animate only the specific message ID we flagged as new.
-              // Reading a ref here is intentional: we want the current value
-              // at render time without subscribing to it as reactive state.
               const shouldAnimate = msg._id === animatedMessageIdRef.current;
 
               const isMe = msg.sender._id === currentUser._id;
@@ -854,7 +892,7 @@ export default function Messages({
                     grouped={grouped}
                     isLastInGroup={isLastInGroup}
                     senderName={senderName}
-                    scrollToMessage={scrollToMessage}
+                    scrollToMessage={safeScrollToMessage}
                     replyingTo={replyingTo}
                     editingMessage={editingMessage}
                     profilePic={profilePic}
@@ -894,8 +932,8 @@ export default function Messages({
               transition={{ duration: 0.2 }}
               className="chat chat-start px-17 py-[1px]"
             >
-              <div className="bg-base-100 flex items-center gap-2 shadow text-base-content px-4 rounded-2xl py-1">
-                <span className="loading loading-dots loading-md opacity-50" />
+              <div className="bg-base-100 flex items-center gap-2 shadow text-base-content px-4 rounded-2xl py-1.5">
+                <span className="loading loading-dots loading-lg opacity-50" />
               </div>
             </motion.div>
           )}
@@ -909,9 +947,7 @@ export default function Messages({
         }
         onSelect={(emoji: string) => {
           const msg = reactionTargetRef.current;
-          if (msg) {
-            handleReaction(msg, emoji);
-          }
+          if (msg) handleReaction(msg, emoji);
         }}
       />
 

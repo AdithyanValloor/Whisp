@@ -8,6 +8,7 @@ import {
 } from "../../../utils/errors/httpErrors.js";
 
 import { toFriendRequestSocketPayload } from "../utils/normalizeFriendRequest.js";
+import { BlockModel } from "../models/block.model.js";
 
 /**
  * ------------------------------------------------------------------
@@ -20,7 +21,7 @@ export const getFriendList = async (userId: string) => {
 
   const user = await UserModel.findById(userId).populate(
     "friendList",
-    "displayName username email profilePicture"
+    "displayName username email profilePicture",
   );
 
   if (!user) throw NotFound("User not found");
@@ -70,7 +71,7 @@ export const fetchRequests = async (userId: string) => {
  */
 export const sendFriendRequest = async (
   fromUserId: string,
-  toUsername: string
+  toUsername: string,
 ) => {
   if (!fromUserId || !toUsername) {
     throw BadRequest("Invalid request parameters");
@@ -81,6 +82,17 @@ export const sendFriendRequest = async (
 
   const toUser = await UserModel.findOne({ username: toUsername });
   if (!toUser) throw NotFound("User not found");
+
+  const blockExists = await BlockModel.findOne({
+    $or: [
+      { blocker: fromUserId, blocked: toUser.id },
+      { blocker: toUser.id, blocked: fromUserId },
+    ],
+  });
+
+  if (blockExists) {
+    throw BadRequest("Cannot send friend request to this user");
+  }
 
   if (fromUser.id === toUser.id) {
     throw BadRequest("Cannot send friend request to yourself");
@@ -138,7 +150,7 @@ export const sendFriendRequest = async (
  */
 export const acceptFriendRequest = async (
   requestId: string,
-  userId: string
+  userId: string,
 ) => {
   const request = await FriendRequestModel.findById(requestId);
   if (!request) throw NotFound("Request not found");
@@ -189,7 +201,7 @@ export const acceptFriendRequest = async (
  */
 export const rejectFriendRequest = async (
   requestId: string,
-  userId: string
+  userId: string,
 ) => {
   const request = await FriendRequestModel.findById(requestId);
   if (!request) throw NotFound("Request not found");
@@ -251,7 +263,7 @@ export const removeFriend = async (userId: string, friendId: string) => {
  */
 export const cancelFriendRequest = async (
   requestId: string,
-  userId: string
+  userId: string,
 ) => {
   const request = await FriendRequestModel.findById(requestId);
   if (!request) throw NotFound("Request not found");

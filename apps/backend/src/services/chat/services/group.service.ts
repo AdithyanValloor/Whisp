@@ -6,6 +6,7 @@ import {
   Forbidden,
   NotFound,
 } from "../../../utils/errors/httpErrors.js";
+import { BlockModel } from "../../user/models/block.model.js";
 
 /**
  * Populates a group chat with all required related fields.
@@ -66,7 +67,20 @@ export const createGroupChatFunction = async (
     throw BadRequest("Group name and at least one member are required");
   }
 
-  const members = Array.from(new Set([...userIds, currentUserId]));
+  const allowedUserIds: string[] = [];
+
+  for (const uid of userIds) {
+    const blockExists = await BlockModel.findOne({
+      $or: [
+        { blocker: currentUserId, blocked: uid },
+        { blocker: uid, blocked: currentUserId },
+      ],
+    });
+
+    if (!blockExists) allowedUserIds.push(uid);
+  }
+
+  const members = Array.from(new Set([...allowedUserIds, currentUserId]));
 
   const groupChat = await Chat.create({
     chatName: name,
@@ -135,9 +149,22 @@ export const addMembersFunction = async (
 
   if (!isAdmin) throw Forbidden("Only admins can add new members");
 
-  const newMemberIds = members.filter(
-    (id) => !chat.members.some((m) => m.toString() === id)
-  );
+  const newMemberIds: string[] = [];
+
+  for (const memberId of members) {
+    if (chat.members.some((m) => m.toString() === memberId)) continue;
+
+    const blockExists = await BlockModel.findOne({
+      $or: [
+        { blocker: userId, blocked: memberId },
+        { blocker: memberId, blocked: userId },
+      ],
+    });
+
+    if (blockExists) continue;
+    
+    newMemberIds.push(memberId);
+  }
 
   chat.members.push(...newMemberIds.map((id) => new mongoose.Types.ObjectId(id)));
   await chat.save();

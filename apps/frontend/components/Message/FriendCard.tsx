@@ -1,12 +1,34 @@
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import defaultPFP from "@/public/default-pfp.png";
 import { selectMessagesByChat } from "@/redux/features/messageSelectors";
-import { selectUserStatus, useAppSelector } from "@/redux/hooks";
-import { Check, CheckCheck, Crown, Shield, UserRound } from "lucide-react";
-import { useMemo } from "react";
+import {
+  selectUserStatus,
+  useAppDispatch,
+  useAppSelector,
+} from "@/redux/hooks";
+import {
+  Check,
+  CheckCheck,
+  CircleSlash,
+  Crown,
+  Shield,
+  UserRound,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import InboxContextMenu from "../inbox/components/InboxContextMenu";
-import { ppid } from "process";
+import { removeFriend } from "@/redux/features/friendsSlice";
+import ConfirmModal from "../GlobalComponents/ConfirmModal";
+import { MdBlock, MdPushPin } from "react-icons/md";
+import {
+  leaveGroup,
+  deleteGroup,
+  transferOwnership,
+} from "@/redux/features/chatSlice";
+import TransferOwnershipModal from "../chat/TransferOwnershipModal";
+import { blockUser, unblockUser } from "@/redux/features/blockSlice";
+import { RootState } from "@/redux/store";
+import { RiPushpinFill } from "react-icons/ri";
 
 interface UserType {
   _id?: string;
@@ -77,8 +99,13 @@ export default function FriendCard(props: FriendCardProps) {
     forceActive,
     ClassName,
     openDropdown,
-    modal
+    modal,
   } = props;
+
+  const chats = useAppSelector((state) => state.chat.chats);
+  const chat = chats.find((c) => c._id === msgId);
+
+  const isPinned = chat?.isPinned ?? false;
 
   const isInbox = props.ifInbox === true;
   const activeContextMenuChatId = isInbox
@@ -89,13 +116,28 @@ export default function FriendCard(props: FriendCardProps) {
   const onContextMenuClose = isInbox ? props.onContextMenuClose : undefined;
   const contextMenuPos = isInbox ? props.contextMenuPos : undefined;
   const chatType = isInbox ? props.chatType : undefined;
-
-  const typingUsers = useAppSelector((s) => s.typing.byChat[msgId] ?? {});
-
   const currentUser = useAppSelector((s) => s.auth.user);
   const currentUserId = currentUser?._id;
 
+  const targetUser =
+    chatType === "personal" && chat
+      ? chat.members.find((m) => m._id !== currentUserId)
+      : null;
+
+  const typingUsers = useAppSelector((s) => s.typing.byChat[msgId] ?? {});
+  const dispatch = useAppDispatch();
+
   const isMenuOpen = activeContextMenuChatId === msgId;
+
+  const [removeUserId, setRemoveUserId] = useState<string | null>(null);
+
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [exitChatId, setExitChatId] = useState<string | null>(null);
+  const [blockTarget, setBlockTarget] = useState<{
+    userId: string;
+    isBlocked: boolean;
+  } | null>(null);
 
   // =-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=
 
@@ -114,6 +156,13 @@ export default function FriendCard(props: FriendCardProps) {
       };
 
   const status = useAppSelector(selectUserStatus(userData._id ?? ""));
+
+  const isBlockedByMe = useAppSelector((state: RootState) => {
+    if (chat?.isGroup) return false;
+    const otherMember = chat?.members.find((m) => m._id !== currentUser?._id);
+    if (!otherMember) return false;
+    return state.block.blockedUsers.some((u) => u._id === otherMember._id);
+  });
 
   // =-=-=-=-=-=-==-=-=-=-=-=-=-=-=-=-=
 
@@ -154,8 +203,7 @@ export default function FriendCard(props: FriendCardProps) {
 
     if (spaceBelow < menuHeight && spaceAbove > spaceBelow) {
       position = "top";
-      finalY = mouseY - menuHeight;
-      if (finalY < 10) finalY = 10;
+      finalY = mouseY;
     } else {
       if (finalY + menuHeight > viewportHeight) {
         finalY = viewportHeight - menuHeight - 10;
@@ -270,7 +318,7 @@ export default function FriendCard(props: FriendCardProps) {
     <>
       <div
         onContextMenu={openContextMenu}
-        className={`cursor-pointer w-full p-2 rounded-lg flex items-center transition-colors
+        className={`cursor-pointer w-full p-2 rounded-lg flex items-center transition-colors ${isBlockedByMe ? "opacity-50" : ""}
           ${forceActive || msgId === selectedChat ? "bg-base-content/5" : "hover:bg-base-content/5"}
           ${isMenuOpen ? "bg-base-content/5" : ""} ${openDropdown && "bg-base-content/5"} ${ClassName}
         `}
@@ -292,12 +340,15 @@ export default function FriendCard(props: FriendCardProps) {
             <h3 className="font-semibold truncate flex-1 text-base-content">
               {userData.displayName || userData.name}
             </h3>
-            {!modal && lastMessageTime && (
+            {!modal && lastMessageTime && !isBlockedByMe && (
               <p
-                className={`text-[12px] font-semibold text-base-content opacity-60 ${unread ? "text-green-500" : ""}`}
+                className={`text-[12px] font-semibold text-base-content ${unread ? "text-green-500" : ""}`}
               >
                 {lastMessageTime}
               </p>
+            )}
+            {isPinned && (
+              <RiPushpinFill size={18} className="ml-1 opacity-80" />
             )}
 
             {isGroupMemberCard && generateBadge(props.groupMember?.role)}
@@ -319,13 +370,16 @@ export default function FriendCard(props: FriendCardProps) {
                   <span
                     className={`${unread ? "opacity-100" : "opacity-60"} truncate`}
                   >
-                    {lastMessageText}
+                    {isBlockedByMe ? "Blocked User" : lastMessageText}
                   </span>
                 )}
               </span>
 
               {/* SEEN / DELIVERED ICON */}
-              {!isGroupMemberCard &&
+              {isBlockedByMe ? (
+                <MdBlock className="text-red-500 flex-shrink-0" size={20} />
+              ) : (
+                !isGroupMemberCard &&
                 !isChatTyping &&
                 isMyMessage &&
                 (ifSeen ? (
@@ -340,15 +394,16 @@ export default function FriendCard(props: FriendCardProps) {
                     strokeWidth={3}
                     className="flex-shrink-0 text-base-content"
                   />
-                ) : null)}
+                ) : null)
+              )}
 
               {/* UNREAD BADGE */}
               {unread > 0 && (
                 <span
-                  className="bg-green-600 text-black text-xs font-sans font-bold
-        min-w-5 h-5 px-1 rounded-full
-        flex items-center justify-center
-        flex-shrink-0"
+                  className="bg-green-500 text-black font-bold
+                    min-w-5 h-5 px-1 rounded-full
+                    flex items-center justify-center
+                    flex-shrink-0"
                 >
                   {unread > 99 ? "99+" : unread}
                 </span>
@@ -374,9 +429,131 @@ export default function FriendCard(props: FriendCardProps) {
             menuRef={contextMenuRef}
             chatId={msgId}
             chatType={chatType}
+            onRemove={(userId) => setRemoveUserId(userId)}
+            onBlock={(userId, isBlocked) =>
+              setBlockTarget({ userId, isBlocked })
+            }
+            onExitGroup={(chatId) => {
+              setExitChatId(chatId);
+              setShowLeaveModal(true);
+            }}
           />
         )}
       </AnimatePresence>
+
+      {removeUserId && targetUser && (
+        <ConfirmModal
+          open
+          title={`Remove ${targetUser.displayName || targetUser.username}`}
+          description={`Are you sure you want to remove ${
+            targetUser.displayName || targetUser.username
+          } from your friends?`}
+          confirmText="Remove"
+          onCancel={() => setRemoveUserId(null)}
+          onConfirm={() => {
+            dispatch(removeFriend(removeUserId));
+            setRemoveUserId(null);
+          }}
+        />
+      )}
+
+      {exitChatId &&
+        (() => {
+          const ec = chats.find((c) => c._id === exitChatId);
+          const ecIsOwner = ec?.createdBy?._id === currentUserId;
+          const ecIsLast = (ec?.members?.length ?? 0) === 1;
+          const ecNeedsTransfer = ecIsOwner && !ecIsLast;
+
+          return (
+            <>
+              {showLeaveModal && (
+                <ConfirmModal
+                  open
+                  title={
+                    ecNeedsTransfer
+                      ? "Transfer Ownership Required"
+                      : ecIsLast
+                        ? `Delete ${ec?.chatName}?`
+                        : `Leave ${ec?.chatName}?`
+                  }
+                  confirmText={
+                    ecNeedsTransfer
+                      ? "Continue"
+                      : ecIsLast
+                        ? "Delete Group"
+                        : "Leave Group"
+                  }
+                  cancelText="Cancel"
+                  onCancel={() => {
+                    setShowLeaveModal(false);
+                    setExitChatId(null);
+                  }}
+                  onConfirm={() => {
+                    setShowLeaveModal(false);
+                    if (ecNeedsTransfer) {
+                      setShowTransferModal(true);
+                    } else if (ecIsLast) {
+                      dispatch(deleteGroup({ chatId: exitChatId }));
+                      setExitChatId(null);
+                    } else {
+                      dispatch(leaveGroup({ chatId: exitChatId }));
+                      setExitChatId(null);
+                    }
+                  }}
+                  description={
+                    ecNeedsTransfer
+                      ? "You are the owner of this group. You must transfer ownership before leaving."
+                      : ecIsLast
+                        ? "You are the last member. Leaving will permanently delete this group."
+                        : "Are you sure you want to leave? You won't be able to rejoin unless invited."
+                  }
+                />
+              )}
+
+              {showTransferModal && (
+                <TransferOwnershipModal
+                  show={showTransferModal}
+                  onClose={() => {
+                    setShowTransferModal(false);
+                    setExitChatId(null);
+                  }}
+                  members={ec?.members ?? []}
+                  currentUserId={currentUserId ?? ""}
+                  onTransfer={async (newOwnerId) => {
+                    await dispatch(
+                      transferOwnership({ chatId: exitChatId, newOwnerId }),
+                    );
+                    dispatch(leaveGroup({ chatId: exitChatId }));
+                    setShowTransferModal(false);
+                    setExitChatId(null);
+                  }}
+                />
+              )}
+            </>
+          );
+        })()}
+
+      {blockTarget && (
+        <ConfirmModal
+          open
+          title={blockTarget.isBlocked ? "Unblock User" : "Block User"}
+          description={
+            blockTarget.isBlocked
+              ? "Are you sure you want to unblock this user?"
+              : "Are you sure you want to block this user? They will be removed from your friends."
+          }
+          confirmText={blockTarget.isBlocked ? "Unblock" : "Block"}
+          onCancel={() => setBlockTarget(null)}
+          onConfirm={() => {
+            if (blockTarget.isBlocked) {
+              dispatch(unblockUser(blockTarget.userId));
+            } else {
+              dispatch(blockUser(blockTarget.userId));
+            }
+            setBlockTarget(null);
+          }}
+        />
+      )}
     </>
   );
 }

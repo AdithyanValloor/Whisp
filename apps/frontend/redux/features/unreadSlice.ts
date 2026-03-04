@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
 import axios from "axios";
+import { markAsUnread } from "./chatSlice";
 
 /* -------------------- TYPES -------------------- */
 
@@ -125,7 +126,14 @@ const unreadSlice = createSlice({
       .addCase(fetchUnreadCounts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload ?? "Failed to fetch unread counts";
-      });
+      })
+      .addCase(markAsUnread.fulfilled, (state, action) => {
+        const { chatId, count } = action.payload;
+
+        const prev = state.perChat[chatId] || 0;
+        state.perChat[chatId] = count;
+        state.total += count - prev;
+      })
   },
 });
 

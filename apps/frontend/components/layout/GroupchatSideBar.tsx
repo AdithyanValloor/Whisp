@@ -196,19 +196,20 @@ export default function GroupSidebar({
           {/* Add Members button */}
           {isAdmin && (
             <div className="flex justify-end py-3 shrink-0">
+              {/* <div className="w-[45px] h-[45px] bg-base-100 border border-base-content/10 flex items-center justify-center gap-1 px-3 py-1.5 rounded-full hover:bg-green-900/30 cursor-pointer transition-colors text-sm"> */}
               <button
                 type="button"
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-full border-2 border-green-900 text-green-500 hover:bg-green-900/30 cursor-pointer transition-colors text-sm"
+                className="bg-base-100 border border-base-content/10 flex items-center justify-center gap-2 px-4 py-2 rounded-full hover:bg-base-content/5 cursor-pointer transition-colors hover:border-base-content/20 text-sm"
               >
-                <UserPlus size={15} />
-                <span>Add</span>
+                <UserPlus size={20} />
+                <span className="font-semibold">Add</span>
               </button>
             </div>
           )}
 
           {/* Group profile card */}
-          <div className={`mt-${isAdmin ? "2" : "10"} shrink-0`}>
+          <div className={`mt-3 shrink-0`}>
             <div className="flex border border-base-content/10 flex-col items-center text-center bg-base-100 rounded-xl p-4 shadow">
               <div className="w-20 h-20 rounded-full bg-base-200 border border-base-content/10 flex items-center justify-center text-3xl font-semibold select-none">
                 {group.chatName[0]}

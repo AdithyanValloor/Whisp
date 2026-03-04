@@ -7,6 +7,7 @@ import {
   updateMessageDelivery,
   markAllMessagesSeen,
   insertMessage,
+  clearChatMessages,
 } from "@/redux/features/messageSlice";
 
 import {
@@ -42,6 +43,7 @@ import {
 } from "@/redux/features/friendsSlice";
 import { emitToast } from "@/utils/toastEmitter";
 import { getActiveChatId } from "./activeChat";
+import { addBlockedBy, removeBlockedBy } from "@/redux/features/blockSlice";
 
 /* -------------------- SINGLETON STATE -------------------- */
 
@@ -339,6 +341,38 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
 
     socket.on("presence_update", ({ userId, status }: PresenceUpdatePayload) => {
       store.dispatch(updatePresence({ userId, status }));
+    });
+
+    /* -------------------- BLOCK -------------------- */
+
+    /**
+     * Someone blocked me.
+     * - Track who blocked me (gates UI interactions)
+     * - Remove them from my friend list
+     * - Remove the DM from my chat list and clear its messages
+     */
+    socket.on("user_blocked", ({ by }: { by: string }) => {
+      store.dispatch(addBlockedBy(by));
+      store.dispatch(removeFriendFromSocket(by));
+    });
+
+    /**
+     * Someone unblocked me.
+     * - Remove them from blockedByUsers so interactions are re-enabled
+     */
+    socket.on("user_unblocked", ({ by }: { by: string }) => {
+      store.dispatch(removeBlockedBy(by));
+    });
+
+    /**
+     * My own block/unblock action succeeded.
+     * - Remove blocked user's DM from my chat list
+     * - Remove from friend list (already done optimistically in thunk,
+     *   this handles the confirmed cleanup)
+     */
+    socket.on("block_success", ({ targetUserId }: { targetUserId: string }) => {
+      // Clean up friend state on confirmed block
+      store.dispatch(removeFriendFromSocket(targetUserId));
     });
 
     /* -------------------- CONNECTION EVENTS -------------------- */

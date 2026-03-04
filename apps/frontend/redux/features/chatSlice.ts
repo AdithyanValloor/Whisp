@@ -42,10 +42,14 @@ export interface Chat {
   chatName: string;
   admin: ChatUser[];
   createdBy?: ChatUser;
+  isPinned?: boolean;
+  isArchived?: boolean;
+  lastReadAt?: string | null;
   unreadCounts: Record<string, number>;
   lastMessage?: ChatMessage;
   createdAt: string;
   updatedAt: string;
+  clearedAt?: string | null;
 }
 
 interface ChatState {
@@ -65,31 +69,83 @@ interface ChatResponse {
   chat: Chat;
 }
 
-/* -------------------- THUNKS -------------------- */
+/* -------------------- CHAT THUNKS -------------------- */
 
-export const fetchChats = createAsyncThunk<Chat[], void, { rejectValue: string }>(
-  "chat/fetchChats",
-  async (_, { rejectWithValue }) => {
-    try {
-      const res = await api.get<Chat[]>("/chat");
-      return res.data;
-    } catch {
-      return rejectWithValue("Failed to fetch chats");
-    }
+export const fetchChats = createAsyncThunk<
+  Chat[],
+  void,
+  { rejectValue: string }
+>("chat/fetchChats", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get<Chat[]>("/chat");
+    return res.data;
+  } catch {
+    return rejectWithValue("Failed to fetch chats");
   }
+});
+
+export const accessChat = createAsyncThunk<
+  Chat,
+  string,
+  { rejectValue: string }
+>("chat/accessChat", async (userId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<Chat>("/chat/access", { userId });
+    return res.data;
+  } catch {
+    return rejectWithValue("Failed to access chat");
+  }
+});
+
+export const togglePin = createAsyncThunk<
+  { chatId: string; isPinned: boolean },
+  string
+>("chat/togglePin", async (chatId) => {
+  const res = await api.patch(`/chat/pin/${chatId}`);
+  return { chatId, isPinned: res.data.isPinned };
+});
+
+export const toggleArchive = createAsyncThunk<
+  { chatId: string; isArchived: boolean },
+  string
+>("chat/toggleArchive", async (chatId) => {
+  const res = await api.patch(`/chat/archive/${chatId}`);
+  return { chatId, isArchived: res.data.isArchived };
+});
+
+export const markAsUnread = createAsyncThunk<
+  { chatId: string; count: number },
+  string
+>("chat/markUnread", async (chatId) => {
+  const res = await api.patch(`/chat/unread/${chatId}`);
+  return res.data;
+});
+
+export const markAsRead = createAsyncThunk<{ chatId: string }, string>(
+  "chat/markRead",
+  async (chatId) => {
+    const res = await api.patch(`/chat/read/${chatId}`);
+    return res.data;
+  },
 );
 
-export const accessChat = createAsyncThunk<Chat, string, { rejectValue: string }>(
-  "chat/accessChat",
-  async (userId, { rejectWithValue }) => {
-    try {
-      const res = await api.post<Chat>("/chat/access", { userId });
-      return res.data;
-    } catch {
-      return rejectWithValue("Failed to access chat");
-    }
-  }
+export const clearChat = createAsyncThunk<{ chatId: string }, string>(
+  "chat/clearChat",
+  async (chatId) => {
+    await api.delete(`/chat/${chatId}/clear`);
+    return { chatId };
+  },
 );
+
+export const deleteChat = createAsyncThunk<{ chatId: string }, string>(
+  "chat/deleteChat",
+  async (chatId) => {
+    await api.delete(`/chat/${chatId}`);
+    return { chatId };
+  },
+);
+
+/* -------------------- GROUP THUNKS -------------------- */
 
 export const createGroupChat = createAsyncThunk<
   Chat,
@@ -143,29 +199,31 @@ export const toggleAdmin = createAsyncThunk<
   }
 });
 
-export const leaveGroup = createAsyncThunk<string, { chatId: string }, { rejectValue: string }>(
-  "group/leaveGroup",
-  async (data, { rejectWithValue }) => {
-    try {
-      await api.post("/group/leave", data);
-      return data.chatId;
-    } catch {
-      return rejectWithValue("Failed to leave group");
-    }
+export const leaveGroup = createAsyncThunk<
+  string,
+  { chatId: string },
+  { rejectValue: string }
+>("group/leaveGroup", async (data, { rejectWithValue }) => {
+  try {
+    await api.post("/group/leave", data);
+    return data.chatId;
+  } catch {
+    return rejectWithValue("Failed to leave group");
   }
-);
+});
 
-export const deleteGroup = createAsyncThunk<string, { chatId: string }, { rejectValue: string }>(
-  "group/deleteGroup",
-  async (data, { rejectWithValue }) => {
-    try {
-      await api.delete("/group/delete", { data });
-      return data.chatId;
-    } catch {
-      return rejectWithValue("Failed to delete group");
-    }
+export const deleteGroup = createAsyncThunk<
+  string,
+  { chatId: string },
+  { rejectValue: string }
+>("group/deleteGroup", async (data, { rejectWithValue }) => {
+  try {
+    await api.delete("/group/delete", { data });
+    return data.chatId;
+  } catch {
+    return rejectWithValue("Failed to delete group");
   }
-);
+});
 
 export const transferOwnership = createAsyncThunk<
   Chat,
@@ -179,6 +237,21 @@ export const transferOwnership = createAsyncThunk<
     return rejectWithValue("Failed to transfer ownership");
   }
 });
+
+/* -------------------- CHAT SORT HELPER -------------------- */
+
+const sortChats = (chats: Chat[]) => {
+  return chats.sort((a, b) => {
+    if ((a.isPinned ?? false) !== (b.isPinned ?? false)) {
+      return a.isPinned ? -1 : 1;
+    }
+
+    return (
+      new Date(b.lastMessage?.createdAt ?? 0).getTime() -
+      new Date(a.lastMessage?.createdAt ?? 0).getTime()
+    );
+  });
+};
 
 /* -------------------- SLICE -------------------- */
 
@@ -198,17 +271,15 @@ const chatSlice = createSlice({
      */
     updateChatLatestMessage: (
       state,
-      action: PayloadAction<{ chatId: string; message: ChatMessage }>
+      action: PayloadAction<{ chatId: string; message: ChatMessage }>,
     ) => {
       const { chatId, message } = action.payload;
       const chat = state.chats.find((c) => c._id === chatId);
       if (!chat) return;
+
       chat.lastMessage = message;
-      state.chats.sort(
-        (a, b) =>
-          new Date(b.lastMessage?.createdAt ?? 0).getTime() -
-          new Date(a.lastMessage?.createdAt ?? 0).getTime()
-      );
+
+      state.chats = sortChats(state.chats);
     },
 
     /**
@@ -246,7 +317,7 @@ const chatSlice = createSlice({
      */
     removeChatMember: (
       state,
-      action: PayloadAction<{ chatId: string; userId: string }>
+      action: PayloadAction<{ chatId: string; userId: string }>,
     ) => {
       const { chatId, userId } = action.payload;
       const chat = state.chats.find((c) => c._id === chatId);
@@ -261,7 +332,11 @@ const chatSlice = createSlice({
      */
     updateChatAdmin: (
       state,
-      action: PayloadAction<{ chatId: string; memberId: string; isAdmin: boolean }>
+      action: PayloadAction<{
+        chatId: string;
+        memberId: string;
+        isAdmin: boolean;
+      }>,
     ) => {
       const { chatId, memberId, isAdmin } = action.payload;
       const chat = state.chats.find((c) => c._id === chatId);
@@ -284,7 +359,7 @@ const chatSlice = createSlice({
      */
     updateChatOwner: (
       state,
-      action: PayloadAction<{ chatId: string; newOwnerId: string }>
+      action: PayloadAction<{ chatId: string; newOwnerId: string }>,
     ) => {
       const { chatId, newOwnerId } = action.payload;
       const chat = state.chats.find((c) => c._id === chatId);
@@ -298,6 +373,38 @@ const chatSlice = createSlice({
         }
       }
     },
+
+    togglePinLocal: (state, action: PayloadAction<string>) => {
+      const chat = state.chats.find((c) => c._id === action.payload);
+      if (!chat) return;
+
+      chat.isPinned = !chat.isPinned;
+      state.chats = sortChats(state.chats);
+    },
+
+    toggleArchiveLocal: (state, action: PayloadAction<string>) => {
+      const chat = state.chats.find((c) => c._id === action.payload);
+      if (!chat) return;
+
+      chat.isArchived = !chat.isArchived;
+    },
+
+    markUnreadLocal: (state, action: PayloadAction<string>) => {
+      const chat = state.chats.find((c) => c._id === action.payload);
+      if (!chat) return;
+
+      chat.lastReadAt = null;
+    },
+    clearChatLocal: (state, action: PayloadAction<string>) => {
+      const chat = state.chats.find((c) => c._id === action.payload);
+      if (!chat) return;
+
+      chat.lastMessage = undefined;
+      chat.lastReadAt = new Date().toISOString();
+    },
+    deleteChatLocal: (state, action: PayloadAction<string>) => {
+      state.chats = state.chats.filter((c) => c._id !== action.payload);
+    },
   },
 
   extraReducers: (builder) => {
@@ -309,11 +416,7 @@ const chatSlice = createSlice({
       })
       .addCase(fetchChats.fulfilled, (state, action) => {
         state.listLoading = false;
-        state.chats = action.payload.sort(
-          (a, b) =>
-            new Date(b.lastMessage?.createdAt ?? 0).getTime() -
-            new Date(a.lastMessage?.createdAt ?? 0).getTime()
-        );
+        state.chats = sortChats(action.payload);
       })
       .addCase(fetchChats.rejected, (state, action) => {
         state.listLoading = false;
@@ -335,6 +438,69 @@ const chatSlice = createSlice({
       .addCase(accessChat.rejected, (state, action) => {
         state.accessLoading = false;
         state.error = action.payload ?? "Failed to access chat";
+      })
+
+      /* -------- PIN -------- */
+      .addCase(togglePin.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c._id === action.payload.chatId);
+        if (!chat) return;
+
+        chat.isPinned = action.payload.isPinned;
+      })
+
+      /* -------- ARCHIVE -------- */
+      .addCase(toggleArchive.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c._id === action.payload.chatId);
+        if (!chat) return;
+
+        chat.isArchived = action.payload.isArchived;
+      })
+
+      /* -------- MARK UNREAD -------- */
+      .addCase(markAsUnread.fulfilled, (state, action) => {
+        const { chatId } = action.payload;
+
+        const chat = state.chats.find((c) => c._id === chatId);
+        if (chat) {
+          chat.lastReadAt = null;
+        }
+      })
+
+      /* -------- MARK READ -------- */
+      .addCase(markAsRead.fulfilled, (state, action) => {
+        const { chatId } = action.payload;
+        const chat = state.chats.find((c) => c._id === chatId);
+        if (!chat) return;
+
+        chat.lastReadAt = new Date().toISOString();
+      })
+
+      /* -------- CLEAR CHAT -------- */
+      .addCase(clearChat.pending, (state, action) => {
+        const chat = state.chats.find((c) => c._id === action.meta.arg);
+        if (!chat) return;
+
+        chat.lastMessage = undefined;
+        chat.lastReadAt = new Date().toISOString();
+      })
+      .addCase(clearChat.rejected, (state, action) => {
+        state.error = "Failed to clear chat";
+      })
+      .addCase(clearChat.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c._id === action.payload.chatId);
+        if (!chat) return;
+        chat.clearedAt = new Date().toISOString();
+      })
+
+      /* -------- DELETE CHAT -------- */
+      .addCase(deleteChat.pending, (state, action) => {
+        state.chats = state.chats.filter((c) => c._id !== action.meta.arg);
+      })
+      .addCase(deleteChat.rejected, (state) => {
+        state.error = "Failed to delete chat";
+      })
+      .addCase(deleteChat.fulfilled, () => {
+        // no-op: optimistic removal already done in .pending
       })
 
       /* -------- CREATE GROUP -------- */
@@ -441,11 +607,7 @@ const chatSlice = createSlice({
           updatedAt: msg.updatedAt ?? msg.createdAt,
         };
 
-        state.chats.sort(
-          (a, b) =>
-            new Date(b.lastMessage?.createdAt ?? 0).getTime() -
-            new Date(a.lastMessage?.createdAt ?? 0).getTime()
-        );
+        state.chats = sortChats(state.chats);
       });
   },
 });
@@ -458,6 +620,11 @@ export const {
   removeChatMember,
   updateChatAdmin,
   updateChatOwner,
+  togglePinLocal,
+  toggleArchiveLocal,
+  markUnreadLocal,
+  clearChatLocal,
+  deleteChatLocal,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

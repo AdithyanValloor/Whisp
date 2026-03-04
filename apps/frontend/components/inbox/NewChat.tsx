@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, UserPlus, Users } from "lucide-react";
+import { ArrowLeft, UserRoundPlus, UsersRound } from "lucide-react";
 import { useState } from "react";
 import IconButton from "../GlobalComponents/IconButtons";
 import SearchInput from "../GlobalComponents/SearchInput";
@@ -111,7 +111,7 @@ export default function NewChat({
             <div className="flex flex-col gap-1">
               {/* Add Friend */}
               <MenuRow
-                icon={<UserPlus size={20} />}
+                icon={<UserRoundPlus size={20} />}
                 title="Add Friend"
                 subtitle="Send a friend request"
                 onClick={() => setView("friend")}
@@ -119,7 +119,7 @@ export default function NewChat({
 
               {/* New Group */}
               <MenuRow
-                icon={<Users size={20} />}
+                icon={<UsersRound size={20} />}
                 title="New Group"
                 onClick={() => setView("group")}
               />

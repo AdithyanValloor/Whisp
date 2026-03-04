@@ -4,7 +4,7 @@ import Image from "next/image";
 import { MessageType } from "@/redux/features/messageSlice";
 import { renderTwemoji } from "@/utils/renderEmoji";
 import { parseMessageText } from "@/utils/parseMessage";
-import { Check, CheckCheck, Forward } from "lucide-react";
+import { BadgeX, Check, CheckCheck, CircleSlash, Forward } from "lucide-react";
 import LinkPreviewCard from "../Message/LinkPreviewCard";
 
 interface ChatBubbleProps {
@@ -91,7 +91,7 @@ export default function ChatBubble({
   return (
     <div
       className={`chat relative text-base-content p-0 border-1 border-transparent
-        ${!msg.deleted && msg.reactions && msg.reactions.length > 0 ? "pb-5" : ""}
+        ${!msg.deleted && msg.reactions && msg.reactions.length > 0 ? "pb-6" : ""}
         ${isMe ? "chat-end" : "chat-start"}
         hover:bg-base-content/10 rounded-sm px-4 transition-colors
         ${highlightedMessageId === msg._id ? "bg-cyan-900/30" : ""}
@@ -172,7 +172,7 @@ export default function ChatBubble({
       ) : (
         /* ── Normal bubble ── */
         <div
-          className={`relative rounded-2xl shadow chat-bubble flex flex-col
+          className={`relative rounded-2xl shadow-md chat-bubble flex flex-col text-sm
             ${
               grouped
                 ? isMe
@@ -189,22 +189,20 @@ export default function ChatBubble({
                   : "!rounded-bl-2xl"
                 : ""
             }
-            px-2 py-2
-            ${isMe ? "bg-cyan-900 text-white text-sm" : "bg-base-100"}
+            p-2
+            ${isMe ? "bg-cyan-950 text-white" : "bg-base-100"}
             ${grouped ? (isMe ? "mx-10" : "mx-10") : ""}
             ${msg.deleted ? "italic opacity-50" : ""}
             break-words overflow-hidden whitespace-pre-wrap
-            max-w-[65%] sm:max-w-[55%] md:max-w-[48%] xl:max-w-[42%]            
+            max-w-[350px] w-fit         
             `}
         >
           {msg.forwarded && !msg.deleted && (
-            <div className={`flex items-center italic gap-1 opacity-50 pl-3 px-2`}>
-              <Forward size={15}/>
-              <span
-                className={`${isMe ? "pr-8" : ""} text-sm`}
-              >
-                Forwarded
-              </span>
+            <div
+              className={`flex items-center italic gap-1 opacity-50 pl-3 px-2`}
+            >
+              <Forward size={15} />
+              <span className={`${isMe ? "pr-8" : ""} text-sm`}>Forwarded</span>
             </div>
           )}
 
@@ -237,17 +235,18 @@ export default function ChatBubble({
           )}
 
           <div className="w-full">
-            <div
-              className={`w-full px-3 ${isMe ? "pr-6" : ""} twemoji-container`}
-              dangerouslySetInnerHTML={{
-                __html: msg.deleted
-                  ? "This message was deleted"
-                  : renderTwemoji(parseMessageText(msg.content)),
-              }}
+            <div className="flex items-center">
+              {msg.deleted && <BadgeX size={20} className="mr-1" />}
+              <div
+                className={`w-full ${!msg.deleted && "px-3"} ${isMe ? "pr-6" : ""} twemoji-container`}
+                dangerouslySetInnerHTML={{
+                  __html: msg.deleted
+                    ? "Deleted message"
+                    : renderTwemoji(parseMessageText(msg.content)),
+                }}
               />
-              {msg.linkPreview && (
-                <LinkPreviewCard preview={msg.linkPreview} />
-              )}
+            </div>
+            {msg.linkPreview && <LinkPreviewCard preview={msg.linkPreview} />}
             {msg.edited && !msg.deleted && (
               <div className={`flex py-1 ${isMe ? "justify-end" : ""}`}>
                 <span
@@ -279,7 +278,7 @@ export default function ChatBubble({
 
       {!msg.deleted && msg.reactions && msg.reactions.length > 0 && (
         <div
-          className={`absolute flex flex-wrap gap-[2px] px-[6px] py-[1px] rounded-full text-sm bottom-7 select-none twemoji-container
+          className={`absolute flex flex-wrap gap-[2px] px-[6px] py-[1px] rounded-full text-sm bottom-8 select-none twemoji-container
             ${isMe ? "right-16 justify-end" : "left-16 justify-start"}`}
           style={{ transform: "translateY(100%)" }}
         >
@@ -294,7 +293,7 @@ export default function ChatBubble({
           ).map(([emoji, count]) => (
             <span
               key={emoji}
-              className="flex items-center bg-accent-content border border-base-content/8 shadow justify-center p-0.5 gap-[4px] rounded-full cursor-pointer transition-all"
+              className={`flex items-center border border-base-content/10 shadow-md justify-center py-0.5 px-2 gap-[4px] ${isMe ? "bg-base-100" : "bg-cyan-950"} rounded-full cursor-pointer transition-all`}
               onClick={() => handleReaction(msg, emoji)}
             >
               <span

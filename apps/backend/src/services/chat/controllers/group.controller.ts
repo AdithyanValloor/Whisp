@@ -8,7 +8,7 @@ import {
   removeMembersFunction,
   toggleAdminFunction,
   transferOwnershipFunction,
-} from "../services/group.services.js";
+} from "../services/group.service.js";
 import { handleChatError } from "../errors/chatErrors.js";
 import { AuthRequest } from "../../user/types/authRequest.js";
 import {

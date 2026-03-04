@@ -6,6 +6,7 @@ import {
   useState,
   useCallback,
   useLayoutEffect,
+  useMemo,
 } from "react";
 import { Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
@@ -13,14 +14,13 @@ import ProfileView from "../layout/profileView";
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import { ArrowLeft } from "lucide-react";
 import { selectMessagesByChat } from "@/redux/features/messageSelectors";
-import { useAppSelector, useAppDispatch } from "@/redux/hooks";
+import { useAppSelector, useAppDispatch, selectIsBlocked } from "@/redux/hooks";
 import {
   fetchMessages,
   sendMessage,
   MessageType,
   deleteMessageApi,
   editMessageApi,
-  markChatAsRead,
   markMessagesAsSeen,
   fetchMessageContext,
   setJumpTo,
@@ -42,6 +42,8 @@ import { ChatBody } from "./ChatBody";
 import ChatSearchComponent from "./ChatSearchComponent";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
 import { setActiveChatId } from "@/utils/activeChat";
+import { RootState } from "@/redux/store";
+import { unblockUser } from "@/redux/features/blockSlice";
 
 interface ChatViewProps {
   chat: {
@@ -107,6 +109,37 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [highlightedMessageId, setHighlightedMessageId] = useState<
     string | null
   >(null);
+
+  const isBlocked = useAppSelector((state: RootState) => {
+    if (chat.isGroup) return false;
+    const otherMember = chat.members.find((m) => m._id !== currentUser._id);
+    if (!otherMember) return false;
+    const id = otherMember._id;
+    const blockedByMe = state.block.blockedUsers.some((u) => u._id === id);
+    const blockingMe = state.block.blockedByUsers.includes(id);
+    console.log("🔍 isBlocked check:", {
+      id,
+      blockedUsers: state.block.blockedUsers,
+      blockedByUsers: state.block.blockedByUsers,
+      blockedByMe,
+      blockingMe,
+    });
+    return blockedByMe || blockingMe;
+  });
+
+  const isBlockedByMe = useAppSelector((state: RootState) => {
+    if (chat.isGroup) return false;
+    const otherMember = chat.members.find((m) => m._id !== currentUser._id);
+    if (!otherMember) return false;
+    return state.block.blockedUsers.some((u) => u._id === otherMember._id);
+  });
+
+  const isBlockingMe = useAppSelector((state: RootState) => {
+    if (chat.isGroup) return false;
+    const otherMember = chat.members.find((m) => m._id !== currentUser._id);
+    if (!otherMember) return false;
+    return state.block.blockedByUsers.includes(otherMember._id);
+  });
 
   console.log("CHAT:", chat);
   console.log("MESSAGES COUNT:", messages.length);
@@ -244,18 +277,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         hasFetchedRef.current.delete(chat._id);
       });
   }, [chat._id, dispatch]);
-
-  useEffect(() => {
-    if (!isPageVisible) return;
-    if (unreadCount === 0) return;
-
-    console.log("🔄 Resetting unread on chat open:", chat._id);
-
-    dispatch(resetUnread(chat._id));
-
-    dispatch(markChatAsRead(chat._id));
-    dispatch(markMessagesAsSeen(chat._id));
-  }, [chat._id, unreadCount, isPageVisible, dispatch]);
 
   // Socket event listeners
   const handleTyping = () => {
@@ -418,6 +439,21 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
             setShowPicker={setShowPicker}
             replyingTo={replyingTo}
             setReplyingTo={setReplyingTo}
+            isBlocked={isBlocked && !chat.isGroup}
+            isBlockedByMe={isBlockedByMe}
+            isBlockingMe={isBlockingMe}
+            onUnblock={() => {
+              if (!chat.isGroup) {
+                const otherMember = chat.members.find(
+                  (m) => m._id !== currentUser._id,
+                );
+                if (otherMember) {
+                  dispatch(unblockUser(otherMember._id));
+                } else {
+                  console.error("Could not find other member to unblock");
+                }
+              }
+            }}
           />
         </div>
       </div>

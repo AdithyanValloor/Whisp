@@ -6,6 +6,7 @@ import {
   useState,
   ReactNode,
   useEffect,
+  useRef,
 } from "react";
 import { Toast } from "./types";
 import ToastContainer from "./ToastContainer";
@@ -23,6 +24,7 @@ const ToastContext = createContext<ToastContextType | null>(null);
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [systemToasts, setSystemToasts] = useState<Toast[]>([]);
   const [notifications, setNotifications] = useState<Toast[]>([]);
+  const lastPlayed = useRef(0);
 
   const router = useRouter();
 
@@ -38,6 +40,24 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [router]);
 
+  useEffect(() => {
+    const enableAudio = () => {
+      notificationSound.current = new Audio("/sounds/notification.mp3");
+      document.removeEventListener("click", enableAudio);
+    };
+
+    document.addEventListener("click", enableAudio);
+
+    return () => document.removeEventListener("click", enableAudio);
+  }, []);
+
+  const notificationSound = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    notificationSound.current = new Audio("/sounds/notification.mp3");
+    notificationSound.current.volume = 0.6;
+  }, []);
+
   const showToast = (toast: Omit<Toast, "id">) => {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
 
@@ -48,6 +68,15 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
       toast.type === "friend_request" ||
       toast.type === "friend_accept" ||
       toast.type === "call";
+
+    if (isNotification) {
+      const now = Date.now();
+
+      if (now - lastPlayed.current > 800) {
+        notificationSound.current?.play().catch(() => {});
+        lastPlayed.current = now;
+      }
+    }
 
     if (isNotification && toast.chatId) {
       setNotifications((prev) => {

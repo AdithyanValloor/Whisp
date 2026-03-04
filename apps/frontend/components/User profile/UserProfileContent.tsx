@@ -111,13 +111,13 @@ export default function UserProfile({ openSettings }: UserProfileProps) {
               : "—"}
           </span>
         </div>
-        <div className="text-[11px] text-[#004030] font-semibold uppercase tracking-wider">
+        <div className="text-[11px] text-cyan-900 font-semibold uppercase tracking-wider">
           Member
         </div>
       </motion.div>
 
       {/* Accent */}
-      <div className="absolute bottom-0 left-0 w-full h-[3px] bg-[#004030]" />
+      <div className="absolute bottom-0 left-0 w-full h-[3px] bg-cyan-900" />
     </motion.div>
   );
 }

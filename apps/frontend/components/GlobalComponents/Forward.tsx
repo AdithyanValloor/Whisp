@@ -130,7 +130,7 @@ export default function ForwardModal({
                           onClick={() => toggleChatSelection(chat._id)}
                           className={`relative my-1 rounded-lg cursor-pointer border transition ${
                             isSelected
-                              ? "bg-[#004030]/10 border-[#004030]"
+                              ? "bg-cyan-900/5 border-cyan-900"
                               : "border-transparent hover:bg-base-300"
                           }`}
                         >
@@ -150,8 +150,8 @@ export default function ForwardModal({
                           />
 
                           {isSelected && (
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#004030]">
-                              <Check />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-900">
+                              <Check strokeWidth={3}/>
                             </span>
                           )}
                         </li>

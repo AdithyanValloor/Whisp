@@ -16,6 +16,8 @@ import {
 import { useAppSelector } from "@/redux/hooks";
 import { AiFillMessage } from "react-icons/ai";
 import { motion } from "framer-motion";
+import Image from "next/image";
+import defaultPFP from "@/public/default-pfp.png";
 
 interface SideBarProps {
   activeTab: string;
@@ -34,10 +36,12 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const totalUnread = useAppSelector((state) => state.unread.total);
   const { requests } = useAppSelector((state) => state.friends);
-    const pendingCount = useMemo(
-      () => requests.incoming.length,
-      [requests.incoming.length],
-    );
+  const pendingCount = useMemo(
+    () => requests.incoming.length,
+    [requests.incoming.length],
+  );
+
+  const user = useAppSelector((state) => state.profile.profile);
 
   const sidebarRef = useRef<HTMLDivElement>(null);
 
@@ -79,8 +83,9 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
       icon: <AiFillMessage size={22} />,
       notificationCount: totalUnread,
     },
-    { title: "Friends", 
-      icon: <UsersRound size={20} />, 
+    {
+      title: "Friends",
+      icon: <UsersRound size={20} />,
       notificationCount: pendingCount,
     },
     { title: "Call history", icon: <Phone size={20} /> },
@@ -91,7 +96,18 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
     { title: "Starred messages", icon: <Star size={20} /> },
     { title: "Archived chats", icon: <Archive size={20} /> },
     { title: "Settings", icon: <Settings size={20} /> },
-    { title: "User profile", icon: <User2Icon size={20} /> },
+    {
+      title: "User profile",
+      icon: (
+        <Image
+          src={user?.profilePicture?.url ?? defaultPFP}
+          alt="profile"
+          width={35}
+          height={35}
+          className="rounded-full object-cover border cursor-pointer"
+        />
+      ),
+    },
   ];
 
   // Mobile: show only main navigation items
@@ -149,15 +165,15 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
         </div>
       );
     }
-    
-return (
-  <div key={btn.title} className="relative">
-    <motion.button
-      onClick={handleClick}
-      whileTap={{ scale: 0.96 }}
-      whileHover={{ y: -1 }}
-      transition={{ type: "spring", stiffness: 350, damping: 25 }}
-      className={`
+
+    return (
+      <div key={btn.title} className="relative">
+        <motion.button
+          onClick={handleClick}
+          whileTap={{ scale: 0.96 }}
+          whileHover={{ y: -1 }}
+          transition={{ type: "spring", stiffness: 350, damping: 25 }}
+          className={`
         relative flex items-center h-11
         px-3 ml-1
         rounded-xl
@@ -169,47 +185,47 @@ return (
             : "text-base-content/70 hover:bg-cyan-900/40 hover:text-white"
         }
       `}
-    >
-      {/* Active Sliding Bar */}
-      {activeTab === btn.title && (
-        <motion.div
-          layoutId="activeBar"
-          className="absolute left-0 h-6 w-[3px] bg-cyan-400 rounded-r-full"
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        />
-      )}
-
-      {/* Icon */}
-      <div className="w-10 flex justify-center flex-shrink-0 relative">
-        {btn.icon}
-
-        {btn.notificationCount !== undefined &&
-          btn.notificationCount > 0 && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 400 }}
-              className="absolute -top-1 -right-0 bg-red-600 font-sans text-white text-[10px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-semibold"
-            >
-              {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
-            </motion.span>
+        >
+          {/* Active Sliding Bar */}
+          {activeTab === btn.title && (
+            <motion.div
+              layoutId="activeBar"
+              className="absolute left-0 h-6 w-[3px] bg-cyan-400 rounded-r-full"
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            />
           )}
-      </div>
 
-      {/* Label — NOW PART OF FLEX */}
-      <motion.span
-        animate={{
-          opacity: isExpanded ? 1 : 0,
-          width: isExpanded ? "auto" : 0,
-        }}
-        transition={{ duration: 0.2 }}
-        className="overflow-hidden whitespace-nowrap text-sm font-medium"
-      >
-        {btn.title !== "Menu" ? btn.title : ""}
-      </motion.span>
-    </motion.button>
-  </div>
-);
+          {/* Icon */}
+          <div className="w-10 flex justify-center flex-shrink-0 relative">
+            {btn.icon}
+
+            {btn.notificationCount !== undefined &&
+              btn.notificationCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                  className="absolute -top-1 -right-0 bg-red-600 text-white text-xs rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-semibold"
+                >
+                  {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
+                </motion.span>
+              )}
+          </div>
+
+          {/* Label — NOW PART OF FLEX */}
+          <motion.span
+            animate={{
+              opacity: isExpanded ? 1 : 0,
+              width: isExpanded ? "auto" : 0,
+            }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden whitespace-nowrap text-sm font-medium"
+          >
+            {btn.title !== "Menu" ? btn.title : ""}
+          </motion.span>
+        </motion.button>
+      </div>
+    );
   };
 
   // Mobile bottom navigation
@@ -223,22 +239,22 @@ return (
     );
   }
 
-return (
-  <div className="relative h-full flex-shrink-0 z-50">
-    <motion.div
-      animate={{ width: isExpanded ? 240 : 60 }}
-      transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className={`absolute inset-0 flex flex-col mb-3 ${isExpanded && " shadow-lg"} justify-between bg-base-300 rounded-2xl overflow-hidden`}
-      ref={sidebarRef}
-    >
-      <div className="flex flex-col gap-2 py-3">
-        {buttons.map((btn) => renderButton(btn))}
-      </div>
+  return (
+    <div className="relative h-full flex-shrink-0 z-50">
+      <motion.div
+        animate={{ width: isExpanded ? 240 : 60 }}
+        transition={{ type: "spring", stiffness: 320, damping: 32 }}
+        className={`absolute inset-0 flex flex-col mb-3 ${isExpanded && " shadow-lg"} justify-between bg-base-300 rounded-2xl overflow-hidden`}
+        ref={sidebarRef}
+      >
+        <div className="flex flex-col gap-2 py-3">
+          {buttons.map((btn) => renderButton(btn))}
+        </div>
 
-      <div className="flex flex-col gap-2 py-3">
-        {bottomButtons.map((btn) => renderButton(btn))}
-      </div>
-    </motion.div>
-  </div>
-);
+        <div className="flex flex-col gap-2 py-3">
+          {bottomButtons.map((btn) => renderButton(btn))}
+        </div>
+      </motion.div>
+    </div>
+  );
 }

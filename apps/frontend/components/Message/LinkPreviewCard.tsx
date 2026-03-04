@@ -12,21 +12,56 @@ interface LinkPreviewCardProps {
   preview: LinkPreview;
 }
 
-export default function LinkPreviewCard({
-  preview,
-}: LinkPreviewCardProps) {
+export default function LinkPreviewCard({ preview }: LinkPreviewCardProps) {
   const [loaded, setLoaded] = useState(false);
   if (!preview?.url) return null;
-
 
   const isLarge = preview.isLargeImage;
 
   const isYouTube =
-    preview.url.includes("youtube.com") ||
-    preview.url.includes("youtu.be");
+    preview.url.includes("youtube.com") || preview.url.includes("youtu.be");
 
   const domain = new URL(preview.url).hostname.replace("www.", "");
 
+  const isSpotify =
+    preview.url.includes("open.spotify.com/track") ||
+    preview.url.includes("spotify.com/track");
+
+  let spotifyEmbedUrl: string | null = null;
+
+  if (isSpotify) {
+    try {
+      const url = new URL(preview.url);
+      const parts = url.pathname.split("/");
+      const trackIndex = parts.indexOf("track");
+      const trackId = parts[trackIndex + 1];
+
+      spotifyEmbedUrl = `https://open.spotify.com/embed/track/${trackId}`;
+    } catch {
+      spotifyEmbedUrl = null;
+    }
+  }
+
+  if (isSpotify && spotifyEmbedUrl) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25 }}
+        className="mt-1 overflow-hidden rounded-2xl"
+      >
+        <iframe
+          src={`${spotifyEmbedUrl}?utm_source=generator`}
+          width="100%"
+          height="152"
+          className="block"
+          style={{ border: 0 }}
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+          loading="lazy"
+        />
+      </motion.div>
+    );
+  }
   return (
     <motion.a
       href={preview.url}
@@ -41,18 +76,16 @@ export default function LinkPreviewCard({
       {isLarge && preview.image && (
         <>
           <div className="relative w-full aspect-video overflow-hidden rounded-xl bg-base-200">
-            
             {/* Shimmer */}
             {!loaded && (
               <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-base-200 via-base-300 to-base-200" />
             )}
 
-
             <Image
               src={preview.image}
               alt={preview.title || "preview"}
               fill
-              sizes="100vw"
+              sizes="(max-width: 768px) 100vw, 600px"
               onLoad={() => setLoaded(true)}
               className="object-cover transition-transform duration-300 group-hover:scale-102"
             />
@@ -85,9 +118,7 @@ export default function LinkPreviewCard({
               </p>
             )}
 
-            <p className="text-xs opacity-50 mt-1">
-              {preview.siteName}
-            </p>
+            <p className="text-xs opacity-50 mt-1">{preview.siteName}</p>
           </div>
         </>
       )}
@@ -97,7 +128,6 @@ export default function LinkPreviewCard({
         <div className="flex items-center gap-3 p-1">
           {preview.image && (
             <div className="relative w-14 h-14 shrink-0 rounded-xl overflow-hidden bg-base-200">
-              
               {!loaded && (
                 <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-base-200 via-base-300 to-base-200" />
               )}
@@ -113,9 +143,7 @@ export default function LinkPreviewCard({
           )}
 
           <div className="flex flex-col min-w-0">
-            <p className="text-sm font-semibold truncate">
-              {preview.title}
-            </p>
+            <p className="text-sm font-semibold truncate">{preview.title}</p>
 
             {preview.description && (
               <p className="text-xs opacity-70 line-clamp-1">
@@ -123,9 +151,7 @@ export default function LinkPreviewCard({
               </p>
             )}
 
-            <p className="text-xs opacity-50">
-              {domain}
-            </p>
+            <p className="text-xs opacity-50">{domain}</p>
           </div>
         </div>
       )}

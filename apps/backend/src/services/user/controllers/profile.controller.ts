@@ -3,7 +3,7 @@ import { AuthRequest } from "../types/authRequest.js";
 import {
   getProfileByUserId,
   updateProfileByUserId,
-} from "../services/user.services.js";
+} from "../services/user.service.js";
 import { Unauthorized, BadRequest } from "../../../utils/errors/httpErrors.js";
 
 /**

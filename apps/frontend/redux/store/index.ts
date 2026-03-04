@@ -9,6 +9,7 @@ import unreadReducer from "../features/unreadSlice";
 import themeReducer from "../features/themeSlice";
 import presenceReducer from "../features/presenceSlice";
 import typingReducer from "../features/typingSlice"
+import blockReducer from "../features/blockSlice";
 
 import { listenerMiddleware } from "../listeners";
 
@@ -53,6 +54,9 @@ export const store = configureStore({
 
     // Real-time typing indication
     typing: typingReducer,
+
+    // Blocking users
+    block: blockReducer,
   },
 
    /**

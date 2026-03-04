@@ -50,7 +50,7 @@ export default function GroupChat({
     return <p className="p-3">Loading groups...</p>;
   }
 
-  const groupChats = chats.filter((chat) => chat.isGroup);
+  const groupChats = chats.filter((c) => c.isGroup && !c.isArchived);
 
   if (!groupChats.length) {
     return <p className="p-3 text-center opacity-70">No groups yet</p>;

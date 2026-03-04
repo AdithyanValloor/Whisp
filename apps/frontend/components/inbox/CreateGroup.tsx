@@ -78,9 +78,10 @@ export default function CreateGroup({
               }}
               rightSlot={
                 selected ? (
-                  <Check className="text-primary" size={18} />
+                  <Check className="text-cyan-900" strokeWidth={3} size={18} />
                 ) : null
               }
+              ClassName={`border ${selected ? "bg-cyan-900/5 border border-cyan-900" : "border-transparent"} `}
             />
           );
         })}
