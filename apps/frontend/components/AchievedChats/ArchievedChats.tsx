@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import FriendCard from "../Message/FriendCard";
 import { fetchChats } from "@/redux/features/chatSlice";
 import SearchInput from "../GlobalComponents/SearchInput";
+import { useRouter } from "next/navigation";
 
 interface ContextMenuState {
   x: number;
@@ -18,6 +19,7 @@ export default function ArchivedChats() {
   const { chats, listLoading } = useAppSelector((state) => state.chat);
   const { user, sessionLoading } = useAppSelector((state) => state.auth);
   const perChatUnread = useAppSelector((state) => state.unread.perChat);
+  const router = useRouter();
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
@@ -37,6 +39,11 @@ export default function ArchivedChats() {
   }, [dispatch, user?._id, sessionLoading]);
 
   const archivedChats = chats.filter((c) => c.isArchived);
+
+    /* ---------- Navigation ---------- */
+  const openChat = (chatId: string) => {
+    router.push(`/chat/${chatId}`);
+  };
 
   return (
     <div className="h-full w-full p-3 flex flex-col gap-3">
@@ -69,6 +76,8 @@ export default function ArchivedChats() {
                   chatType={isGroup ? "group" : "personal"}
                   msgId={chat._id}
                   unread={unreadCount}
+                  onClick={() => openChat(chat._id)}
+
                   user={
                     isGroup
                       ? {

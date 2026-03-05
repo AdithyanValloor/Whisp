@@ -7,6 +7,7 @@ export interface IChatUserState {
   isPinned: boolean;
   clearedAt?: Date | null;
   lastReadAt?: Date | null;
+  mutedUntil?: Date | null;
 }
 
 const chatUserStateSchema = new Schema<IChatUserState>(
@@ -38,6 +39,10 @@ const chatUserStateSchema = new Schema<IChatUserState>(
     lastReadAt: {
       type: Date,
       default: null,
+    },
+    mutedUntil: { 
+      type: Date, 
+      default: null 
     },
   },
   { timestamps: true },

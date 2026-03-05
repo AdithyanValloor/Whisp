@@ -42,10 +42,11 @@ export const fetchChatsFunction = async (userId: string) => {
 
     return {
       ...chat.toObject(),
-      isPinned: state?.isPinned || false,
-      isArchived: state?.isArchived || false,
-      clearedAt: state?.clearedAt || null,
-      lastReadAt: state?.lastReadAt || null,
+      isPinned: state?.isPinned ?? false,
+      isArchived: state?.isArchived ?? false,
+      clearedAt: state?.clearedAt ?? null,
+      lastReadAt: state?.lastReadAt ?? null,
+      mutedUntil: state?.mutedUntil ?? null,
     };
   });
 
@@ -272,4 +273,62 @@ export const deleteChatForUser = async (userId: string, chatId: string) => {
   });
 
   return { chatId };
+};
+
+const MUTED_FOREVER_SENTINEL = new Date("9999-12-31T23:59:59.999Z");
+
+export type MuteDuration =
+  | "1h"
+  | "8h"
+  | "24h"
+  | "1w"
+  | "forever";
+
+const MUTE_DURATIONS_MS: Record<Exclude<MuteDuration, "forever">, number> = {
+  "1h":  1 * 60 * 60 * 1000,
+  "8h":  8 * 60 * 60 * 1000,
+  "24h": 24 * 60 * 60 * 1000,
+  "1w":  7 * 24 * 60 * 60 * 1000,
+};
+
+export const muteChatFunction = async (
+  userId: string,
+  chatId: string,
+  duration: MuteDuration,
+) => {
+  if (!userId) throw Unauthorized();
+
+  const chat = await Chat.findOne({ _id: chatId, members: userId });
+  if (!chat) throw Forbidden("Not allowed");
+
+  const mutedUntil =
+    duration === "forever"
+      ? MUTED_FOREVER_SENTINEL
+      : new Date(Date.now() + MUTE_DURATIONS_MS[duration]);
+
+  await ChatUserStateModel.findOneAndUpdate(
+    { userId, chatId },
+    { mutedUntil },
+    { upsert: true, new: true },
+  );
+
+  return { chatId, mutedUntil };
+};
+
+export const unmuteChatFunction = async (
+  userId: string,
+  chatId: string,
+) => {
+  if (!userId) throw Unauthorized();
+
+  const chat = await Chat.findOne({ _id: chatId, members: userId });
+  if (!chat) throw Forbidden("Not allowed");
+
+  await ChatUserStateModel.findOneAndUpdate(
+    { userId, chatId },
+    { mutedUntil: null },
+    { upsert: true, new: true },
+  );
+
+  return { chatId, mutedUntil: null };
 };

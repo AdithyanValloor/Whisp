@@ -45,6 +45,7 @@ export interface Chat {
   isPinned?: boolean;
   isArchived?: boolean;
   lastReadAt?: string | null;
+  mutedUntil?: string | null;
   unreadCounts: Record<string, number>;
   lastMessage?: ChatMessage;
   createdAt: string;
@@ -120,6 +121,22 @@ export const markAsUnread = createAsyncThunk<
   const res = await api.patch(`/chat/unread/${chatId}`);
   return res.data;
 });
+
+export const muteChat = createAsyncThunk<
+  { chatId: string; mutedUntil: string },
+  { chatId: string; duration: "1h" | "8h" | "24h" | "1w" | "forever" }
+>("chat/muteChat", async ({ chatId, duration }) => {
+  const res = await api.post(`/chat/${chatId}/mute`, { duration });
+  return { chatId, mutedUntil: res.data.mutedUntil };
+});
+
+export const unmuteChat = createAsyncThunk<{ chatId: string }, string>(
+  "chat/unmuteChat",
+  async (chatId) => {
+    await api.post(`/chat/${chatId}/unmute`);
+    return { chatId };
+  },
+);
 
 export const markAsRead = createAsyncThunk<{ chatId: string }, string>(
   "chat/markRead",
@@ -389,6 +406,15 @@ const chatSlice = createSlice({
       chat.isArchived = !chat.isArchived;
     },
 
+    muteChatLocal: (
+      state,
+      action: PayloadAction<{ chatId: string; mutedUntil: string | null }>,
+    ) => {
+      const chat = state.chats.find((c) => c._id === action.payload.chatId);
+      if (!chat) return;
+      chat.mutedUntil = action.payload.mutedUntil;
+    },
+
     markUnreadLocal: (state, action: PayloadAction<string>) => {
       const chat = state.chats.find((c) => c._id === action.payload);
       if (!chat) return;
@@ -464,6 +490,18 @@ const chatSlice = createSlice({
         if (chat) {
           chat.lastReadAt = null;
         }
+      })
+
+      /* -------- MUTE/UNMUTE -------- */
+      .addCase(muteChat.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c._id === action.payload.chatId);
+        if (!chat) return;
+        chat.mutedUntil = action.payload.mutedUntil;
+      })
+      .addCase(unmuteChat.fulfilled, (state, action) => {
+        const chat = state.chats.find((c) => c._id === action.payload.chatId);
+        if (!chat) return;
+        chat.mutedUntil = null;
       })
 
       /* -------- MARK READ -------- */
@@ -623,6 +661,7 @@ export const {
   togglePinLocal,
   toggleArchiveLocal,
   markUnreadLocal,
+  muteChatLocal,
   clearChatLocal,
   deleteChatLocal,
 } = chatSlice.actions;

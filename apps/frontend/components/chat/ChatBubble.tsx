@@ -238,7 +238,7 @@ export default function ChatBubble({
             <div className="flex items-center">
               {msg.deleted && <BadgeX size={20} className="mr-1" />}
               <div
-                className={`w-full ${!msg.deleted && "px-3"} ${isMe ? "pr-6" : ""} twemoji-container`}
+                className={`select-text w-full ${!msg.deleted && "px-3"} ${isMe ? "pr-6" : ""} twemoji-container`}
                 dangerouslySetInnerHTML={{
                   __html: msg.deleted
                     ? "Deleted message"

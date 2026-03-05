@@ -12,6 +12,7 @@ import GroupChat from "./Groups";
 import SearchInput from "../GlobalComponents/SearchInput";
 import IconButton from "../GlobalComponents/IconButtons";
 import NewChat from "./NewChat";
+import { selectGroupUnread, selectPersonalUnread } from "@/redux/selectors/unreadSelectors";
 
 type ChatType = "personal" | "group";
 
@@ -25,24 +26,14 @@ export default function InboxSection() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
   const { friends } = useAppSelector((state) => state.friends);
-  const { chats, accessLoading  } = useAppSelector((state) => state.chat);
-  const perChatUnread = useAppSelector((state) => state.unread.perChat);
+  const { accessLoading  } = useAppSelector((state) => state.chat);
 
   const params = useParams<{ chatId?: string }>();
   const selectedChatId = params?.chatId;
 
   /* ---------- Unread counters ---------- */
-  const { personalUnread, groupUnread } = useMemo(() => {
-    let personal = 0;
-    let group = 0;
-
-    chats.forEach((chat: Chat) => {
-      const count = perChatUnread[chat._id] ?? 0;
-      chat.isGroup ? (group += count) : (personal += count);
-    });
-
-    return { personalUnread: personal, groupUnread: group };
-  }, [chats, perChatUnread]);
+  const personalUnread = useAppSelector(selectPersonalUnread);
+  const groupUnread    = useAppSelector(selectGroupUnread);
 
   /* ---------- Navigation ---------- */
   const openChat = (chatId: string) => {

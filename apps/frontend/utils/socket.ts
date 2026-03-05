@@ -7,7 +7,6 @@ import {
   updateMessageDelivery,
   markAllMessagesSeen,
   insertMessage,
-  clearChatMessages,
 } from "@/redux/features/messageSlice";
 
 import {
@@ -44,6 +43,7 @@ import {
 import { emitToast } from "@/utils/toastEmitter";
 import { getActiveChatId } from "./activeChat";
 import { addBlockedBy, removeBlockedBy } from "@/redux/features/blockSlice";
+import { isChatSilenced } from "./isChatMuted";
 
 /* -------------------- SINGLETON STATE -------------------- */
 
@@ -127,6 +127,8 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
       store.dispatch(updateChatLatestMessage({ chatId: normalized.chat, message: toChatLastMessage(msg) }));
 
       const activeChatId = getActiveChatId();
+
+      if (isChatSilenced(msg.chat)) return;
 
       if (msg.chat !== activeChatId) {
         const chatMeta = state.chat.chats.find((c) => c._id === msg.chat);

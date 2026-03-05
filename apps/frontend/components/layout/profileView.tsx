@@ -28,6 +28,7 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { blockUser, unblockUser } from "@/redux/features/blockSlice";
 import { RootState } from "@/redux/store";
 import { MdBlock } from "react-icons/md";
+import AppButton from "../GlobalComponents/AppButton";
 
 interface ProfileViewProps {
   user: {
@@ -248,7 +249,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
               className="bg-base-100 border border-base-content/10 rounded-2xl shadow-lg p-6 w-[90%] max-w-sm text-center flex flex-col items-center gap-4"
             >
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
-                <MdBlock className="text-red-500" size={24} />
+                <MdBlock className="text-red-500" size={36}/>
               </div>
 
               <div className="space-y-1">
@@ -265,15 +266,11 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
                 </p>
               </div>
 
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.15 }}
+              <AppButton
                 onClick={() => dispatch(unblockUser(user._id))}
-                className="btn btn-sm bg-cyan-950 hover:bg-cyan-900 text-white border-none rounded-full p-4"
               >
                 Unblock User
-              </motion.button>
+              </AppButton>
             </motion.div>
           </motion.div>
         )}
@@ -326,7 +323,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
               {user.displayName || user.username}
             </h2>
             <div className="flex items-center gap-2 text-sm opacity-70">
-              <p>@{user.username}</p>
+              <p className="select-text">@{user.username}</p>
               {user.pronouns && <span>• {user.pronouns}</span>}
             </div>
           </div>
@@ -353,31 +350,30 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
             </p>
 
             <div className="flex gap-2 mt-3">
-              <button
-                disabled={isLoading("accept")}
+              <AppButton
+                isLoading={isLoading("accept")}
                 onClick={() =>
                   performAction(
                     () => dispatch(acceptFriend(incomingReq._id)).unwrap(),
                     "accept",
                   )
                 }
-                className="px-4 py-1.5 rounded-xl cursor-pointer border border-base-content/10 bg-green-700 text-white text-sm hover:bg-green-900"
               >
                 Accept
-              </button>
+              </AppButton>
 
-              <button
-                disabled={isLoading("reject")}
+              <AppButton
+                isLoading={isLoading("reject")}
                 onClick={() =>
                   performAction(
                     () => dispatch(rejectFriend(incomingReq._id)).unwrap(),
                     "reject",
                   )
                 }
-                className="px-4 py-1.5 rounded-xl cursor-pointer border border-base-content/10 bg-red-800 text-white text-sm hover:bg-red-900"
+                className="bg-red-900"
               >
                 Reject
-              </button>
+              </AppButton>
             </div>
           </motion.div>
         )}
@@ -390,7 +386,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
         <p className="text-[11px] uppercase font-medium opacity-60 tracking-wide">
           About
         </p>
-        <p className="text-sm mt-1 leading-relaxed">
+        <p className="select-text text-sm mt-1 leading-relaxed">
           {user.bio || "Whisp user."}
         </p>
       </motion.div>

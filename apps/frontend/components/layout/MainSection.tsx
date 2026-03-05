@@ -7,9 +7,9 @@ import CallSection from "../calls/CallSection";
 import FriendsSection from "../friends/FriendsSection";
 import InboxSection from "../inbox/InboxSection";
 import StatusSection from "../status/StatusSection";
-import StarredMessages from "../StarredMessages/StarredMessages";
 import ArchivedChats from "../AchievedChats/ArchievedChats";
 import ProfileDropdown from "../User profile/UserProfile";
+import NotificationInbox from "../InboxNotification/NotificationInbox";
 
 /**
  * Props for MainSection.
@@ -58,11 +58,11 @@ export default function MainSection({
    * Map active tab names to their corresponding sections.
    */
   const sections: Record<string, JSX.Element> = {
-    Inbox: <InboxSection />,
+    Chats: <InboxSection />,
     Friends: <FriendsSection setActiveTab={setActiveTab} />,
     "Call history": <CallSection />,
     Status: <StatusSection />,
-    "Starred messages": <StarredMessages />,
+    Inbox: <NotificationInbox />,
     "Archived chats": <ArchivedChats />,
     Settings: (
       <ProfileDropdown

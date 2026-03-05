@@ -7,8 +7,11 @@ import {
   fetchChatsFunction,
   markChatAsReadFunction,
   markChatAsUnreadFunction,
+  muteChatFunction,
+  MuteDuration,
   toggleArchiveChatFunction,
   togglePinChatFunction,
+  unmuteChatFunction,
 } from "../services/chat.service.js";
 import {
   Unauthorized,
@@ -225,6 +228,52 @@ export const deleteChat = async (
     await deleteChatForUser(userId, chatId);
 
     res.status(200).json({ success: true, chatId });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const VALID_DURATIONS: MuteDuration[] = ["1h", "8h", "24h", "1w", "forever"];
+
+export const muteChat = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+    const { duration } = req.body as { duration?: MuteDuration };
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("ChatId is required");
+    if (!duration || !VALID_DURATIONS.includes(duration)) {
+      throw BadRequest(
+        `duration must be one of: ${VALID_DURATIONS.join(", ")}`,
+      );
+    }
+
+    const result = await muteChatFunction(userId, chatId, duration);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const unmuteChat = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("ChatId is required");
+
+    const result = await unmuteChatFunction(userId, chatId);
+    res.status(200).json(result);
   } catch (err) {
     next(err);
   }

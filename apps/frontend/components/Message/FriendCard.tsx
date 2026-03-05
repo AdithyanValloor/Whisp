@@ -1,6 +1,6 @@
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import defaultPFP from "@/public/default-pfp.png";
-import { selectMessagesByChat } from "@/redux/features/messageSelectors";
+import { selectMessagesByChat } from "@/redux/selectors/messageSelectors";
 import {
   selectUserStatus,
   useAppDispatch,
@@ -29,6 +29,8 @@ import TransferOwnershipModal from "../chat/TransferOwnershipModal";
 import { blockUser, unblockUser } from "@/redux/features/blockSlice";
 import { RootState } from "@/redux/store";
 import { RiPushpinFill } from "react-icons/ri";
+import { FaBellSlash } from "react-icons/fa6";
+import { isChatMuted } from "@/utils/isChatMuted";
 
 interface UserType {
   _id?: string;
@@ -104,6 +106,8 @@ export default function FriendCard(props: FriendCardProps) {
 
   const chats = useAppSelector((state) => state.chat.chats);
   const chat = chats.find((c) => c._id === msgId);
+
+  const chatMuted = chat?._id ? isChatMuted(chat._id) : false;
 
   const isPinned = chat?.isPinned ?? false;
 
@@ -337,18 +341,18 @@ export default function FriendCard(props: FriendCardProps) {
 
         <div className="px-2 flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold truncate flex-1 text-base-content">
+            <h3 className="font-semibold opacity-80 truncate flex-1 text-base-content">
               {userData.displayName || userData.name}
             </h3>
             {!modal && lastMessageTime && !isBlockedByMe && (
               <p
-                className={`text-[12px] font-semibold text-base-content ${unread ? "text-green-500" : ""}`}
+                className={`text-[12px] opacity-80 font-semibold text-base-content ${unread ? "text-green-500" : ""}`}
               >
                 {lastMessageTime}
               </p>
             )}
             {isPinned && (
-              <RiPushpinFill size={18} className="ml-1 opacity-80" />
+              <RiPushpinFill size={18} className="ml-1.5 opacity-80" />
             )}
 
             {isGroupMemberCard && generateBadge(props.groupMember?.role)}
@@ -376,26 +380,23 @@ export default function FriendCard(props: FriendCardProps) {
               </span>
 
               {/* SEEN / DELIVERED ICON */}
-              {isBlockedByMe ? (
-                <MdBlock className="text-red-500 flex-shrink-0" size={20} />
-              ) : (
+              {!isBlockedByMe &&
                 !isGroupMemberCard &&
                 !isChatTyping &&
                 isMyMessage &&
                 (ifSeen ? (
                   <CheckCheck
-                    size={16}
+                    size={20}
                     strokeWidth={3}
                     className="text-blue-400 flex-shrink-0"
                   />
                 ) : ifDelivered ? (
                   <Check
-                    size={16}
+                    size={20}
                     strokeWidth={3}
-                    className="flex-shrink-0 text-base-content"
+                    className="flex-shrink-0 text-base-content/80"
                   />
-                ) : null)
-              )}
+                ) : null)}
 
               {/* UNREAD BADGE */}
               {unread > 0 && (
@@ -408,6 +409,12 @@ export default function FriendCard(props: FriendCardProps) {
                   {unread > 99 ? "99+" : unread}
                 </span>
               )}
+              
+              {chatMuted &&  <FaBellSlash
+                    size={18}
+                    className="flex-shrink-0 text-base-content/50"
+                  />}
+
             </div>
           )}
         </div>
@@ -415,6 +422,11 @@ export default function FriendCard(props: FriendCardProps) {
           <div className="ml-2 flex-shrink-0" data-right-slot>
             {rightSlot}
           </div>
+        )}
+        {isBlockedByMe && (
+          <span className="p-1 mx-1 rounded-full bg-red-500/10">
+            <MdBlock className="text-red-500 flex-shrink-0" size={21} />
+          </span>
         )}
       </div>
 

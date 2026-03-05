@@ -50,7 +50,7 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
             >
               {label}
               {key === "pending" && pendingCount > 0 && (
-                <span className="absolute -right-5 -top-1 leading-none border-2 border-base-200 bg-red-700 font-semibold text-white font-sans text-[10px] rounded-full min-w-5 h-5 px-[4px] flex items-center justify-center">
+                <span className="absolute -right-4 -top-1 leading-none  bg-red-600 font-semibold text-white text-xs rounded-full min-w-4 h-4 px-[4px] flex items-center justify-center">
                   {pendingCount}
                 </span>
               )}

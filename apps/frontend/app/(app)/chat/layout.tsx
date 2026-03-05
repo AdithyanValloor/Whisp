@@ -31,7 +31,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
 
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [activeTab, setActiveTab] = useState("Inbox");
+  const [activeTab, setActiveTab] = useState("Chats");
 
   const isChatOpen = pathname !== "/chat";
 

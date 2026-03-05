@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import ProfileView from "../layout/profileView";
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import { ArrowLeft } from "lucide-react";
-import { selectMessagesByChat } from "@/redux/features/messageSelectors";
+import { selectMessagesByChat } from "@/redux/selectors/messageSelectors";
 import { useAppSelector, useAppDispatch, selectIsBlocked } from "@/redux/hooks";
 import {
   fetchMessages,

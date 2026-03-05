@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
+import axios from "axios";
 
 /* -------------------- TYPES -------------------- */
 
@@ -44,6 +45,20 @@ interface FriendsState {
   error: string | null;
 }
 
+/* -------------------- ERROR HELPER -------------------- */
+
+export const getErrorMessage = (error: unknown): string => {
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.message || "Server error";
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown error";
+};
+
 /* -------------------- THUNKS -------------------- */
 
 /**
@@ -57,8 +72,8 @@ export const fetchFriends = createAsyncThunk<
   try {
     const res = await api.get("/friends", { withCredentials: true });
     return res.data.friendList;
-  } catch {
-    return rejectWithValue("Failed to fetch friends");
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error));
   }
 });
 
@@ -73,8 +88,8 @@ export const fetchRequests = createAsyncThunk<
   try {
     const res = await api.get("/friends/requests", { withCredentials: true });
     return res.data;
-  } catch {
-    return rejectWithValue("Failed to fetch requests");
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error));
   }
 });
 
@@ -93,8 +108,8 @@ export const addFriend = createAsyncThunk<
       { withCredentials: true },
     );
     return res.data.request;
-  } catch {
-    return rejectWithValue("Failed to send request");
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error));
   }
 });
 
@@ -113,8 +128,8 @@ export const acceptFriend = createAsyncThunk<
       { withCredentials: true },
     );
     return res.data.request;
-  } catch {
-    return rejectWithValue("Failed to accept request");
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error));
   }
 });
 
@@ -129,8 +144,8 @@ export const rejectFriend = createAsyncThunk<
   try {
     await api.post("/friends/reject", { id }, { withCredentials: true });
     return id;
-  } catch {
-    return rejectWithValue("Failed to reject request");
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error));
   }
 });
 
@@ -145,8 +160,8 @@ export const cancelFriend = createAsyncThunk<
   try {
     await api.post("/friends/cancel", { id }, { withCredentials: true });
     return id;
-  } catch {
-    return rejectWithValue("Failed to cancel request");
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error));
   }
 });
 
@@ -161,8 +176,8 @@ export const removeFriend = createAsyncThunk<
   try {
     await api.post("/friends/remove", { id }, { withCredentials: true });
     return id;
-  } catch {
-    return rejectWithValue("Failed to remove friend");
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error));
   }
 });
 

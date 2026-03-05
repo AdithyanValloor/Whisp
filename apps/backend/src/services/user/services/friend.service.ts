@@ -109,7 +109,7 @@ export const sendFriendRequest = async (
   });
 
   if (existingRequest) {
-    throw BadRequest("Friend request already exists");
+    throw BadRequest("Friend request already sent");
   }
 
   const request = await FriendRequestModel.create({

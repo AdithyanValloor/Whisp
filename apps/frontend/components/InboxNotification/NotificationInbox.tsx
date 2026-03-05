@@ -4,14 +4,14 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 import SearchInput from "../GlobalComponents/SearchInput";
 
-export default function StarredMessages() {
+export default function NotificationInbox() {
 
     return (
         <div className="h-full w-full p-3 flex flex-col gap-3 shadow">
             
             {/* Title */}
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold text-base-content">Starred Messages</h1>
+                <h1 className="text-2xl font-semibold text-base-content">Inbox</h1>
             </div>
 
             {/* Search Bar */}

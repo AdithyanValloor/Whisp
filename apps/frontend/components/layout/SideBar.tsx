@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   Film,
+  Inbox,
   Menu,
   MessageCircleMore,
   Phone,
   Settings,
-  Star,
   Target,
   User2Icon,
   UsersRound,
@@ -18,6 +18,7 @@ import { AiFillMessage } from "react-icons/ai";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import defaultPFP from "@/public/default-pfp.png";
+import { selectActiveUnreadTotal } from "@/redux/selectors/unreadSelectors";
 
 interface SideBarProps {
   activeTab: string;
@@ -34,7 +35,7 @@ interface ButtonType {
 export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const totalUnread = useAppSelector((state) => state.unread.total);
+  const totalUnread = useAppSelector(selectActiveUnreadTotal);
   const { requests } = useAppSelector((state) => state.friends);
   const pendingCount = useMemo(
     () => requests.incoming.length,
@@ -79,7 +80,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   const buttons: ButtonType[] = [
     { title: "Menu", icon: <Menu size={20} />, isMenu: true },
     {
-      title: "Inbox",
+      title: "Chats",
       icon: <AiFillMessage size={22} />,
       notificationCount: totalUnread,
     },
@@ -93,7 +94,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   ];
 
   const bottomButtons: ButtonType[] = [
-    { title: "Starred messages", icon: <Star size={20} /> },
+    { title: "Inbox", icon: <Inbox size={20} /> },
     { title: "Archived chats", icon: <Archive size={20} /> },
     { title: "Settings", icon: <Settings size={20} /> },
     {
@@ -113,7 +114,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   // Mobile: show only main navigation items
   const mobileButtons: ButtonType[] = [
     {
-      title: "Inbox",
+      title: "Chats",
       icon: <MessageCircleMore strokeWidth={1.5} size={22} />,
       notificationCount: totalUnread,
     },

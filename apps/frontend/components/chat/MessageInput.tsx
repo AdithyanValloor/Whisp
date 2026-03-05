@@ -8,6 +8,7 @@ import { MessageType } from "@/redux/features/messageSlice";
 import { Dispatch, SetStateAction } from "react";
 import { CircleAlert, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import AppButton from "../GlobalComponents/AppButton";
 
 interface MessageInputProps {
   message: string;
@@ -69,7 +70,6 @@ export default function MessageInput({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.2 }}
-            
             className="w-full p-3 bg-base-200 flex items-center py-4 justify-between rounded-xl text-sm text-base-content"
           >
             <div className="flex items-center gap-2 opacity-80">
@@ -80,15 +80,11 @@ export default function MessageInput({
               <p>You cannot message a blocked user.</p>
             </div>
 
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.03 }}
-              transition={{ duration: 0.15 }}
+            <AppButton
               onClick={onUnblock}
-              className="btn btn-sm bg-cyan-950 hover:bg-cyan-900 text-white border-none rounded-full px-4"
             >
               Unblock User
-            </motion.button>
+            </AppButton>
           </motion.div>
         ) : (
           <>

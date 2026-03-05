@@ -13,6 +13,7 @@ import ToastContainer from "./ToastContainer";
 import { registerToastListener } from "@/utils/toastEmitter";
 import NotificationContainer from "./NotificationContainer";
 import { useRouter } from "next/navigation";
+import { isChatSilenced } from "@/utils/isChatMuted";
 
 interface ToastContextType {
   showToast: (toast: Omit<Toast, "id">) => void;
@@ -72,7 +73,9 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     if (isNotification) {
       const now = Date.now();
 
-      if (now - lastPlayed.current > 800) {
+      const shouldPlaySound = !toast.chatId || !isChatSilenced(toast.chatId);
+
+      if (shouldPlaySound && now - lastPlayed.current > 800) {
         notificationSound.current?.play().catch(() => {});
         lastPlayed.current = now;
       }

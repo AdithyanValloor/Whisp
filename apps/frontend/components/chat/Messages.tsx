@@ -16,7 +16,7 @@ import {
 } from "@/redux/features/messageSlice";
 import { ChevronDown, ChevronsDown } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
-import { selectMessagesByChat } from "@/redux/features/messageSelectors";
+import { selectMessagesByChat } from "@/redux/selectors/messageSelectors";
 import ChatBubble from "./ChatBubble";
 import ContextMenu from "./ContextMenu";
 import { motion, AnimatePresence } from "framer-motion";
@@ -533,7 +533,6 @@ export default function Messages({
     return () => window.removeEventListener("click", closeMenu);
   }, []);
 
-  // Handle new messages
   useEffect(() => {
     if (!messages.length) return;
     if (loadingOlderRef.current) return;
@@ -548,16 +547,17 @@ export default function Messages({
 
     const isNewMessage = lastMessage._id !== lastMessageIdRef.current;
 
+    let animationTimeout: NodeJS.Timeout | null = null;
+
     if (isNewMessage) {
       const prevLength = prevMessagesLengthRef.current;
       const grewByOne = prevLength > 0 && messages.length === prevLength + 1;
 
       if (grewByOne) {
         animatedMessageIdRef.current = lastMessage._id;
-        const timeout = setTimeout(() => {
+        animationTimeout = setTimeout(() => {
           animatedMessageIdRef.current = null;
         }, 500);
-        return () => clearTimeout(timeout);
       }
 
       const nearBottom = isNearBottom();
@@ -575,6 +575,10 @@ export default function Messages({
     }
 
     prevMessagesLengthRef.current = messages.length;
+
+    return () => {
+      if (animationTimeout) clearTimeout(animationTimeout);
+    };
   }, [messages, currentUser._id, isNearBottom, scrollToBottom]);
 
   // Persistent observer — fires post-reflow so nearBottom check uses real geometry
