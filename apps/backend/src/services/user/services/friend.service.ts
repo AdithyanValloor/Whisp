@@ -9,6 +9,9 @@ import {
 
 import { toFriendRequestSocketPayload } from "../utils/normalizeFriendRequest.js";
 import { BlockModel } from "../models/block.model.js";
+import { createInboxNotification, deleteNotificationByFriendRequest } from "../../notifications/services/inboxNotification.service.js";
+import { emitNotificationRemoved, emitUnreadNotificationCount } from "../../../socket/emitters/notification.emitters.js";
+import { InboxNotificationModel } from "../../notifications/models/inboxNotification.model.js";
 
 /**
  * ------------------------------------------------------------------
@@ -118,6 +121,13 @@ export const sendFriendRequest = async (
     status: "pending",
   });
 
+  await createInboxNotification({
+    userId: toUser.id,
+    actorId: fromUserId,
+    type: "friend_request_received",
+    friendRequestId: request.id,
+  });
+
   const populated = await request.populate([
     { path: "from", select: "username displayName profilePicture" },
     { path: "to", select: "username displayName profilePicture" },
@@ -172,6 +182,12 @@ export const acceptFriendRequest = async (
 
   request.status = "accepted";
   await request.save();
+
+  await createInboxNotification({
+    userId: fromUserId,
+    actorId: toUserId,
+    type: "friend_request_accepted",
+  });
 
   const populated = await request.populate([
     { path: "from", select: "username displayName profilePicture" },
@@ -279,6 +295,17 @@ export const cancelFriendRequest = async (
   const toUserId = request.to.toString();
   const reqId = request._id.toString();
 
+  const deleted = await deleteNotificationByFriendRequest(reqId);
+
+if (deleted) {
+  emitNotificationRemoved(toUserId, reqId);
+
+  const freshCount = await InboxNotificationModel.countDocuments({
+    user: deleted.userId,
+    read: false,
+  });
+  emitUnreadNotificationCount(deleted.userId, freshCount); 
+}
   await request.deleteOne();
 
   return { toUserId, requestId: reqId };

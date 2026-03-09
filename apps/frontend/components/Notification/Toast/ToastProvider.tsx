@@ -46,9 +46,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
       notificationSound.current = new Audio("/sounds/notification.mp3");
       document.removeEventListener("click", enableAudio);
     };
-
     document.addEventListener("click", enableAudio);
-
     return () => document.removeEventListener("click", enableAudio);
   }, []);
 
@@ -60,68 +58,51 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const showToast = (toast: Omit<Toast, "id">) => {
-    const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    // Drop mention pings — the accompanying "message" toast covers it
+    if (toast.type === "notification") return;
 
-    const newToast = { ...toast, id };
+    const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
 
     const isNotification =
       toast.type === "message" ||
       toast.type === "friend_request" ||
-      toast.type === "friend_accept" ||
-      toast.type === "call";
+      toast.type === "friend_accept";
 
     if (isNotification) {
       const now = Date.now();
-
       const shouldPlaySound = !toast.chatId || !isChatSilenced(toast.chatId);
-
       if (shouldPlaySound && now - lastPlayed.current > 800) {
         notificationSound.current?.play().catch(() => {});
         lastPlayed.current = now;
       }
-    }
 
-    if (isNotification && toast.chatId) {
       setNotifications((prev) => {
-        const existingIndex = prev.findIndex((t) => t.chatId === toast.chatId);
-
-        if (existingIndex !== -1) {
-          const updated = [...prev];
-          const existing = updated[existingIndex];
-
-          updated[existingIndex] = {
-            ...existing,
-            description: toast.description,
-            messageCount: (existing.messageCount ?? 1) + 1,
-          };
-
-          return updated;
+        if (toast.chatId) {
+          const existingIndex = prev.findIndex((t) => t.chatId === toast.chatId);
+          if (existingIndex !== -1) {
+            const updated = [...prev];
+            const existing = updated[existingIndex];
+            updated[existingIndex] = {
+              ...existing,
+              description: toast.description,
+              messageCount: (existing.messageCount ?? 1) + 1,
+            };
+            return updated;
+          }
         }
-
-        return [
-          ...prev,
-          {
-            ...toast,
-            id,
-            messageCount: 1,
-          },
-        ];
+        return [...prev, { ...toast, id, messageCount: 1 }];
       });
 
       if (!toast.persistent) {
-        setTimeout(() => {
-          removeToast(id);
-        }, toast.duration || 4000);
+        setTimeout(() => removeToast(id), toast.duration || 4000);
       }
-
       return;
-    } else {
-      setSystemToasts((prev) => [...prev, newToast]);
     }
+
+    // System toasts (errors, info, etc.)
+    setSystemToasts((prev) => [...prev, { ...toast, id }]);
     if (!toast.persistent) {
-      setTimeout(() => {
-        removeToast(id);
-      }, toast.duration || 4000);
+      setTimeout(() => removeToast(id), toast.duration || 4000);
     }
   };
 
@@ -133,10 +114,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   return (
     <ToastContext.Provider value={{ showToast, removeToast }}>
       {children}
-      {/* System Error Toasts */}
       <ToastContainer toasts={systemToasts} removeToast={removeToast} />
-
-      {/* Message / Friend Notifications */}
       <NotificationContainer
         notifications={notifications}
         removeToast={removeToast}

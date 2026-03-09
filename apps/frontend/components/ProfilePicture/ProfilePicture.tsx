@@ -5,7 +5,7 @@ import Image, { StaticImageData } from 'next/image';
 
 interface ProfilePictureProps {
   src: string | StaticImageData;
-  status: "online" | "offline";
+  status?: "online" | "offline";
   size: "sm" | "md" | "lg";
   showStatus?: boolean;
   className?: string;
@@ -32,7 +32,7 @@ function ProfilePicture({ src, status, size, showStatus = true }: ProfilePicture
         <Circle
           size={size === "lg" ? 20 : 12}
           strokeWidth={0}
-          fill={statusColors[status]}
+          fill={status ? statusColors[status] : ""}
           className="absolute bg-base-100 rounded-full bottom-0 right-0"
         />
       )}

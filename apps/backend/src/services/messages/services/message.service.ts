@@ -1,4 +1,4 @@
-import mongoose, { FilterQuery } from "mongoose";
+import mongoose, { FilterQuery, Types } from "mongoose";
 import { Chat } from "../../chat/models/chat.model.js";
 import { IMessage, Message } from "../models/message.model.js";
 import {
@@ -10,6 +10,29 @@ import {
 import { extractFirstUrl } from "../utils/linkPreview.js";
 import { BlockModel } from "../../user/models/block.model.js";
 import { ChatUserStateModel } from "../../chat/models/chatUserState.model.js";
+import { createInboxNotification } from "../../notifications/services/inboxNotification.service.js";
+
+/**
+ * Parses @mention user IDs from content and validates they are group members.
+ * Returns only valid memberIds. Silently drops invalid ones.
+ * Throws BadRequest if mentions are used in a DM.
+ */
+const resolveMentions = (
+  rawMentionIds: string[] | undefined,
+  chat: { isGroup: boolean; members: Types.ObjectId[] },
+): Types.ObjectId[] => {
+  if (!rawMentionIds || rawMentionIds.length === 0) return [];
+
+  if (!chat.isGroup) {
+    throw BadRequest("Mentions are only allowed in group chats");
+  }
+
+  const memberIdSet = new Set(chat.members.map((m) => m.toString()));
+
+  return rawMentionIds
+    .filter((id) => memberIdSet.has(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+};
 
 /** Returns the chat user state for a given user/chat pair, or null if none exists. */
 export const getChatUserState = async (userId: string, chatId: string) => {
@@ -117,6 +140,7 @@ export const sendMessageFunction = async (
   content: string,
   senderId: string,
   replyTo?: string | null,
+  mentionIds?: string[],
 ) => {
   if (!senderId) throw Unauthorized();
   if (!chatId) throw BadRequest("ChatId is required");
@@ -152,6 +176,8 @@ export const sendMessageFunction = async (
 
   const firstUrl = extractFirstUrl(content);
 
+  const resolvedMentions = resolveMentions(mentionIds, chat);
+
   const message = await Message.create({
     sender: senderId,
     content,
@@ -159,7 +185,30 @@ export const sendMessageFunction = async (
     deliveredTo,
     replyTo: replyTo || null,
     linkPreview: null,
+    mentions: resolvedMentions,
   });
+
+  const uniqueMentions = new Set(resolvedMentions.map((id) => id.toString()));
+
+  
+
+  if (replyTo) {
+    const repliedMessage = await Message.findById(replyTo);
+
+    if (repliedMessage) {
+      const replyUserId = repliedMessage.sender.toString();
+
+      if (replyUserId !== senderId) {
+        await createInboxNotification({
+          userId: replyUserId,
+          actorId: senderId,
+          type: "reply",
+          chatId,
+          messageId: message._id.toString(),
+        });
+      }
+    }
+  }
 
   const populated = await message.populate([
     { path: "sender", select: "displayName username profilePicture" },
@@ -178,6 +227,20 @@ export const sendMessageFunction = async (
   await chat.save();
 
   const memberIds = chat.members.map((m) => m.toString());
+
+  await Promise.all(
+    [...uniqueMentions]
+      .filter((id) => id !== senderId && memberIds.includes(id))
+      .map((userId) =>
+        createInboxNotification({
+          userId,
+          actorId: senderId,
+          type: "mention",
+          chatId,
+          messageId: message._id.toString(),
+        }),
+      ),
+  );
 
   const states = await ChatUserStateModel.find({
     chatId,
@@ -210,6 +273,7 @@ export const sendMessageFunction = async (
     firstUrl,
     chatMembers: chat.members.map((m) => m.toString()),
     unreadCounts,
+    mentionedUserIds: resolvedMentions.map((id) => id.toString()),
   };
 };
 

@@ -85,7 +85,7 @@ export default function UserSettings({
     <>
       <div className="w-full h-full relative">
         {/* Header */}
-        <div className="flex items-center gap-2 p-3 justify-between border-b border-base-300">
+        <div className="flex items-center gap-2 p-3 justify-between border-b border-base-content/10">
           <h2 className="text-2xl font-semibold text-base-content p-1">
             Settings
           </h2>

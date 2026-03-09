@@ -110,8 +110,6 @@ export default function InboxSection() {
               { type: "group", label: "Groups", unread: groupUnread },
             ] as const
           ).map(({ type, label, unread }) => {
-            const active = chatType === type;
-
             return (
               <button
                 key={type}
@@ -120,12 +118,12 @@ export default function InboxSection() {
                 className={` flex-1 py-2 text-sm transition-colors duration-200 ${chatType === type ? "cursor-auto" : "cursor-pointer"}`}
               >
                 <span
-                  className={`inline-flex relative items-center gap-2 transition-colors duration-200 text-base-content/80 text-base`}
+                  className={`inline-flex relative items-center transition-colors duration-200 text-base-content/90 text-base`}
                 >
                   {label}
 
                   {unread > 0 && (
-                    <span className="absolute -right-4 -top-1 leading-none  bg-red-600 font-semibold text-white text-xs rounded-full min-w-4 h-4 px-[4px] flex items-center justify-center">
+                    <span className="absolute -right-5 -top-1 leading-none  bg-red-600 text-white text-xs rounded-full min-w-4 h-4 px-[4px] flex items-center justify-center">
                       {unread}
                     </span>
                   )}

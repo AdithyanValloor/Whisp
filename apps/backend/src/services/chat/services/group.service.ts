@@ -7,6 +7,7 @@ import {
   NotFound,
 } from "../../../utils/errors/httpErrors.js";
 import { BlockModel } from "../../user/models/block.model.js";
+import { createInboxNotification } from "../../notifications/services/inboxNotification.service.js";
 
 /**
  * Populates a group chat with all required related fields.
@@ -31,7 +32,7 @@ const populateGroup = (chatId: string) => {
 const softDeleteGroup = async (
   chat: any,
   userId: string,
-  message = "Group deleted successfully"
+  message = "Group deleted successfully",
 ) => {
   if (chat.isDeleted) {
     return { message: "Group already deleted", deleted: true };
@@ -61,7 +62,7 @@ const softDeleteGroup = async (
 export const createGroupChatFunction = async (
   name: string,
   userIds: string[],
-  currentUserId: string
+  currentUserId: string,
 ) => {
   if (!name || !Array.isArray(userIds) || userIds.length < 1) {
     throw BadRequest("Group name and at least one member are required");
@@ -89,6 +90,19 @@ export const createGroupChatFunction = async (
     admin: [currentUserId],
     createdBy: currentUserId,
   });
+
+  await Promise.all(
+    members
+      .filter((userId) => userId !== currentUserId)
+      .map((userId) =>
+        createInboxNotification({
+          userId,
+          actorId: currentUserId,
+          type: "group_added",
+          groupId: groupChat._id.toString(),
+        }),
+      ),
+  );
 
   const group = await populateGroup(groupChat._id.toString());
 
@@ -138,7 +152,7 @@ export const getGroupByIdFunction = async (userId: string, chatId: string) => {
 export const addMembersFunction = async (
   chatId: string,
   members: string[],
-  userId: string
+  userId: string,
 ) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -162,12 +176,25 @@ export const addMembersFunction = async (
     });
 
     if (blockExists) continue;
-    
+
     newMemberIds.push(memberId);
   }
 
-  chat.members.push(...newMemberIds.map((id) => new mongoose.Types.ObjectId(id)));
+  chat.members.push(
+    ...newMemberIds.map((id) => new mongoose.Types.ObjectId(id)),
+  );
   await chat.save();
+
+  await Promise.all(
+    newMemberIds.map((memberId) =>
+      createInboxNotification({
+        userId: memberId,
+        actorId: userId,
+        type: "group_added",
+        groupId: chat._id.toString(),
+      }),
+    ),
+  );
 
   const group = await populateGroup(chat._id.toString());
 
@@ -196,7 +223,7 @@ export const addMembersFunction = async (
 export const removeMembersFunction = async (
   userId: string,
   chatId: string,
-  memberId: string
+  memberId: string,
 ) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -244,7 +271,7 @@ export const toggleAdminFunction = async (
   userId: string,
   chatId: string,
   memberId: string,
-  makeAdmin: boolean
+  makeAdmin: boolean,
 ) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -292,12 +319,12 @@ export const toggleAdminFunction = async (
  * - Normal member → removed from members & admins
  */
 type LeaveGroupResult =
-  | { message: string; deleted: true;  chatId: string; memberIds: string[] }
+  | { message: string; deleted: true; chatId: string; memberIds: string[] }
   | { message: string; deleted: false; chatId: string };
 
 export const leaveGroupFunction = async (
   userId: string,
-  chatId: string
+  chatId: string,
 ): Promise<LeaveGroupResult> => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -310,7 +337,11 @@ export const leaveGroupFunction = async (
   // Owner is only member → soft delete
   if (isOwner && memberCount === 1) {
     const memberIds = chat.members.map((m) => m.toString());
-    const result = await softDeleteGroup(chat, userId, "Group deleted (last member left)");
+    const result = await softDeleteGroup(
+      chat,
+      userId,
+      "Group deleted (last member left)",
+    );
     return { ...result, chatId, memberIds };
   }
 
@@ -390,7 +421,7 @@ export const deleteGroupFunction = async (userId: string, chatId: string) => {
 export const transferOwnershipFunction = async (
   userId: string,
   chatId: string,
-  newOwnerId: string
+  newOwnerId: string,
 ) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");

@@ -36,4 +36,5 @@ export interface MessageBody {
   emoji?: string;
   messageId?: string | null;
   targetChatIds?: string[]; 
+  mentionIds?: string[];
 }

@@ -21,3 +21,12 @@ export const selectMessagesByChat = createSelector(
     return messages;
   }
 );
+
+export const selectChatHasMention = (chatId: string) =>
+  createSelector(
+    [(state: RootState) => state.notifications.notifications],
+    (notifications) =>
+      notifications.some(
+        (n) => n.type === "mention" && n.chat?._id === chatId && !n.read
+      )
+  );

@@ -24,6 +24,7 @@ import {
   markMessagesAsSeen,
   fetchMessageContext,
   setJumpTo,
+  clearMentionedChat,
 } from "@/redux/features/messageSlice";
 import {
   addMembers,
@@ -44,6 +45,10 @@ import ConfirmModal from "../GlobalComponents/ConfirmModal";
 import { setActiveChatId } from "@/utils/activeChat";
 import { RootState } from "@/redux/store";
 import { unblockUser } from "@/redux/features/blockSlice";
+import {
+  clearMentionsForChat,
+  markMentionsReadForChat,
+} from "@/redux/features/notificationSlice";
 
 interface ChatViewProps {
   chat: {
@@ -95,6 +100,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [editingMessage, setEditingMessage] = useState<MessageType | null>(
     null,
   );
+  const [pendingMentionIds, setPendingMentionIds] = useState<string[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState<{
     open: boolean;
     msg: MessageType | null;
@@ -106,9 +112,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null);
   const [forward, setForward] = useState<MessageType | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
-  const [highlightedMessageId, setHighlightedMessageId] = useState<
-    string | null
-  >(null);
 
   const isBlocked = useAppSelector((state: RootState) => {
     if (chat.isGroup) return false;
@@ -179,6 +182,12 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     };
   }, []);
 
+  useEffect(() => {
+    dispatch(markMentionsReadForChat(chat._id));
+    dispatch(clearMentionsForChat(chat._id));
+    dispatch(markMentionsReadForChat(chat._id));
+  }, [chat._id, dispatch]);
+
   const displayUser = chat.isGroup
     ? {
         _id: chat._id,
@@ -224,7 +233,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     console.log("🔄 Chat changed to:", chat._id);
     hasMarkedInitialRef.current = false;
     isMarkingRef.current = false;
-    setShowProfile(false); // Close profile when chat changes
+    setShowProfile(false);
 
     if (markAsSeenTimeoutRef.current) {
       clearTimeout(markAsSeenTimeoutRef.current);
@@ -319,6 +328,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
 
     const content = message;
     setMessage("");
+    setPendingMentionIds([]);
 
     try {
       await dispatch(
@@ -326,6 +336,9 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
           chatId: chat._id,
           content,
           replyTo: replyingTo?._id || null,
+          ...(chat.isGroup && pendingMentionIds.length > 0
+            ? { mentionIds: pendingMentionIds }
+            : {}),
         }),
       ).unwrap();
 
@@ -343,8 +356,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   };
 
   const scrollToMessage = async (messageId: string) => {
-    setHighlightedMessageId(messageId);
-
     const exists = messages.find((m) => m._id === messageId);
 
     if (!exists) {
@@ -352,18 +363,9 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         fetchMessageContext({ messageId, chatId: chat._id }),
       ).unwrap();
     } else {
-      // Route through jumpTo so the Messages effect handles centering — no double-click
       dispatch(setJumpTo({ chatId: chat._id, messageId }));
     }
   };
-
-  useEffect(() => {
-    if (!highlightedMessageId) return;
-
-    setTimeout(() => {
-      setHighlightedMessageId(null);
-    }, 1500);
-  }, [highlightedMessageId]);
 
   return (
     <div className="flex h-full w-full overflow-hidden">
@@ -401,7 +403,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
           }}
           onDelete={(msg) => setShowDeleteModal({ open: true, msg })}
           scrollToMessage={scrollToMessage}
-          highlightedMessageId={highlightedMessageId}
         />
 
         {/* Delete Modal */}
@@ -442,6 +443,10 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
             isBlocked={isBlocked && !chat.isGroup}
             isBlockedByMe={isBlockedByMe}
             isBlockingMe={isBlockingMe}
+            isGroup={chat.isGroup}
+            groupMembers={chat.isGroup ? chat.members : []}
+            currentUserId={currentUser._id}
+            onMentionsChange={setPendingMentionIds}
             onUnblock={() => {
               if (!chat.isGroup) {
                 const otherMember = chat.members.find(

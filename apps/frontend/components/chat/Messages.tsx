@@ -39,7 +39,6 @@ interface MessagesProps {
   typingUsers: Record<string, string>;
   scrollTargetId?: string | null;
   scrollToMessage: (id: string) => void;
-  highlightedMessageId: string | null;
 }
 
 export default function Messages({
@@ -53,7 +52,6 @@ export default function Messages({
   typingUsers,
   editingMessage,
   scrollToMessage,
-  highlightedMessageId,
   forwardMessage,
 }: MessagesProps) {
   const dispatch = useAppDispatch();
@@ -193,6 +191,16 @@ export default function Messages({
     scrollToBottomEased();
   }, [scrollToBottomEased]);
 
+  useEffect(() => {
+    if (!jumpTo) return;
+
+    const timer = setTimeout(() => {
+      dispatch(clearJumpTo());
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [jumpTo, dispatch]);
+
   const handleTouchStart = useCallback(
     (msg: MessageType, e: React.TouchEvent) => {
       pressTimerRef.current = setTimeout(() => {
@@ -278,16 +286,6 @@ export default function Messages({
 
     const targetMsg = messages.find((m) => m._id === jumpTo.messageId);
 
-    if (!targetMsg) {
-      dispatch(clearJumpTo());
-      return;
-    }
-
-    if (clearedAt && new Date(targetMsg.createdAt) <= new Date(clearedAt)) {
-      dispatch(clearJumpTo());
-      return;
-    }
-
     jumpLockRef.current = true;
 
     const attemptCenter = (attemptsLeft: number) => {
@@ -297,12 +295,9 @@ export default function Messages({
           setTimeout(() => attemptCenter(attemptsLeft - 1), 80);
         else {
           jumpLockRef.current = false;
-          dispatch(clearJumpTo());
         }
         return;
       }
-
-      dispatch(clearJumpTo());
 
       const container = containerRef.current!;
       const containerRect = container.getBoundingClientRect();
@@ -903,7 +898,6 @@ export default function Messages({
                     handleReaction={handleReaction}
                     contextMenu={contextMenu}
                     isLastMessage={isLastMessage}
-                    highlightedMessageId={highlightedMessageId}
                   />
 
                   {contextMenu.msg?._id === msg._id && !msg.deleted && (

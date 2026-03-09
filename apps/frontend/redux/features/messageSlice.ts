@@ -27,6 +27,7 @@ export interface MessageType {
   deleted?: boolean;
   deliveredTo?: string[];
   seenBy?: string[];
+  mentions?: string[];
   replyTo?: {
     _id: string;
     content: string;
@@ -83,6 +84,7 @@ interface MessagesState {
     hasMore: boolean;
     page: number;
   };
+  mentionedChats: string[];
 
   listLoading: boolean;
   sendLoading: boolean;
@@ -100,6 +102,7 @@ const initialState: MessagesState = {
     hasMore: false,
     page: 1,
   },
+  mentionedChats: [],
   listLoading: false,
   sendLoading: false,
   error: null,
@@ -149,7 +152,12 @@ export const fetchMessages = createAsyncThunk<
  */
 export const sendMessage = createAsyncThunk<
   MessageType,
-  { chatId: string; content: string; replyTo?: string | null },
+  {
+    chatId: string;
+    content: string;
+    replyTo?: string | null;
+    mentionIds?: string[];
+  },
   { rejectValue: string }
 >("messages/send", async (data, { rejectWithValue }) => {
   try {
@@ -416,7 +424,6 @@ export function insertMessageSorted(
   state.messages[chatId] = nextIds;
 }
 
-
 /* -------------------- SLICE -------------------- */
 
 const messagesSlice = createSlice({
@@ -544,6 +551,16 @@ const messagesSlice = createSlice({
       const chatId = action.payload;
       delete state.messages[chatId];
       delete state.meta[chatId];
+    },
+    addMentionedChat: (state, action: PayloadAction<string>) => {
+      if (!state.mentionedChats.includes(action.payload)) {
+        state.mentionedChats.push(action.payload);
+      }
+    },
+    clearMentionedChat: (state, action: PayloadAction<string>) => {
+      state.mentionedChats = state.mentionedChats.filter(
+        (id) => id !== action.payload,
+      );
     },
   },
 
@@ -709,6 +726,8 @@ export const {
   clearJumpTo,
   setJumpTo,
   clearChatMessages,
+  addMentionedChat,
+  clearMentionedChat,
 } = messagesSlice.actions;
 
 export default messagesSlice.reducer;

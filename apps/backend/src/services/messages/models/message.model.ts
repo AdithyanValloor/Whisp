@@ -11,6 +11,7 @@ export interface IMessage extends Document {
 
   deliveredTo: Types.ObjectId[];
   seenBy: Types.ObjectId[];
+  mentions: Types.ObjectId[];
 
   replyTo?: Types.ObjectId | null;
 
@@ -28,7 +29,7 @@ export interface IMessage extends Document {
     description?: string;
     image?: string;
     siteName?: string;
-    isLargeImage?: Boolean,
+    isLargeImage?: Boolean;
   };
 
   createdAt: Date;
@@ -69,6 +70,13 @@ const messageSchema: Schema<IMessage> = new Schema(
       {
         type: Schema.Types.ObjectId,
         ref: "User",
+      },
+    ],
+    mentions: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        default: [],
       },
     ],
     replyTo: {
@@ -118,5 +126,7 @@ const messageSchema: Schema<IMessage> = new Schema(
 messageSchema.index({ chat: 1, createdAt: -1 });
 
 messageSchema.index({ chat: 1, content: "text" });
+
+messageSchema.index({ chat: 1, mentions: 1 });
 
 export const Message = model<IMessage>("Message", messageSchema);

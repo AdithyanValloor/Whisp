@@ -36,10 +36,8 @@
   color: var(--color-base-content) !important;
   font-weight: 600 !important;
   font-size: 13px !important;
-
   border-top: 1px solid hsl(var(--bc) / 0.06) !important;
   border-bottom: 1px solid hsl(var(--bc) / 0.06) !important;
-
   box-shadow: none !important;
 }
 
@@ -67,24 +65,34 @@
   border: 1px solid hsl(var(--bc) / 0.12) !important;
 }
 
-/* ===== Emoji Hover Effect (Subtle Modern Feel) ===== */
+/* ===== Emoji Hover Effect ===== */
 
-.EmojiPickerReact .epr-emoji:hover {
-  transform: scale(1.15);
-  transition: transform 0.15s ease;
+.EmojiPickerReact .epr-emoji {
+  transition: transform 0.12s ease, background-color 0.12s ease;
+  border-radius: 8px;
 }
 
-/* ===== Scrollbar Styling ===== */
+.EmojiPickerReact .epr-emoji:hover {
+  transform: scale(1.08);
+  background-color: hsl(var(--bc) / 0.08);
+}
 
+
+/* Scrollbar */
 .EmojiPickerReact ::-webkit-scrollbar {
   width: 6px;
 }
-
 .EmojiPickerReact ::-webkit-scrollbar-thumb {
-  background: hsl(var(--bc) / 0.2);
+  background: color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 999px;
 }
 
-.EmojiPickerReact ::-webkit-scrollbar-track {
-  background: transparent;
+.EmojiPickerReact .epr-emoji {
+  transition: transform 0.12s ease, background-color 0.12s ease;
+  border-radius: 8px;
+}
+
+.EmojiPickerReact .epr-emoji:hover {
+  transform: scale(1.08); 
+  background-color: hsl(var(--bc) / 0.08);
 }

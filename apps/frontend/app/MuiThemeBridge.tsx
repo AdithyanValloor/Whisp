@@ -1,6 +1,6 @@
 "use client";
 
-import { CssBaseline, ThemeProvider } from "@mui/material";
+import { createTheme, CssBaseline, ThemeProvider } from "@mui/material";
 import { useAppSelector } from "@/redux/hooks";
 import { createMuiTheme } from "@/lib/muiTheme";
 import { useMemo, useEffect, useState } from "react";

@@ -1,7 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAppSelector } from "@/redux/hooks";
 import AllFriends from "./AllFriends";
 import Requests from "./Requests";
@@ -24,6 +23,20 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
     [requests.incoming.length],
   );
 
+  useEffect(() => {
+    if (requests.incoming.length === 0 && requests.outgoing.length === 0) {
+      setTab("all");
+    }
+  }, [requests.incoming.length, requests.outgoing.length]);
+
+  const tabs = [
+    "all",
+    ...(requests.incoming.length > 0 || requests.outgoing.length > 0
+      ? ["pending"]
+      : []),
+    "add",
+  ];
+
   return (
     <div className="h-full w-full p-3 flex flex-col gap-3 relative">
       <h1 className="text-2xl font-semibold text-base-content p-1">Friends</h1>
@@ -33,7 +46,9 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
         {(
           [
             { key: "all", label: "All Friends" },
-            { key: "pending", label: `Pending ` },
+            ...(requests.incoming.length > 0 || requests.outgoing.length > 0
+              ? [{ key: "pending", label: "Pending " } as const]
+              : []),
             { key: "add", label: "Add Friend" },
           ] as const
         ).map(({ key, label }) => (
@@ -63,12 +78,8 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
           className="absolute bottom-0 left-0 h-[1px] w-1/3 bg-base-content
             transition-transform duration-300 ease-out"
           style={{
-            transform:
-              tab === "all"
-                ? "translateX(0%)"
-                : tab === "pending"
-                  ? "translateX(100%)"
-                  : "translateX(200%)",
+            transform: `translateX(${tabs.indexOf(tab) * 100}%)`,
+            width: `${100 / tabs.length}%`,
           }}
         />
       </div>
@@ -79,7 +90,15 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {tab === "all" && <AllFriends setActiveTab={setActiveTab} />}
-        {tab === "pending" && <Requests />}
+        {tab === "pending" &&
+          (requests.incoming.length > 0 || requests.outgoing.length > 0 ? (
+            <Requests />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full gap-2 text-base-content/40">
+              <span className="text-4xl">🎉</span>
+              <p className="text-sm">No pending requests</p>
+            </div>
+          ))}
       </div>
     </div>
   );

@@ -130,3 +130,11 @@ export const emitDeleteMessage = (
 ): void => {
   getIO().to(chatId).emit("delete_message", message);
 };
+
+export const emitMentionNotification = (
+  userId: string,
+  chatId: string,
+  message: MessageSocketPayload,
+) => {
+  getIO().to(userId).emit("mention_notification", { chatId, message });
+};

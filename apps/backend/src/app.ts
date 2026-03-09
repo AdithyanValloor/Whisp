@@ -18,6 +18,7 @@ import { groupChatRouter } from "./services/chat/routes/group.routes.js";
 import { messageRouter } from "./services/messages/routes/messages.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import { blockRouter } from "./services/user/routes/block.routes.js";
+import { inboxNotificationsRouter } from "./services/notifications/routes/inboxNotification.routes.js";
 
 export const createApp = (): Application => {
   const app = express();
@@ -41,6 +42,7 @@ export const createApp = (): Application => {
   app.use("/api/group", groupChatRouter);
   app.use("/api/message", messageRouter);
   app.use("/api/block", blockRouter);
+  app.use("/api/notifications", inboxNotificationsRouter);
 
   // Must be registered after all routes
   app.use(errorHandler);

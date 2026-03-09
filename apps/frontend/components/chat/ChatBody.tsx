@@ -13,7 +13,6 @@ interface ChatBodyProps {
   forwardMessage: MessageType | null;
   setForward: (m: MessageType | null) => void;
   scrollToMessage: (id: string) => void;
-  highlightedMessageId: string | null;
 }
 
 export function ChatBody({
@@ -27,7 +26,6 @@ export function ChatBody({
   setReplyingTo,
   setForward,
   scrollToMessage,
-  highlightedMessageId,
   forwardMessage
 }: ChatBodyProps) {
   return (
@@ -44,7 +42,6 @@ export function ChatBody({
           setForward={setForward}
           typingUsers={typingUsers}
           scrollToMessage={scrollToMessage}
-          highlightedMessageId={highlightedMessageId}
           forwardMessage={forwardMessage}
         />
       </div>

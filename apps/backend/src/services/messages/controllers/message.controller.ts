@@ -19,6 +19,7 @@ import { toMessageSocketPayload } from "../utils/normalizeMessage.js";
 import {
   emitDeleteMessage,
   emitEditMessage,
+  emitMentionNotification,
   emitMessageReaction,
   emitMessagesSeen,
   emitNewMessage,
@@ -34,7 +35,7 @@ import { Message } from "../models/message.model.js";
 export const getAllMessages = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -63,21 +64,41 @@ export const getAllMessages = async (
 export const sendMessage = async (
   req: Request<{}, {}, MessageBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const senderId = req.user?.id;
     if (!senderId) throw Unauthorized();
 
-    const { chatId, content, replyTo } = req.body;
+    const { chatId, content, replyTo, mentionIds } = req.body;
 
     if (!chatId) throw BadRequest("ChatId is required");
     if (!content) throw BadRequest("Message content is required");
 
-    const { populated, messageId, firstUrl, chatMembers, unreadCounts } =
-      await sendMessageFunction(chatId, content, senderId, replyTo);
+    const {
+      populated,
+      messageId,
+      firstUrl,
+      chatMembers,
+      unreadCounts,
+      mentionedUserIds,
+    } = await sendMessageFunction(
+      chatId,
+      content,
+      senderId,
+      replyTo,
+      mentionIds,
+    );
 
     emitNewMessage(chatId, toMessageSocketPayload(populated));
+
+    mentionedUserIds.forEach((mentionedId) => {
+      emitMentionNotification(
+        mentionedId,
+        chatId,
+        toMessageSocketPayload(populated),
+      );
+    });
 
     chatMembers.forEach((memberId) => {
       if (memberId !== senderId) {
@@ -129,7 +150,7 @@ export const sendMessage = async (
 export const forwardMessage = async (
   req: Request<{}, {}, MessageBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const senderId = req.user?.id;
@@ -137,10 +158,18 @@ export const forwardMessage = async (
 
     const { messageId, targetChatIds } = req.body;
 
-    if (!messageId || !Array.isArray(targetChatIds) || targetChatIds.length === 0)
+    if (
+      !messageId ||
+      !Array.isArray(targetChatIds) ||
+      targetChatIds.length === 0
+    )
       throw BadRequest("MessageId and targeted chatIds are required");
 
-    const results = await forwardMessageFunction(messageId, targetChatIds, senderId);
+    const results = await forwardMessageFunction(
+      messageId,
+      targetChatIds,
+      senderId,
+    );
 
     results.forEach(({ chatId, message, chatMembers, unreadCounts }) => {
       emitNewMessage(chatId, toMessageSocketPayload(message));
@@ -168,7 +197,7 @@ export const forwardMessage = async (
 export const toggleReaction = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -177,7 +206,7 @@ export const toggleReaction = async (
     const { populated, chatId } = await toggleReactionFunction(
       req.params.messageId,
       userId,
-      req.body.emoji
+      req.body.emoji,
     );
 
     emitMessageReaction(chatId, toMessageSocketPayload(populated));
@@ -195,7 +224,7 @@ export const toggleReaction = async (
 export const getUnreadCounts = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -217,7 +246,7 @@ export const getUnreadCounts = async (
 export const markChatAsRead = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -225,7 +254,7 @@ export const markChatAsRead = async (
 
     const { unreadCount } = await markChatAsReadFunction(
       userId,
-      req.params.chatId
+      req.params.chatId,
     );
 
     emitUnreadUpdate(userId, req.params.chatId, unreadCount);
@@ -245,7 +274,7 @@ export const markChatAsRead = async (
 export const markMessagesAsSeen = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -253,7 +282,7 @@ export const markMessagesAsSeen = async (
 
     const { success, modifiedCount } = await markMessagesAsSeenFunction(
       userId,
-      req.params.chatId
+      req.params.chatId,
     );
 
     emitMessagesSeen(req.params.chatId, userId, modifiedCount);
@@ -275,7 +304,7 @@ export const markMessagesAsSeen = async (
 export const editMessage = async (
   req: Request<MessageParams, {}, MessageBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -287,7 +316,11 @@ export const editMessage = async (
     if (!messageId) throw BadRequest("MessageId is required");
     if (!content) throw BadRequest("Content is required");
 
-    const { populated, chatId } = await editMessageFunction(messageId, content, userId);
+    const { populated, chatId } = await editMessageFunction(
+      messageId,
+      content,
+      userId,
+    );
 
     emitEditMessage(chatId, toMessageSocketPayload(populated));
 
@@ -307,7 +340,7 @@ export const editMessage = async (
 export const deleteMessage = async (
   req: Request<MessageParams>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -316,7 +349,10 @@ export const deleteMessage = async (
     const { messageId } = req.params;
     if (!messageId) throw BadRequest("MessageId is required");
 
-    const { populated, chatId } = await deleteMessageFunction(messageId, userId);
+    const { populated, chatId } = await deleteMessageFunction(
+      messageId,
+      userId,
+    );
 
     emitDeleteMessage(chatId, toMessageSocketPayload(populated));
 
@@ -333,7 +369,7 @@ export const deleteMessage = async (
 export const searchMessages = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -351,7 +387,7 @@ export const searchMessages = async (
       query as string,
       date as string,
       page,
-      limit
+      limit,
     );
 
     res.status(200).json(result);
@@ -368,7 +404,7 @@ export const searchMessages = async (
 export const getMessageContext = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -397,7 +433,7 @@ export const getMessageContext = async (
 export const getNewerMessages = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;

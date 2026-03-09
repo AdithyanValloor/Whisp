@@ -10,6 +10,7 @@ import type { Chat } from "./chatSlice";
 import type { FriendUser, FriendRequest } from "./friendsSlice";
 import axios from "axios";
 import { fetchBlockedUsers } from "./blockSlice";
+import { fetchNotifications, InboxNotification } from "./notificationSlice";
 
 /**
  * Result returned after successful application bootstrap.
@@ -24,6 +25,7 @@ interface BootstrapResult {
   };
   chats: Chat[];
   unread: Record<string, number>;
+  notifications: InboxNotification[];
 }
 
 /**
@@ -32,6 +34,7 @@ interface BootstrapResult {
  * Orchestrates fetching of all essential data required
  * after authentication and before rendering the main UI.
  */
+
 export const bootstrapApp = createAsyncThunk<
   BootstrapResult,
   void,
@@ -44,44 +47,39 @@ export const bootstrapApp = createAsyncThunk<
     const state = getState();
     const currentUser = state.auth.user;
 
-    console.log("CURRENT USER ------------------------ ", currentUser);
-    
-
-    // Ensure user is authenticated before bootstrapping
     if (!currentUser) {
       console.log("⏭ Skipping bootstrap: no authenticated user");
+
       return {
-        currentUser: null,
+        currentUser: null as unknown as AuthUser,
         friends: [],
         requests: { incoming: [], outgoing: [] },
         chats: [],
         unread: {},
-        onlineUsers: [],
-      } as unknown as BootstrapResult;
+        notifications: [],
+      };
     }
-
 
     console.log("🚀 Bootstrapping app for user:", currentUser.username);
 
-    /**
-     * Fetch core data in parallel to reduce startup latency.
-     */
-    const [friends, requests, chats, unread, blockedUsers] =
-      await Promise.all([
-        dispatch(fetchFriends()).unwrap(),
-        dispatch(fetchRequests()).unwrap(),
-        dispatch(fetchChats()).unwrap(),
-        dispatch(fetchUnreadCounts()).unwrap(),
-        dispatch(fetchBlockedUsers()).unwrap(),
-      ]);
-
+    const [
+      friends,
+      requests,
+      chats,
+      unread,
+      blockedUsers,
+      notificationResult,
+    ] = await Promise.all([
+      dispatch(fetchFriends()).unwrap(),
+      dispatch(fetchRequests()).unwrap(),
+      dispatch(fetchChats()).unwrap(),
+      dispatch(fetchUnreadCounts()).unwrap(),
+      dispatch(fetchBlockedUsers()).unwrap(),
+      dispatch(fetchNotifications()).unwrap(),
+    ]);
 
     console.log("✅ Core data fetched, now fetching last messages");
 
-    /**
-     * Fetch the latest message for each chat (non-blocking).
-     * Failures for individual chats should not break bootstrap.
-     */
     if (chats.length > 0) {
       const messagePromises = chats.map((chat) =>
         dispatch(
@@ -94,7 +92,7 @@ export const bootstrapApp = createAsyncThunk<
           .unwrap()
           .catch((err) => {
             console.warn(
-              `Failed to fetch last message for chat ${chat._id}:`,
+              `Failed to fetch last message for chat ${chat._id}`,
               err,
             );
             return null;
@@ -113,14 +111,11 @@ export const bootstrapApp = createAsyncThunk<
       chats,
       unread,
       blockedUsers,
+      notifications: notificationResult.notifications,
     };
   } catch (error: unknown) {
     console.error("❌ Bootstrap failed:", error);
 
-    /**
-     * Handle authentication-related failures explicitly.
-     * If session is invalid, force logout to reset state.
-     */
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
 

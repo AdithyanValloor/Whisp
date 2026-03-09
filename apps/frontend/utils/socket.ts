@@ -7,6 +7,7 @@ import {
   updateMessageDelivery,
   markAllMessagesSeen,
   insertMessage,
+  addMentionedChat,
 } from "@/redux/features/messageSlice";
 
 import {
@@ -44,6 +45,11 @@ import { emitToast } from "@/utils/toastEmitter";
 import { getActiveChatId } from "./activeChat";
 import { addBlockedBy, removeBlockedBy } from "@/redux/features/blockSlice";
 import { isChatSilenced } from "./isChatMuted";
+import {
+  addNotificationFromSocket,
+  removeNotificationByFriendRequest,
+  setUnreadNotificationCount,
+} from "@/redux/features/notificationSlice";
 
 /* -------------------- SINGLETON STATE -------------------- */
 
@@ -123,8 +129,15 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
 
       const normalized = normalizeSocketMessage(msg);
 
-      store.dispatch(insertMessage({ chatId: normalized.chat, message: normalized }));
-      store.dispatch(updateChatLatestMessage({ chatId: normalized.chat, message: toChatLastMessage(msg) }));
+      store.dispatch(
+        insertMessage({ chatId: normalized.chat, message: normalized }),
+      );
+      store.dispatch(
+        updateChatLatestMessage({
+          chatId: normalized.chat,
+          message: toChatLastMessage(msg),
+        }),
+      );
 
       const activeChatId = getActiveChatId();
 
@@ -184,10 +197,23 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
       store.dispatch(setUnreadCount({ chatId, count }));
     });
 
+    socket.on("mention_notification", ({ chatId }: { chatId: string }) => {
+      const activeChatId = getActiveChatId();
+      if (chatId !== activeChatId) {
+        store.dispatch(addMentionedChat(chatId));
+      }
+    });
+
     /* -------------------- TYPING -------------------- */
 
     socket.on("typing", ({ userId, roomId, username, displayName }) => {
-      store.dispatch(typingStarted({ chatId: roomId, userId, name: displayName || username }));
+      store.dispatch(
+        typingStarted({
+          chatId: roomId,
+          userId,
+          name: displayName || username,
+        }),
+      );
     });
 
     socket.on("stopTyping", ({ userId, roomId }) => {
@@ -223,10 +249,75 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
       store.dispatch(removeFriendFromSocket(friendId));
     });
 
+    /* -------------------- INBOX NOTIFICATION -------------------- */
+
+    socket.on("inbox_notification", (payload) => {
+      const notification = payload.notification;
+
+      store.dispatch(addNotificationFromSocket(notification));
+
+      const actorName =
+        notification.actor?.displayName ||
+        notification.actor?.username ||
+        "Someone";
+
+      let title = "Notification";
+      let description = "";
+
+      switch (notification.type) {
+        case "friend_request_received":
+          title = "Friend Request";
+          description = `${actorName} sent you a friend request`;
+          break;
+
+        case "friend_request_accepted":
+          title = "Friend Request Accepted";
+          description = `${actorName} accepted your friend request`;
+          break;
+
+        case "mention":
+          title = "Mention";
+          description = `${actorName} mentioned you`;
+          break;
+
+        case "reply":
+          title = "Reply";
+          description = `${actorName} replied to your message`;
+          break;
+
+        case "group_added":
+          title = "Added to Group";
+          description = `${actorName} added you to ${notification.chat?.chatName}`;
+          break;
+      }
+
+      emitToast({
+        type:
+          notification.type === "friend_request_received"
+            ? "friend_request"
+            : notification.type === "friend_request_accepted"
+              ? "friend_accept"
+              : "notification",
+        title,
+        description,
+        profilePicture: notification.actor?.profilePicture,
+      });
+    });
+
+    socket.on("notification_removed", ({ friendRequestId }) => {
+      store.dispatch(removeNotificationByFriendRequest(friendRequestId));
+    });
+
+    socket.on("notification_unread_count", ({ count }) => {
+      store.dispatch(setUnreadNotificationCount(count));
+    });
+
     /* -------------------- GROUP: CREATED -------------------- */
 
     socket.on("group_created", (group: Chat) => {
-      const exists = store.getState().chat.chats.some((c) => c._id === group._id);
+      const exists = store
+        .getState()
+        .chat.chats.some((c) => c._id === group._id);
       if (!exists) {
         store.dispatch(addChat(group));
       }
@@ -254,7 +345,9 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
      * so they immediately start receiving room-scoped events (new_message, etc.).
      */
     socket.on("added_to_group", (group: Chat) => {
-      const exists = store.getState().chat.chats.some((c) => c._id === group._id);
+      const exists = store
+        .getState()
+        .chat.chats.some((c) => c._id === group._id);
       if (!exists) {
         store.dispatch(addChat(group));
       }
@@ -273,13 +366,22 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
      * - Remove the group from the Redux chat list
      * For other members, group_updated handles the data refresh.
      */
-    socket.on("member_removed", ({ chatId, removedUserId }: { chatId: string; removedUserId: string }) => {
-      const currentUserId = store.getState().auth.user?._id;
-      if (removedUserId === currentUserId) {
-        leaveGroupRoom(chatId);
-        store.dispatch(removeChat(chatId));
-      }
-    });
+    socket.on(
+      "member_removed",
+      ({
+        chatId,
+        removedUserId,
+      }: {
+        chatId: string;
+        removedUserId: string;
+      }) => {
+        const currentUserId = store.getState().auth.user?._id;
+        if (removedUserId === currentUserId) {
+          leaveGroupRoom(chatId);
+          store.dispatch(removeChat(chatId));
+        }
+      },
+    );
 
     /**
      * Emitted directly to the removed user as a redundant targeted signal.
@@ -292,15 +394,29 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
 
     /* -------------------- GROUP: ADMIN TOGGLED -------------------- */
 
-    socket.on("admin_toggled", ({ chatId, memberId, isAdmin }: { chatId: string; memberId: string; isAdmin: boolean }) => {
-      store.dispatch(updateChatAdmin({ chatId, memberId, isAdmin }));
-    });
+    socket.on(
+      "admin_toggled",
+      ({
+        chatId,
+        memberId,
+        isAdmin,
+      }: {
+        chatId: string;
+        memberId: string;
+        isAdmin: boolean;
+      }) => {
+        store.dispatch(updateChatAdmin({ chatId, memberId, isAdmin }));
+      },
+    );
 
     /* -------------------- GROUP: OWNERSHIP TRANSFERRED -------------------- */
 
-    socket.on("ownership_transferred", ({ chatId, newOwnerId }: { chatId: string; newOwnerId: string }) => {
-      store.dispatch(updateChatOwner({ chatId, newOwnerId }));
-    });
+    socket.on(
+      "ownership_transferred",
+      ({ chatId, newOwnerId }: { chatId: string; newOwnerId: string }) => {
+        store.dispatch(updateChatOwner({ chatId, newOwnerId }));
+      },
+    );
 
     /* -------------------- GROUP: MEMBER LEFT -------------------- */
 
@@ -309,9 +425,12 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
      * Only updates the member list for remaining members — the leaver
      * handles their own departure via "left_group" below.
      */
-    socket.on("member_left", ({ chatId, userId }: { chatId: string; userId: string }) => {
-      store.dispatch(removeChatMember({ chatId, userId }));
-    });
+    socket.on(
+      "member_left",
+      ({ chatId, userId }: { chatId: string; userId: string }) => {
+        store.dispatch(removeChatMember({ chatId, userId }));
+      },
+    );
 
     /**
      * Emitted directly to the user who left voluntarily.
@@ -341,9 +460,12 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
       });
     });
 
-    socket.on("presence_update", ({ userId, status }: PresenceUpdatePayload) => {
-      store.dispatch(updatePresence({ userId, status }));
-    });
+    socket.on(
+      "presence_update",
+      ({ userId, status }: PresenceUpdatePayload) => {
+        store.dispatch(updatePresence({ userId, status }));
+      },
+    );
 
     /* -------------------- BLOCK -------------------- */
 

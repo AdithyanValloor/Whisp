@@ -275,8 +275,8 @@ export default function InboxContextMenu({
                     onClose();
                   }}
                   className={`
-                    flex items-center justify-between
-                    w-full ${isMuteItem ? "pl-3" : "px-3"} py-2
+                    flex items-center gap-3
+                    w-full ${isMuteItem ? "pl-2" : "px-2"} py-2
                     rounded-lg text-sm transition-colors duration-150 cursor-pointer
                     ${item.danger
                       ? "text-red-400 hover:bg-red-300/10"
@@ -284,17 +284,15 @@ export default function InboxContextMenu({
                   `}
                 >
                   {isMuteItem ? (
-                    <span className="flex items-center justify-between w-full">
-                      <span className="opacity-80">{item.label}</span>
-                      <div className="flex items-center">
+                    <span className="relative flex items-center gap-3 w-full">
                         <FaBellSlash size={18} />
-                        <ChevronRight size={18} className="opacity-50" />
-                      </div>
+                      <span className="opacity-80">{item.label}</span>
+                        <ChevronRight size={18} className="absolute right-0 opacity-50" />
                     </span>
                   ) : (
                     <>
+                      <Icon size={18} className={`${item.key === "remove" || item.key === "add" ? "ml-[2px] -mr-[2px]" : ""} flex-shrink-0`} />
                       <span className="opacity-80">{item.label}</span>
-                      <Icon size={18} className={`${item.key === "remove" || item.key === "add" ? "-mr-[2px]" : ""} flex-shrink-0`} />
                     </>
                   )}
                 </button>

@@ -2,13 +2,14 @@
 
 import TextareaAutosize from "react-textarea-autosize";
 import EmojiPickerBox from "./EmojiPicker";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IoSend } from "react-icons/io5";
 import { MessageType } from "@/redux/features/messageSlice";
 import { Dispatch, SetStateAction } from "react";
-import { CircleAlert, X } from "lucide-react";
+import { AtSign, CircleAlert, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AppButton from "../GlobalComponents/AppButton";
+import ProfilePicture from "../ProfilePicture/ProfilePicture";
 
 interface MessageInputProps {
   message: string;
@@ -33,6 +34,16 @@ interface MessageInputProps {
   onUnblock: () => void;
 
   isMobile: boolean;
+
+  isGroup?: boolean;
+  groupMembers?: {
+    _id: string;
+    username: string;
+    displayName?: string;
+    profilePicture?: { url: string | null };
+  }[];
+  currentUserId?: string;
+  onMentionsChange?: (ids: string[]) => void;
 }
 
 export default function MessageInput({
@@ -51,14 +62,131 @@ export default function MessageInput({
   onUnblock,
   isBlockedByMe,
   isBlockingMe,
+  isGroup,
+  groupMembers,
+  currentUserId,
+  onMentionsChange,
 }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStart, setMentionStart] = useState(-1);
+  const [selectedMentionIds, setSelectedMentionIds] = useState<string[]>([]);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+  const mentionListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (replyingTo || editingMessage) {
       textareaRef.current?.focus();
     }
   }, [replyingTo, editingMessage]);
+
+  // 1. Move these computed values OUT of handleInput, to component body level:
+  const otherMembers = (groupMembers ?? []).filter(
+    (m) => m._id !== currentUserId,
+  );
+
+  const filteredMembers =
+    mentionQuery === null
+      ? []
+      : mentionQuery === ""
+        ? otherMembers
+        : otherMembers.filter(
+            (m) =>
+              m.username.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+              (m.displayName ?? "")
+                .toLowerCase()
+                .includes(mentionQuery.toLowerCase()),
+          );
+
+  const pickMention = (member: (typeof otherMembers)[0]) => {
+    const current = editingMessage ? editingMessage.content : message;
+    const before = current.slice(0, mentionStart);
+    const after = current.slice(mentionStart + 1 + (mentionQuery?.length ?? 0));
+    const inserted = `@${member.displayName || member.username} `;
+    const newVal = before + inserted + after;
+
+    editingMessage
+      ? setEditingMessage((prev) =>
+          prev ? { ...prev, content: newVal } : null,
+        )
+      : setMessage(newVal);
+
+    setSelectedMentionIds((prev) =>
+      prev.includes(member._id) ? prev : [...prev, member._id],
+    );
+    setMentionQuery(null);
+    setMentionStart(-1);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      const pos = before.length + inserted.length;
+      textareaRef.current?.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  // 2. Move these useEffects OUT of handleInput, to component body level:
+  useEffect(() => {
+    onMentionsChange?.(selectedMentionIds);
+  }, [selectedMentionIds]);
+  useEffect(() => {
+    if (message === "") setSelectedMentionIds([]);
+  }, [message]);
+  useEffect(() => {
+    setActiveMentionIndex(0);
+  }, [mentionQuery]);
+
+  // 3. handleInput now becomes clean — just the input logic:
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    const cursor = e.target.selectionStart ?? val.length;
+
+    editingMessage
+      ? setEditingMessage((prev) => (prev ? { ...prev, content: val } : null))
+      : setMessage(val);
+
+    handleTyping();
+
+    if (!isGroup) return;
+
+    const atMatch = val.slice(0, cursor).match(/@([^\s@]*)$/);
+    if (atMatch) {
+      setMentionQuery(atMatch[1]);
+      setMentionStart(cursor - atMatch[0].length);
+    } else {
+      setMentionQuery(null);
+      setMentionStart(-1);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionQuery !== null && filteredMembers.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveMentionIndex((i) => (i + 1) % filteredMembers.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveMentionIndex(
+          (i) => (i - 1 + filteredMembers.length) % filteredMembers.length,
+        );
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        pickMention(filteredMembers[activeMentionIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        setMentionQuery(null);
+        return;
+      }
+    }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
     <div className="flex-col mb-3 mx-3 overflow-hidden shadow flex border-2 min-w-0 border-base-content/10 rounded-2xl">
@@ -80,11 +208,7 @@ export default function MessageInput({
               <p>You cannot message a blocked user.</p>
             </div>
 
-            <AppButton
-              onClick={onUnblock}
-            >
-              Unblock User
-            </AppButton>
+            <AppButton onClick={onUnblock}>Unblock User</AppButton>
           </motion.div>
         ) : (
           <>
@@ -151,6 +275,77 @@ export default function MessageInput({
               )}
             </AnimatePresence>
 
+            <AnimatePresence initial={false}>
+              {isGroup && mentionQuery !== null && (
+                <motion.div
+                  key="mention-picker"
+                  layout
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="border-b border-base-content/15 bg-base-200">
+                    <div className="flex items-center gap-1.5 px-4 pt-2 pb-1">
+                      <AtSign size={13} className="text-base-content/40" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-base-content/40">
+                        Mention a member
+                      </span>
+                    </div>
+                    <div
+                      ref={mentionListRef}
+                      className="overflow-y-auto px-2 pb-2"
+                      style={{ maxHeight: "11.5rem" }}
+                    >
+                      {filteredMembers.length === 0 ? (
+                        <p className="text-xs text-base-content/40 px-2 py-3 text-center">
+                          No members match
+                        </p>
+                      ) : (
+                        filteredMembers.map((member, idx) => (
+                          <button
+                            key={member._id}
+                            type="button"
+                            data-mention-index={idx}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              pickMention(member);
+                            }}
+                            className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors
+                ${idx === activeMentionIndex ? "bg-base-content/10" : "hover:bg-base-content/5"}`}
+                          >
+                            <ProfilePicture
+                              src={
+                                member.profilePicture?.url ?? "/default-pfp.png"
+                              }
+                              size="sm"
+                              showStatus={false}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-base-content truncate leading-tight">
+                                {member.displayName || member.username}
+                              </p>
+                              {member.displayName && (
+                                <p className="text-[11px] text-base-content/50 truncate">
+                                  @{member.username}
+                                </p>
+                              )}
+                            </div>
+                            {idx === activeMentionIndex && (
+                              <span className="ml-auto text-[10px] text-base-content/30">
+                                ↵
+                              </span>
+                            )}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* ================= Input Section ================= */}
             <div className="flex-none bg-base-100 w-full p-3 shadow flex items-end gap-2">
               <TextareaAutosize
@@ -159,19 +354,9 @@ export default function MessageInput({
                 placeholder="Write a message..."
                 ref={textareaRef}
                 value={editingMessage ? editingMessage.content : message}
-                onChange={(e) =>
-                  editingMessage
-                    ? setEditingMessage((prev) =>
-                        prev ? { ...prev, content: e.target.value } : null,
-                      )
-                    : setMessage(e.target.value)
-                }
-                onInput={handleTyping}
+                onChange={(e) => handleInput(e)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
+                  handleKeyDown(e);
                 }}
                 className="flex-1 min-w-0 text-base-content resize-none px-4 py-2 focus:outline-none bg-transparent rounded-md text-sm leading-relaxed scrollbar-thin scrollbar-thumb-base-300 scrollbar-track-transparent max-h-40 overflow-y-auto"
               />

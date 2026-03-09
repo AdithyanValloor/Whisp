@@ -6,6 +6,7 @@ import { renderTwemoji } from "@/utils/renderEmoji";
 import { parseMessageText } from "@/utils/parseMessage";
 import { BadgeX, Check, CheckCheck, CircleSlash, Forward } from "lucide-react";
 import LinkPreviewCard from "../Message/LinkPreviewCard";
+import { useAppSelector } from "@/redux/hooks";
 
 interface ChatBubbleProps {
   msg: MessageType;
@@ -25,7 +26,6 @@ interface ChatBubbleProps {
     position: "top" | "bottom";
   };
   isLastMessage: boolean;
-  highlightedMessageId: string | null;
 }
 
 const EMOJI_RE =
@@ -75,7 +75,6 @@ export default function ChatBubble({
   profilePic,
   handleReaction,
   contextMenu,
-  highlightedMessageId,
 }: ChatBubbleProps) {
   const content = msg.content ?? "";
 
@@ -84,9 +83,16 @@ export default function ChatBubble({
   const isSingleEmoji = emojiCount === 1;
   const isMultipleEmoji = emojiCount >= 2 && emojiCount <= 5;
   const isEmojiOnly = isSingleEmoji || isMultipleEmoji;
+  const jumpTo = useAppSelector((s) => s.messages.jumpTo);
+
+
+console.log("JUMPTO", jumpTo, "MSG", msg._id);
+
+  
 
   // Pixel size passed directly to twemoji — CSS font-size has no effect on <img> tags
   const emojiSize = isSingleEmoji ? 56 : 44;
+  // ${highlightedMessageId === msg._id ? "bg-cyan-900/30" : ""}
 
   return (
     <div
@@ -94,7 +100,7 @@ export default function ChatBubble({
         ${!msg.deleted && msg.reactions && msg.reactions.length > 0 ? "pb-6" : ""}
         ${isMe ? "chat-end" : "chat-start"}
         hover:bg-base-content/10 rounded-sm px-4 transition-colors
-        ${highlightedMessageId === msg._id ? "bg-cyan-900/30" : ""}
+        ${jumpTo?.messageId === msg._id ? "bg-cyan-900/30" : ""}
         ${editingMessage?._id === msg._id ? "bg-base-content/10" : ""}
         ${replyingTo?._id === msg._id ? "bg-base-content/10" : ""}
         ${contextMenu.msg?._id === msg._id && !msg.deleted ? "bg-base-content/10" : ""}

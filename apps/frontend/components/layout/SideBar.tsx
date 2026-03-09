@@ -13,12 +13,13 @@ import {
   User2Icon,
   UsersRound,
 } from "lucide-react";
-import { useAppSelector } from "@/redux/hooks";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { AiFillMessage } from "react-icons/ai";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import defaultPFP from "@/public/default-pfp.png";
 import { selectActiveUnreadTotal } from "@/redux/selectors/unreadSelectors";
+import { markAllNotificationsRead } from "@/redux/features/notificationSlice";
 
 interface SideBarProps {
   activeTab: string;
@@ -37,10 +38,14 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   const [isMobile, setIsMobile] = useState(false);
   const totalUnread = useAppSelector(selectActiveUnreadTotal);
   const { requests } = useAppSelector((state) => state.friends);
+  const notificationUnread = useAppSelector(
+    (state) => state.notifications.unreadCount,
+  );
   const pendingCount = useMemo(
     () => requests.incoming.length,
     [requests.incoming.length],
   );
+  const dispatch = useAppDispatch();
 
   const user = useAppSelector((state) => state.profile.profile);
 
@@ -90,11 +95,14 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
       notificationCount: pendingCount,
     },
     { title: "Call history", icon: <Phone size={20} /> },
-    { title: "Status", icon: <Film size={20} /> },
   ];
 
   const bottomButtons: ButtonType[] = [
-    { title: "Inbox", icon: <Inbox size={20} /> },
+    {
+      title: "Inbox",
+      icon: <Inbox size={20} />,
+      notificationCount: notificationUnread,
+    },
     { title: "Archived chats", icon: <Archive size={20} /> },
     { title: "Settings", icon: <Settings size={20} /> },
     {
@@ -120,12 +128,14 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
     },
     { title: "Friends", icon: <UsersRound strokeWidth={1.5} size={22} /> },
     { title: "Call history", icon: <Phone strokeWidth={1.5} size={22} /> },
-    { title: "Status", icon: <Target strokeWidth={1.5} size={22} /> },
     { title: "User profile", icon: <User2Icon strokeWidth={1.5} size={22} /> },
   ];
 
   const renderButton = (btn: ButtonType, isMobileView: boolean = false) => {
     const handleClick = () => {
+      // if (btn.title === "Inbox") {
+      //   dispatch(markAllNotificationsRead());
+      // }
       if (btn.isMenu) {
         setIsExpanded((prev) => !prev);
       } else {
@@ -180,10 +190,11 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
         rounded-xl
         cursor-pointer
         transition-colors duration-200
+        ${btn.title === "Menu" && "hover:bg-transparent text-base-content/70"}
         ${
           activeTab === btn.title
-            ? "bg-cyan-900/80 backdrop-blur-md text-white"
-            : "text-base-content/70 hover:bg-cyan-900/40 hover:text-white"
+            ? "bg-cyan-950/80 backdrop-blur-md text-white"
+            : "text-base-content/70 hover:bg-cyan-900/50 hover:text-white"
         }
       `}
         >

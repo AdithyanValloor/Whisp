@@ -85,12 +85,12 @@ export default function AllFriends({ setActiveTab }: AllFriendsProps) {
             key={friend._id}
             msgId={friend._id}
             user={{
+              _id: friend._id, 
               name: friend.username,
               displayName: friend.displayName ?? friend.username,
               profilePic: friend.profilePicture?.url || "/default-pfp.png",
             }}
             forceActive={activeMenuId === friend._id}
-            chatType="personal"
             onClick={() => openChat(friend._id)}
             rightSlot={
               <div className="flex gap-1">
@@ -104,11 +104,11 @@ export default function AllFriends({ setActiveTab }: AllFriendsProps) {
                       );
                     }}
                   >
-                    <EllipsisVertical size={20} strokeWidth={1.5} />
+                    <EllipsisVertical size={12} strokeWidth={1.5} />
                   </IconButton>
 
                   <ul
-                    className="menu dropdown-content mt-1 bg-base-100 rounded-box w-32 p-2 shadow"
+                    className="menu dropdown-content mt-1 bg-base-100 rounded-box w-40 p-2 shadow"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <li>
@@ -119,7 +119,7 @@ export default function AllFriends({ setActiveTab }: AllFriendsProps) {
                           setActiveMenuId(null);
                         }}
                       >
-                        Remove
+                        Remove friend
                       </button>
                     </li>
                   </ul>

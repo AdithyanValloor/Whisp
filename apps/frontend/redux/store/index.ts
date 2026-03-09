@@ -10,6 +10,7 @@ import themeReducer from "../features/themeSlice";
 import presenceReducer from "../features/presenceSlice";
 import typingReducer from "../features/typingSlice"
 import blockReducer from "../features/blockSlice";
+import notificationsReducer from "../features/notificationSlice"
 
 import { listenerMiddleware } from "../listeners";
 
@@ -57,6 +58,8 @@ export const store = configureStore({
 
     // Blocking users
     block: blockReducer,
+
+    notifications: notificationsReducer,
   },
 
    /**

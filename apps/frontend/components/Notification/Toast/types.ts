@@ -2,6 +2,8 @@ export type SystemToastType = "error" | "success" | "info";
 
 export type NotificationType =
   | "message"
+  | "notification"
+  | "mention"
   | "friend_request"
   | "friend_accept"
   | "call";
