@@ -1,8 +1,7 @@
 "use client";
 
-import TextareaAutosize from "react-textarea-autosize";
 import EmojiPickerBox from "./EmojiPicker";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { IoSend } from "react-icons/io5";
 import { MessageType } from "@/redux/features/messageSlice";
 import { Dispatch, SetStateAction } from "react";
@@ -10,6 +9,7 @@ import { AtSign, CircleAlert, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AppButton from "../GlobalComponents/AppButton";
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
+import TextareaAutosize from "react-textarea-autosize";
 
 interface MessageInputProps {
   message: string;
@@ -69,19 +69,66 @@ export default function MessageInput({
 }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // For mobile uncontrolled input — stores the latest typed value without triggering React renders
+  const nativeValueRef = useRef(message);
+
+  // On mobile the browser will auto-focus the first focusable input after a
+  // page transition, opening the keyboard immediately. The only 100% reliable
+  // fix is to not render a focusable <textarea> at all until the transition
+  // has settled. We show a non-interactive visual placeholder instead, then
+  // swap in the real textarea. One setState at 600ms is a single cheap re-render.
+  const [mobileInputVisible, setMobileInputVisible] = useState(false);
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileInputVisible(true);
+      return;
+    }
+    const t = setTimeout(() => setMobileInputVisible(true), 600);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState(-1);
   const [selectedMentionIds, setSelectedMentionIds] = useState<string[]>([]);
   const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const mentionListRef = useRef<HTMLDivElement | null>(null);
 
+  // Track previous values to detect null→value transitions for focus
+  const prevReplyingToRef = useRef<MessageType | null>(null);
+  const prevEditingMessageRef = useRef<MessageType | null>(null);
+
+  // Focus only when transitioning from nothing → something, desktop only
   useEffect(() => {
-    if (replyingTo || editingMessage) {
+    const prevReply = prevReplyingToRef.current;
+    const prevEdit = prevEditingMessageRef.current;
+
+    prevReplyingToRef.current = replyingTo;
+    prevEditingMessageRef.current = editingMessage;
+
+    const wasEmpty = !prevReply && !prevEdit;
+    const isNowSet = !!(replyingTo || editingMessage);
+
+    // On mobile, programmatic focus = keyboard popup — never do it automatically
+    if (wasEmpty && isNowSet && !isMobile) {
       textareaRef.current?.focus();
     }
-  }, [replyingTo, editingMessage]);
+  }, [replyingTo, editingMessage, isMobile]);
 
-  // 1. Move these computed values OUT of handleInput, to component body level:
+  // Sync external message changes into uncontrolled mobile textarea
+  // (e.g. after send clears the message, or switching editingMessage)
+  useEffect(() => {
+    if (!isMobile || !textareaRef.current) return;
+    const val = editingMessage ? editingMessage.content : message;
+    if (textareaRef.current.value !== val) {
+      textareaRef.current.value = val;
+      nativeValueRef.current = val;
+      // Re-run auto-size manually since we bypassed React
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 160) + "px";
+    }
+  }, [message, editingMessage, isMobile]);
+
   const otherMembers = (groupMembers ?? []).filter(
     (m) => m._id !== currentUserId,
   );
@@ -100,17 +147,20 @@ export default function MessageInput({
           );
 
   const pickMention = (member: (typeof otherMembers)[0]) => {
-    const current = editingMessage ? editingMessage.content : message;
+    const current = editingMessage ? editingMessage.content : (isMobile ? nativeValueRef.current : message);
     const before = current.slice(0, mentionStart);
     const after = current.slice(mentionStart + 1 + (mentionQuery?.length ?? 0));
     const inserted = `@${member.displayName || member.username} `;
     const newVal = before + inserted + after;
 
-    editingMessage
-      ? setEditingMessage((prev) =>
-          prev ? { ...prev, content: newVal } : null,
-        )
-      : setMessage(newVal);
+    if (editingMessage) {
+      setEditingMessage((prev) => prev ? { ...prev, content: newVal } : null);
+    } else if (isMobile && textareaRef.current) {
+      textareaRef.current.value = newVal;
+      nativeValueRef.current = newVal;
+    } else {
+      setMessage(newVal);
+    }
 
     setSelectedMentionIds((prev) =>
       prev.includes(member._id) ? prev : [...prev, member._id],
@@ -124,30 +174,51 @@ export default function MessageInput({
     }, 0);
   };
 
-  // 2. Move these useEffects OUT of handleInput, to component body level:
   useEffect(() => {
     onMentionsChange?.(selectedMentionIds);
   }, [selectedMentionIds]);
+
   useEffect(() => {
     if (message === "") setSelectedMentionIds([]);
   }, [message]);
+
   useEffect(() => {
     setActiveMentionIndex(0);
   }, [mentionQuery]);
 
-  // 3. handleInput now becomes clean — just the input logic:
+  // Flush the uncontrolled mobile textarea value into React state, then call cb
+  const flushAndCall = (cb: () => void) => {
+    if (isMobile) {
+      const val = nativeValueRef.current;
+      if (editingMessage) {
+        setEditingMessage((prev) => (prev ? { ...prev, content: val } : null));
+      } else {
+        setMessage(val);
+      }
+      // State update is async — use a microtask so handleSend reads updated state
+      Promise.resolve().then(cb);
+    } else {
+      cb();
+    }
+  };
+
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     const cursor = e.target.selectionStart ?? val.length;
 
-    editingMessage
-      ? setEditingMessage((prev) => (prev ? { ...prev, content: val } : null))
-      : setMessage(val);
-
-    handleTyping();
+    if (isMobile) {
+      // Uncontrolled on mobile: don't update React state on every keystroke.
+      // The DOM already has the new value; just track it in a ref.
+      nativeValueRef.current = val;
+      handleTyping();
+    } else {
+      editingMessage
+        ? setEditingMessage((prev) => (prev ? { ...prev, content: val } : null))
+        : setMessage(val);
+      handleTyping();
+    }
 
     if (!isGroup) return;
-
     const atMatch = val.slice(0, cursor).match(/@([^\s@]*)$/);
     if (atMatch) {
       setMentionQuery(atMatch[1]);
@@ -184,12 +255,19 @@ export default function MessageInput({
     }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      flushAndCall(handleSend);
     }
   };
 
+  const handleSendClick = () => {
+    flushAndCall(handleSend);
+  };
+
   return (
-    <div className="flex-col mb-3 mx-3 overflow-hidden shadow flex border-2 min-w-0 border-base-content/10 rounded-2xl">
+    <div
+      className={`flex-col mb-3 mx-3 overflow-hidden shadow flex border-1 min-w-0 border-base-content/10 rounded-2xl transition-all
+        ${showPicker && isMobile ? "mb-[380px]" : "mb-3"}`}
+    >
       <AnimatePresence mode="wait">
         {isBlockedByMe ? (
           <motion.div
@@ -200,20 +278,33 @@ export default function MessageInput({
             transition={{ duration: 0.2 }}
             className="w-full p-3 bg-base-200 flex items-center py-4 justify-between rounded-xl text-sm text-base-content"
           >
-            <div className="flex items-center gap-2 opacity-80">
+            <div className="flex items-center gap-3 opacity-80">
               <div className="w-7 h-7 rounded-full bg-red-500/10 flex items-center justify-center">
                 <CircleAlert size={20} className="text-red-500" />
               </div>
-
               <p>You cannot message a blocked user.</p>
             </div>
-
             <AppButton onClick={onUnblock}>Unblock User</AppButton>
+          </motion.div>
+        ) : isBlockingMe ? (
+          <motion.div
+            key="blocking-me"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="w-full p-3 bg-base-200 flex items-center py-4 justify-center rounded-xl text-sm text-base-content"
+          >
+            <div className="flex items-center gap-3 opacity-80">
+              <div className="w-7 h-7 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                <CircleAlert size={20} className="text-yellow-500" />
+              </div>
+              <p>You cannot message this user.</p>
+            </div>
           </motion.div>
         ) : (
           <>
             {/* ================= Reply Section ================= */}
-
             <AnimatePresence initial={false}>
               {replyingTo && (
                 <motion.div
@@ -236,7 +327,6 @@ export default function MessageInput({
                         : {replyingTo.content}
                       </p>
                     </div>
-
                     <button
                       aria-label="close"
                       onClick={() => setReplyingTo(null)}
@@ -275,6 +365,7 @@ export default function MessageInput({
               )}
             </AnimatePresence>
 
+            {/* ================= Mention Picker ================= */}
             <AnimatePresence initial={false}>
               {isGroup && mentionQuery !== null && (
                 <motion.div
@@ -313,12 +404,10 @@ export default function MessageInput({
                               pickMention(member);
                             }}
                             className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors
-                ${idx === activeMentionIndex ? "bg-base-content/10" : "hover:bg-base-content/5"}`}
+                              ${idx === activeMentionIndex ? "bg-base-content/10" : "hover:bg-base-content/5"}`}
                           >
                             <ProfilePicture
-                              src={
-                                member.profilePicture?.url ?? "/default-pfp.png"
-                              }
+                              src={member.profilePicture?.url ?? "/default-pfp.png"}
                               size="sm"
                               showStatus={false}
                             />
@@ -348,40 +437,95 @@ export default function MessageInput({
 
             {/* ================= Input Section ================= */}
             <div className="flex-none bg-base-100 w-full p-3 shadow flex items-end gap-2">
-              <TextareaAutosize
-                minRows={1}
-                maxRows={6}
-                placeholder="Write a message..."
-                ref={textareaRef}
-                value={editingMessage ? editingMessage.content : message}
-                onChange={(e) => handleInput(e)}
-                onKeyDown={(e) => {
-                  handleKeyDown(e);
-                }}
-                className="flex-1 min-w-0 text-base-content resize-none px-4 py-2 focus:outline-none bg-transparent rounded-md text-sm leading-relaxed scrollbar-thin scrollbar-thumb-base-300 scrollbar-track-transparent max-h-40 overflow-y-auto"
-              />
+              {isMobile ? (
+                // On mobile we delay rendering the real textarea until the page
+                // transition settles (mobileInputVisible). Before that we show a
+                // non-focusable visual placeholder — the browser cannot auto-focus
+                // an element that isn't in the DOM yet.
+                mobileInputVisible ? (
+                  <textarea
+                    ref={textareaRef}
+                    rows={1}
+                    onFocus={() => setShowPicker(false)}
+                    autoFocus={false}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="sentences"
+                    spellCheck={false}
+                    enterKeyHint="send"
+                    placeholder="Write a message..."
+                    // No `value` prop — intentionally uncontrolled
+                    defaultValue={editingMessage ? editingMessage.content : message}
+                    onChange={handleInput}
+                    onKeyDown={handleKeyDown}
+                    onInput={(e) => {
+                      const t = e.currentTarget;
+                      t.style.height = "auto";
+                      t.style.height = Math.min(t.scrollHeight, 160) + "px";
+                    }}
+                    className="flex-1 min-w-0 text-base-content resize-none px-4 py-2 focus:outline-none bg-transparent rounded-md text-sm leading-relaxed scrollbar-thin scrollbar-thumb-base-300 scrollbar-track-transparent overflow-y-auto"
+                    style={{ maxHeight: "160px" }}
+                  />
+                ) : (
+                  // Non-interactive placeholder — visually identical, but not focusable
+                  <div
+                    className="flex-1 min-w-0 text-base-content/40 px-4 py-2 rounded-md text-sm leading-relaxed"
+                    style={{ minHeight: "36px" }}
+                  >
+                    Write a message...
+                  </div>
+                )
+              ) : (
+                // Controlled textarea on desktop — normal React pattern
+                <TextareaAutosize
+                  minRows={1}
+                  maxRows={6}
+                  onFocus={() => setShowPicker(false)}
+                  autoFocus={false}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="Write a message..."
+                  ref={textareaRef}
+                  value={editingMessage ? editingMessage.content : message}
+                  onChange={handleInput}
+                  onKeyDown={handleKeyDown}
+                  className="flex-1 min-w-0 text-base-content resize-none px-4 py-2 focus:outline-none bg-transparent rounded-md text-sm leading-relaxed scrollbar-thin scrollbar-thumb-base-300 scrollbar-track-transparent max-h-40 overflow-y-auto"
+                />
+              )}
 
               <EmojiPickerBox
                 isMobile={isMobile}
                 showPicker={showPicker}
                 setShowPicker={setShowPicker}
                 onEmojiClick={(emoji: string) => {
-                  if (editingMessage)
+                  if (isMobile && textareaRef.current) {
+                    // Insert emoji directly into uncontrolled textarea
+                    const el = textareaRef.current;
+                    const start = el.selectionStart ?? el.value.length;
+                    const end = el.selectionEnd ?? el.value.length;
+                    const newVal = el.value.slice(0, start) + emoji + el.value.slice(end);
+                    el.value = newVal;
+                    nativeValueRef.current = newVal;
+                    const pos = start + emoji.length;
+                    el.setSelectionRange(pos, pos);
+                    // Re-size
+                    el.style.height = "auto";
+                    el.style.height = Math.min(el.scrollHeight, 160) + "px";
+                  } else if (editingMessage) {
                     setEditingMessage((prev) =>
                       prev ? { ...prev, content: prev.content + emoji } : null,
                     );
-                  else setMessage((prev: string) => prev + emoji);
+                  } else {
+                    setMessage((prev: string) => prev + emoji);
+                  }
                 }}
               />
 
               <button
                 type="button"
-                onClick={handleSend}
-                className="
-            p-2 rounded-full cursor-pointer
-            transition-transform duration-200 ease-out opacity-80
-            hover:translate-x-0.5 hover:scale-110 text-base-content
-          "
+                onClick={handleSendClick}
+                className="p-2 rounded-full cursor-pointer transition-transform duration-200 ease-out opacity-80 hover:translate-x-0.5 hover:scale-110 text-base-content"
                 aria-label="Send message"
               >
                 <IoSend strokeWidth={1.3} size={20} />

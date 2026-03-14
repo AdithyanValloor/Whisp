@@ -36,6 +36,15 @@ export default function ForwardModal({
   handleForwardSelected,
 }: ForwardModalProps) {
   const currentUser = useAppSelector((state) => state.auth.user);
+  const blockedUsers = useAppSelector((state) => state.block.blockedUsers);
+  const blockedByUsers = useAppSelector((state) => state.block.blockedByUsers);
+
+  const blockedIds = useMemo(
+    () => new Set(blockedUsers.map((u) => u._id)),
+    [blockedUsers],
+  );
+
+  const blockedByIds = useMemo(() => new Set(blockedByUsers), [blockedByUsers]);
 
   const getChatDisplayName = (chat: Chat) => {
     if (chat.isGroup) return chat.chatName;
@@ -47,14 +56,27 @@ export default function ForwardModal({
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredChats = useMemo(() => {
-    if (!searchQuery.trim()) return chats;
-
     const query = searchQuery.toLowerCase();
 
-    return chats.filter((chat) =>
-      getChatDisplayName(chat).toLowerCase().includes(query),
-    );
-  }, [chats, searchQuery, currentUser]);
+    return chats.filter((chat) => {
+      if (chat.isGroup) {
+        if (!query) return true;
+        return getChatDisplayName(chat).toLowerCase().includes(query);
+      }
+
+      const other = chat.members.find((m) => m._id !== currentUser?._id);
+
+      if (!other) return false;
+
+      if (blockedIds.has(other._id) || blockedByIds.has(other._id)) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      return getChatDisplayName(chat).toLowerCase().includes(query);
+    });
+  }, [chats, searchQuery, currentUser, blockedIds, blockedByIds]);
 
   if (typeof document === "undefined") return null;
 
@@ -62,7 +84,7 @@ export default function ForwardModal({
     <AnimatePresence>
       {show && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center text-base-content"
+          className="fixed inset-0 z-50 flex px-4 items-center justify-center text-base-content"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -82,7 +104,7 @@ export default function ForwardModal({
             className="relative z-10 bg-base-200 flex flex-col 
              w-full max-w-md 
              max-h-[85vh] 
-             rounded-xl border border-base-content/10 shadow-xl overflow-hidden"
+             rounded-2xl border border-base-content/10 shadow-xl overflow-hidden"
           >
             <div className="flex flex-col h-full p-4 min-h-0">
               {/* Header */}
@@ -147,11 +169,12 @@ export default function ForwardModal({
                                   )?.profilePicture,
                             }}
                             msgId={chat._id}
+                            hideLastMessage
                           />
 
                           {isSelected && (
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-900">
-                              <Check strokeWidth={3}/>
+                              <Check strokeWidth={2} />
                             </span>
                           )}
                         </li>

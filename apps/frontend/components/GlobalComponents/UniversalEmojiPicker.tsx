@@ -85,6 +85,7 @@ export default function UniversalEmojiPicker({
             emojiStyle={EmojiStyle.TWITTER}
             previewConfig={{ showPreview: false }}
             skinTonesDisabled
+            autoFocusSearch={false}
             theme={Theme.AUTO}
             width={340}
             height={400}

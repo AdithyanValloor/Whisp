@@ -1,6 +1,11 @@
 "use client";
 
-import { ArrowLeft, CalendarDays, EllipsisVertical } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  EllipsisVertical,
+  MessageCircle,
+} from "lucide-react";
 import { FaUserCheck, FaUserClock, FaUserPlus } from "react-icons/fa6";
 import { useState } from "react";
 
@@ -29,6 +34,8 @@ import { blockUser, unblockUser } from "@/redux/features/blockSlice";
 import { RootState } from "@/redux/store";
 import { MdBlock } from "react-icons/md";
 import AppButton from "../GlobalComponents/AppButton";
+import { accessChat } from "@/redux/features/chatSlice";
+import { useRouter } from "next/navigation";
 
 interface ProfileViewProps {
   user: {
@@ -41,12 +48,18 @@ interface ProfileViewProps {
     pronouns?: string;
   };
   onBack?: () => void;
+  onMessage?: boolean;
 }
 
 type FriendAction = "add" | "remove" | "accept" | "reject" | "cancel" | null;
 
-export default function ProfileView({ user, onBack }: ProfileViewProps) {
+export default function ProfileView({
+  user,
+  onBack,
+  onMessage,
+}: ProfileViewProps) {
   const dispatch = useAppDispatch();
+  const router = useRouter()
 
   const currentUser = useAppSelector((state) => state.auth.user);
   const friends = useAppSelector((state) => state.friends.friends);
@@ -89,6 +102,17 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
     }
     setShowBlockModal(false);
   };
+
+  // In ProfileView — handle the message button click
+  const handleMessage = async () => {
+    try {
+      const chat = await dispatch(accessChat({userId:user._id})).unwrap();
+      router.push(`/chat/${chat.data._id}`);
+    } catch (err) {
+      console.error("Failed to access chat", err);
+    }
+  };
+
   // --------------------------------------------------
   // Derived friend status (single source of truth)
   // --------------------------------------------------
@@ -116,7 +140,6 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
 
       // Optimistic update - don't wait for socket
       if (type === "accept" && result && typeof result !== "string") {
-        // The socket will confirm, but update UI immediately
         const friend =
           result.from._id === currentUser?._id ? result.to : result.from;
         dispatch(
@@ -156,7 +179,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
           ariaLabel="Remove friend"
           onClick={() => setShowRemoveModal(true)}
         >
-          <FaUserCheck size={18} />
+          <FaUserCheck size={20} />
         </IconButton>
       );
     }
@@ -227,7 +250,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
       {onBack && (
         <div className="absolute top-3 z-51 left-3">
           <IconButton ariaLabel="Go back" onClick={onBack}>
-            <ArrowLeft size={18} />
+            <ArrowLeft size={20} />
           </IconButton>
         </div>
       )}
@@ -249,7 +272,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
               className="bg-base-100 border border-base-content/10 rounded-2xl shadow-lg p-6 w-[90%] max-w-sm text-center flex flex-col items-center gap-4"
             >
               <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
-                <MdBlock className="text-red-500" size={36}/>
+                <MdBlock className="text-red-500" size={36} />
               </div>
 
               <div className="space-y-1">
@@ -266,22 +289,30 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
                 </p>
               </div>
 
-              <AppButton
-                onClick={() => dispatch(unblockUser(user._id))}
-              >
+              <AppButton onClick={() => dispatch(unblockUser(user._id))}>
                 Unblock User
               </AppButton>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
       {currentUser?._id !== user._id && (
-        <div className="absolute top-3 right-3 flex items-center gap-2">
+        <div className="absolute top-3 right-3 flex items-center gap-1">
+          {!isBlocked && onMessage && (
+            <IconButton
+              ariaLabel="Send message"
+              onClick={handleMessage}
+            >
+              <MessageCircle size={20} />
+            </IconButton>
+          )}
+
           {renderFriendButton()}
 
           <div className="dropdown dropdown-end">
             <IconButton ariaLabel="More actions" tabIndex={0}>
-              <EllipsisVertical size={18} />
+              <EllipsisVertical size={20} />
             </IconButton>
 
             <ul
@@ -358,6 +389,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
                     "accept",
                   )
                 }
+                className="px-7"
               >
                 Accept
               </AppButton>
@@ -370,7 +402,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
                     "reject",
                   )
                 }
-                className="bg-red-900"
+                className="bg-red-900 px-7"
               >
                 Reject
               </AppButton>
@@ -378,6 +410,7 @@ export default function ProfileView({ user, onBack }: ProfileViewProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* About */}
       <motion.div
         variants={itemVariants}

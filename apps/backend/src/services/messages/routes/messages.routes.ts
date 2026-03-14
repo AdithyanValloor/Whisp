@@ -11,7 +11,8 @@ import {
     searchMessages,
     getMessageContext,
     getNewerMessages,
-    forwardMessage
+    forwardMessage,
+    globalSearchMessages
 } from "../controllers/message.controller.js"
 import { protect } from "../../auth/auth.middleware.js"
 
@@ -25,6 +26,9 @@ router.post("/mark-read/:chatId", protect, markChatAsRead)
 
 // Mark messages as seen
 router.post("/mark-seen/:chatId", protect, markMessagesAsSeen);
+
+// Global search
+router.get("/search/global", protect, globalSearchMessages);
 
 // Search messages
 router.get("/search", protect, searchMessages);

@@ -11,6 +11,8 @@ import { extractFirstUrl } from "../utils/linkPreview.js";
 import { BlockModel } from "../../user/models/block.model.js";
 import { ChatUserStateModel } from "../../chat/models/chatUserState.model.js";
 import { createInboxNotification } from "../../notifications/services/inboxNotification.service.js";
+import { emitMessageRequestSent } from "../../../socket/emitters/messageRequest.emitters.js";
+import { MessageRequestModel } from "../../user/models/messageRequest.model.js";
 
 /**
  * Parses @mention user IDs from content and validates they are group members.
@@ -190,8 +192,6 @@ export const sendMessageFunction = async (
 
   const uniqueMentions = new Set(resolvedMentions.map((id) => id.toString()));
 
-  
-
   if (replyTo) {
     const repliedMessage = await Message.findById(replyTo);
 
@@ -225,6 +225,39 @@ export const sendMessageFunction = async (
   // Update unread counts
   chat.lastMessage = message._id;
   await chat.save();
+
+  if (
+    !chat.isGroup &&
+    chat.requestPending &&
+    chat.requestInitiator?.toString() === senderId
+  ) {
+    const toUserId = chat.members
+      .map((m) => m.toString())
+      .find((id) => id !== senderId);
+
+    if (toUserId) {
+      const existing = await MessageRequestModel.findOne({
+        from: senderId,
+        to: toUserId,
+        status: "pending",
+      });
+
+      if (!existing) {
+        const request = await MessageRequestModel.create({
+          from: senderId,
+          to: toUserId,
+          firstMessage: content,
+        });
+
+        const populatedRequest = await request.populate([
+          { path: "from", select: "username displayName profilePicture" },
+          { path: "to", select: "username displayName profilePicture" },
+        ]);
+
+        emitMessageRequestSent(senderId, toUserId, populatedRequest);
+      }
+    }
+  }
 
   const memberIds = chat.members.map((m) => m.toString());
 
@@ -839,4 +872,64 @@ export const getNewerMessagesFunction = async (
   }
 
   return { messages, hasMore };
+};
+
+/**
+ * Searches messages across all chats the user is a member of.
+ * Respects clearedAt per chat. Returns top results grouped by chat.
+ */
+export const globalSearchMessagesFunction = async (
+  userId: string,
+  query: string,
+  limit: number = 20,
+) => {
+  if (!userId) throw Unauthorized();
+  if (!query?.trim()) throw BadRequest("Query is required");
+
+  // Get all chats user belongs to
+  const userChats = await Chat.find({ members: userId }).select("_id");
+  const chatIds = userChats.map((c) => c._id);
+
+  // Get all user states to respect clearedAt per chat
+  const states = await ChatUserStateModel.find({
+    userId,
+    chatId: { $in: chatIds },
+  });
+  const stateMap = new Map(states.map((s) => [s.chatId.toString(), s]));
+
+  // Build per-chat clearedAt exclusion conditions
+  const chatConditions = chatIds.map((chatId) => {
+    const state = stateMap.get(chatId.toString());
+    const condition: FilterQuery<IMessage> = { chat: chatId };
+    if (state?.clearedAt) {
+      condition.createdAt = { $gt: state.clearedAt };
+    }
+    return condition;
+  });
+
+  if (chatConditions.length === 0) return { messages: [] };
+
+  const messages = await Message.find(
+    {
+      $and: [
+        { $or: chatConditions },
+        { $text: { $search: query } },
+        { deleted: false },
+      ],
+    },
+    { score: { $meta: "textScore" } },
+  )
+    .sort({ score: { $meta: "textScore" }, createdAt: -1 })
+    .limit(limit)
+    .populate({
+      path: "chat",
+      select: "_id chatName isGroup members",
+      populate: {
+        path: "members",
+        select: "_id username displayName",
+      },
+    })
+    .populate("sender", "displayName username profilePicture")
+
+  return { messages };
 };

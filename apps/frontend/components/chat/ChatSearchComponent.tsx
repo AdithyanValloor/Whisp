@@ -47,8 +47,6 @@ export default function ChatSearchComponent({
     searchResults.map((id) => state.messages.byId[id]),
   );
 
-  console.log("SEARCH RES :", searchMessages);
-
   useEffect(() => {
     const hasQuery = query.trim().length > 0;
     const hasDate = !!selectedDate;
@@ -89,7 +87,7 @@ export default function ChatSearchComponent({
             onClose();
           }}
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={20} />
         </IconButton>
 
         <div className="relative flex-1">

@@ -223,13 +223,13 @@ export default function NotificationCard({
 
         {isFriendRequest && (
           <div className="flex gap-2 mt-3">
-            <AppButton onClick={handleAccept} className="text-xs h-8">
+            <AppButton onClick={handleAccept} className="flex-1">
               Accept
             </AppButton>
 
             <AppButton
               onClick={handleReject}
-              className="text-xs h-8 bg-red-900 hover:bg-red-800"
+              className="flex-1 bg-red-900 hover:bg-red-800"
             >
               Reject
             </AppButton>

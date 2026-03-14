@@ -115,6 +115,30 @@ export default function Messages({
     selectMessagesByChat(state, chatId),
   );
 
+  // Scroll to bottom on initial load
+  useEffect(() => {
+    if (!isInitialLoadRef.current) return;
+    if (messages.length === 0) return;
+
+    isInitialLoadRef.current = false;
+    setIsInitialLoading(false);
+
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+
+    requestAnimationFrame(() => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    });
+
+    if (!hasMarkedRef.current) {
+      hasMarkedRef.current = true;
+      dispatch(markMessagesAsSeen(chatId));
+    }
+  }, [messages.length, chatId]);
+
   // FIX 3: Stable callbacks with useCallback to avoid stale closures in scroll handlers
   const isNearBottom = useCallback(() => {
     const c = containerRef.current;

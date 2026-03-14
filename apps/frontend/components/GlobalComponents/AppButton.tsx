@@ -22,7 +22,7 @@ const AppButton: React.FC<AppButtonProps> = ({
       type={type}
       disabled={disabled || isLoading}
       whileTap={animate ? { scale: 0.96 } : undefined}
-      whileHover={animate ? { scale: 1.02 } : undefined}
+      // whileHover={animate ? { scale: 1.02 } : undefined}
       transition={{
         type: "spring",
         stiffness: 500,

@@ -76,7 +76,7 @@ export const accessChat = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { userId }: { userId?: string } = req.body;
+    const { userId, message }: { userId?: string, message?:string } = req.body;
     const currentUserId = req.user?.id;
 
     // Validate request body
@@ -89,7 +89,7 @@ export const accessChat = async (
       throw Unauthorized();
     }
 
-    const chat = await accessChatFunction(userId, currentUserId);
+    const chat = await accessChatFunction(userId, currentUserId, message);
 
     res.status(200).json(chat);
   } catch (err) {

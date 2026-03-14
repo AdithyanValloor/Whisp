@@ -1,57 +1,10 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
 import { sendMessage } from "./messageSlice";
+import { acceptMessageRequestThunk } from "./requestSlice";
+import { Chat, ChatMessage } from "@/types/chat.types";
 
 /* -------------------- TYPES -------------------- */
-
-export interface ChatUser {
-  _id: string;
-  username: string;
-  displayName?: string;
-  profilePicture?: {
-    url: string | null;
-    public_id: string | null;
-  };
-}
-
-export interface MessageReaction {
-  _id: string;
-  emoji: string;
-  user: string;
-}
-
-export interface ChatMessage {
-  _id: string;
-  chat: string;
-  sender: string;
-  content: string;
-  edited: boolean;
-  deleted: boolean;
-  deliveredTo: string[];
-  seenBy: string[];
-  replyTo: string | null;
-  reactions: MessageReaction[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Chat {
-  _id: string;
-  members: ChatUser[];
-  isGroup: boolean;
-  chatName: string;
-  admin: ChatUser[];
-  createdBy?: ChatUser;
-  isPinned?: boolean;
-  isArchived?: boolean;
-  lastReadAt?: string | null;
-  mutedUntil?: string | null;
-  unreadCounts: Record<string, number>;
-  lastMessage?: ChatMessage;
-  createdAt: string;
-  updatedAt: string;
-  clearedAt?: string | null;
-}
 
 interface ChatState {
   chats: Chat[];
@@ -70,6 +23,10 @@ interface ChatResponse {
   chat: Chat;
 }
 
+type AccessChatResponse =
+  | { type: "chat"; data: Chat }
+  | { type: "pending_chat"; data: Chat };
+
 /* -------------------- CHAT THUNKS -------------------- */
 
 export const fetchChats = createAsyncThunk<
@@ -78,20 +35,22 @@ export const fetchChats = createAsyncThunk<
   { rejectValue: string }
 >("chat/fetchChats", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<Chat[]>("/chat");
+    const res = await api.get("/chat");
+    console.log("FETCH CHATS RAW RESPONSE:", res.data);
     return res.data;
-  } catch {
+  } catch (err) {
+    console.log("FETCH CHATS ERROR:", err);
     return rejectWithValue("Failed to fetch chats");
   }
 });
 
 export const accessChat = createAsyncThunk<
-  Chat,
-  string,
+  AccessChatResponse,
+  { userId: string; message?: string },
   { rejectValue: string }
->("chat/accessChat", async (userId, { rejectWithValue }) => {
+>("chat/accessChat", async (data, { rejectWithValue }) => {
   try {
-    const res = await api.post<Chat>("/chat/access", { userId });
+    const res = await api.post("/chat/access", data);
     return res.data;
   } catch {
     return rejectWithValue("Failed to access chat");
@@ -258,18 +217,17 @@ export const transferOwnership = createAsyncThunk<
 /* -------------------- CHAT SORT HELPER -------------------- */
 
 const sortChats = (chats: Chat[]) => {
-  return chats.sort((a, b) => {
+  if (!Array.isArray(chats)) return [];
+  return [...chats].sort((a, b) => {
     if ((a.isPinned ?? false) !== (b.isPinned ?? false)) {
       return a.isPinned ? -1 : 1;
     }
-
     return (
       new Date(b.lastMessage?.createdAt ?? 0).getTime() -
       new Date(a.lastMessage?.createdAt ?? 0).getTime()
     );
   });
 };
-
 /* -------------------- SLICE -------------------- */
 
 const initialState: ChatState = {
@@ -456,9 +414,10 @@ const chatSlice = createSlice({
       })
       .addCase(accessChat.fulfilled, (state, action) => {
         state.accessLoading = false;
-        const chat = action.payload;
-        if (!state.chats.some((c) => c._id === chat._id)) {
-          state.chats.unshift(chat);
+        const payload = action.payload;
+
+        if (!state.chats.some((c) => c._id === payload.data._id)) {
+          state.chats.unshift(payload.data);
         }
       })
       .addCase(accessChat.rejected, (state, action) => {
@@ -521,7 +480,7 @@ const chatSlice = createSlice({
         chat.lastMessage = undefined;
         chat.lastReadAt = new Date().toISOString();
       })
-      .addCase(clearChat.rejected, (state, action) => {
+      .addCase(clearChat.rejected, (state) => {
         state.error = "Failed to clear chat";
       })
       .addCase(clearChat.fulfilled, (state, action) => {
@@ -622,6 +581,13 @@ const chatSlice = createSlice({
       .addCase(transferOwnership.fulfilled, (state, action) => {
         const idx = state.chats.findIndex((g) => g._id === action.payload._id);
         if (idx !== -1) state.chats[idx] = action.payload;
+      })
+
+      .addCase(acceptMessageRequestThunk.fulfilled, (state, action) => {
+        const { chat } = action.payload;
+        if (!state.chats.some((c) => c._id === chat._id)) {
+          state.chats.unshift(chat);
+        }
       })
 
       /* -------- SEND MESSAGE (update last message preview) -------- */

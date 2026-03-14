@@ -19,6 +19,9 @@ export interface IChat extends Document {
 
   createdAt: Date;
   updatedAt: Date;
+
+  requestPending: boolean;
+  requestInitiator: Types.ObjectId;
 }
 
 const ChatSchema: Schema<IChat> = new Schema(
@@ -68,10 +71,24 @@ const ChatSchema: Schema<IChat> = new Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+
+    requestPending: {
+      type: Boolean,
+      default: false,
+    },
+
+    requestInitiator: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   {
     timestamps: true,
   },
 );
+
+ChatSchema.index({ members: 1, requestPending: 1 });
+ChatSchema.index({ requestInitiator: 1 });
 
 export const Chat = model<IChat>("Chat", ChatSchema);

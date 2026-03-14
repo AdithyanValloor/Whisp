@@ -13,11 +13,6 @@ export const selectMessagesByChat = createSelector(
   ],
   (ids, byId) => {
     const messages = ids.map((id) => byId[id]).filter(Boolean);
-    console.log("🎯 Selector recomputed:", { 
-      idsCount: ids.length, 
-      messagesCount: messages.length,
-      latestId: ids[ids.length - 1]
-    });
     return messages;
   }
 );

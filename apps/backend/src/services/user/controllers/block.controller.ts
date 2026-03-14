@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import {
   blockUser,
+  getBlockedByUsers,
   getBlockedUsers,
   unblockUser,
 } from "../services/block.service.js";
@@ -15,6 +16,20 @@ export const getBlockedUsersController = async (
     const userId = req.user?.id;
     const blockedUsers = await getBlockedUsers(userId);
     res.status(200).json({ blockedUsers });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBlockedByUsersController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user?.id;
+    const blockedByUserIds = await getBlockedByUsers(userId);
+    res.json({ blockedByUserIds });
   } catch (error) {
     next(error);
   }

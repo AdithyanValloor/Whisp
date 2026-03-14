@@ -6,6 +6,7 @@ import IconButton from "../GlobalComponents/IconButtons";
 import SearchInput from "../GlobalComponents/SearchInput";
 import CreateGroup from "./CreateGroup";
 import AddFriendInput from "../GlobalComponents/AddFriendInput";
+import { useIsMobile } from "@/utils/screenSize";
 
 interface NewChatPros {
   onClose: () => void;
@@ -78,9 +79,12 @@ export default function NewChat({
 }: NewChatPros) {
   const [view, setView] = useState<CreateChatView>("menu");
 
+    const isMobile = useIsMobile();
+
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
-      <div className="bg-base-200 p-3 overflow-visible rounded-xl flex flex-col gap-3 w-full h-full">
+    <div className="fixed inset-0 flex pb-3 items-center justify-center z-50 overflow-hidden">
+      <div className={`bg-base-200 p-3 overflow-visible ${!isMobile && "rounded-2xl"}  flex flex-col border border-base-content/10 gap-3 w-full h-full`}>
         
         {/* Header */}
         <div className="flex items-center gap-2">

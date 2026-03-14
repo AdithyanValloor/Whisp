@@ -19,17 +19,28 @@ import { messageRouter } from "./services/messages/routes/messages.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import { blockRouter } from "./services/user/routes/block.routes.js";
 import { inboxNotificationsRouter } from "./services/notifications/routes/inboxNotification.routes.js";
+import { messageRequestRouter } from "./services/messages/routes/messageRequest.routes.js";
 
 export const createApp = (): Application => {
   const app = express();
 
   // Global middleware
+  // app.use(
+  //   cors({
+  //     origin: true, // Restrict in production via env (e.g., CLIENT_URL)
+  //     credentials: true,
+  //   })
+  // );
+
   app.use(
-    cors({
-      origin: true, // Restrict in production via env (e.g., CLIENT_URL)
-      credentials: true,
-    })
-  );
+  cors({
+    origin: [
+      "http://localhost:3000",
+      "http://192.168.20.50:3000"
+    ],
+    credentials: true,
+  })
+);
 
   app.use(express.json());
   app.use(cookieParser());
@@ -43,6 +54,7 @@ export const createApp = (): Application => {
   app.use("/api/message", messageRouter);
   app.use("/api/block", blockRouter);
   app.use("/api/notifications", inboxNotificationsRouter);
+  app.use("/api/message-request", messageRequestRouter);
 
   // Must be registered after all routes
   app.use(errorHandler);

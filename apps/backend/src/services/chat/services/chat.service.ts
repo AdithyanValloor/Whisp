@@ -1,8 +1,16 @@
 import { Chat } from "../models/chat.model.js";
-import { BadRequest, Forbidden, NotFound, Unauthorized } from "../../../utils/errors/httpErrors.js";
+import {
+  BadRequest,
+  Forbidden,
+  NotFound,
+  Unauthorized,
+} from "../../../utils/errors/httpErrors.js";
 import { ChatUserStateModel } from "../models/chatUserState.model.js";
 import { BlockModel } from "../../user/models/block.model.js";
 import { Message } from "../../messages/models/message.model.js";
+import { areFriends } from "../../user/utils/friend.utils.js";
+import { sendMessageRequest } from "../../messages/services/messageRequest.service.js";
+import { emitMessageRequestSent } from "../../../socket/emitters/messageRequest.emitters.js";
 
 /**
  * ------------------------------------------------------------------
@@ -25,6 +33,7 @@ export const fetchChatsFunction = async (userId: string) => {
   const chats = await Chat.find({
     members: userId,
     isDeleted: { $ne: true },
+    $or: [{ requestPending: { $ne: true } }, { requestInitiator: userId }],
   })
     .populate("members", "-password")
     .populate("admin", "-password")
@@ -33,9 +42,7 @@ export const fetchChatsFunction = async (userId: string) => {
 
   const states = await ChatUserStateModel.find({ userId });
 
-  const stateMap = new Map(
-    states.map((s) => [s.chatId.toString(), s])
-  );
+  const stateMap = new Map(states.map((s) => [s.chatId.toString(), s]));
 
   const enriched = chats.map((chat) => {
     const state = stateMap.get(chat._id.toString());
@@ -54,8 +61,7 @@ export const fetchChatsFunction = async (userId: string) => {
     if (a.isPinned !== b.isPinned) {
       return a.isPinned ? -1 : 1;
     }
-    return new Date(b.updatedAt).getTime() -
-           new Date(a.updatedAt).getTime();
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
   return enriched;
@@ -78,7 +84,8 @@ export const fetchChatsFunction = async (userId: string) => {
  */
 export const accessChatFunction = async (
   userId: string,
-  currentUserId: string
+  currentUserId: string,
+  firstMessage?: string,
 ) => {
   if (!userId || !currentUserId) {
     throw BadRequest("Both user IDs are required");
@@ -100,8 +107,9 @@ export const accessChatFunction = async (
   }
 
   /**
-   * Attempt to find existing 1-to-1 chat
+   * FIRST: check existing chat
    */
+
   const existingChat = await Chat.findOne({
     isGroup: false,
     members: { $all: [userId, currentUserId], $size: 2 },
@@ -109,19 +117,41 @@ export const accessChatFunction = async (
     .populate("members", "-password")
     .populate({
       path: "lastMessage",
-      populate: {
-        path: "sender",
-        select: "username profilePicture email",
-      },
+      populate: { path: "sender", select: "username profilePicture email" },
     });
 
   if (existingChat) {
-    return existingChat;
+    return {
+      type: existingChat.requestPending ? "pending_chat" : "chat",
+      data: existingChat,
+    };
   }
 
   /**
-   * Create new 1-to-1 chat
+   * SECOND: check friendship
    */
+
+  const friends = await areFriends(currentUserId, userId);
+
+  if (!friends) {
+    const chat = await Chat.create({
+      isGroup: false,
+      members: [userId, currentUserId],
+      requestPending: true,
+      requestInitiator: currentUserId,
+    });
+
+    const populatedChat = await Chat.findById(chat._id).populate(
+      "members",
+      "-password",
+    );
+
+    return { type: "pending_chat", data: populatedChat };
+  }
+  /**
+   * Create new DM chat
+   */
+
   const newChat = await Chat.create({
     chatName: "sender",
     isGroup: false,
@@ -130,20 +160,20 @@ export const accessChatFunction = async (
 
   const fullChat = await Chat.findById(newChat._id).populate(
     "members",
-    "-password"
+    "-password",
   );
 
   if (!fullChat) {
     throw NotFound("Chat creation failed");
   }
 
-  return fullChat;
+  return {
+    type: "chat",
+    data: fullChat,
+  };
 };
 
-export const togglePinChatFunction = async (
-  userId: string,
-  chatId: string
-) => {
+export const togglePinChatFunction = async (userId: string, chatId: string) => {
   if (!userId) throw Unauthorized();
 
   const state = await ChatUserStateModel.findOne({ userId, chatId });
@@ -153,7 +183,7 @@ export const togglePinChatFunction = async (
   await ChatUserStateModel.findOneAndUpdate(
     { userId, chatId },
     { isPinned: newValue },
-    { upsert: true }
+    { upsert: true },
   );
 
   return { isPinned: newValue };
@@ -161,7 +191,7 @@ export const togglePinChatFunction = async (
 
 export const toggleArchiveChatFunction = async (
   userId: string,
-  chatId: string
+  chatId: string,
 ) => {
   if (!userId) throw Unauthorized();
 
@@ -172,7 +202,7 @@ export const toggleArchiveChatFunction = async (
   await ChatUserStateModel.findOneAndUpdate(
     { userId, chatId },
     { isArchived: newValue },
-    { upsert: true }
+    { upsert: true },
   );
 
   return { isArchived: newValue };
@@ -180,7 +210,7 @@ export const toggleArchiveChatFunction = async (
 
 export const markChatAsUnreadFunction = async (
   userId: string,
-  chatId: string
+  chatId: string,
 ) => {
   if (!userId) throw Unauthorized();
 
@@ -196,14 +226,12 @@ export const markChatAsUnreadFunction = async (
     return { chatId, count: 0 };
   }
 
-  const newLastReadAt = new Date(
-    latestIncomingMessage.createdAt.getTime() - 1
-  );
+  const newLastReadAt = new Date(latestIncomingMessage.createdAt.getTime() - 1);
 
   await ChatUserStateModel.findOneAndUpdate(
     { userId, chatId },
     { lastReadAt: newLastReadAt },
-    { upsert: true }
+    { upsert: true },
   );
 
   return { chatId, count: 1 };
@@ -211,22 +239,22 @@ export const markChatAsUnreadFunction = async (
 
 export const markChatAsReadFunction = async (
   userId: string,
-  chatId: string
+  chatId: string,
 ) => {
   if (!userId) throw Unauthorized();
 
   const latestMessage = await Message.findOne({
-  chat: chatId,
-  deleted: false,
-})
-.sort({ createdAt: -1 })
-.select("createdAt");
+    chat: chatId,
+    deleted: false,
+  })
+    .sort({ createdAt: -1 })
+    .select("createdAt");
 
-await ChatUserStateModel.findOneAndUpdate(
-  { userId, chatId },
-  { lastReadAt: latestMessage?.createdAt ?? new Date() },
-  { upsert: true }
-);
+  await ChatUserStateModel.findOneAndUpdate(
+    { userId, chatId },
+    { lastReadAt: latestMessage?.createdAt ?? new Date() },
+    { upsert: true },
+  );
 
   return { chatId };
 };
@@ -250,7 +278,7 @@ export const clearChatForUser = async (userId: string, chatId: string) => {
       lastReadAt: now,
       isArchived: false,
     },
-    { upsert: true }
+    { upsert: true },
   );
 
   return true;
@@ -265,7 +293,7 @@ export const deleteChatForUser = async (userId: string, chatId: string) => {
   await ChatUserStateModel.findOneAndUpdate(
     { userId, chatId },
     { clearedAt: now, lastReadAt: now, isArchived: false, isPinned: false },
-    { upsert: true }
+    { upsert: true },
   );
 
   await Chat.findByIdAndUpdate(chatId, {
@@ -277,18 +305,13 @@ export const deleteChatForUser = async (userId: string, chatId: string) => {
 
 const MUTED_FOREVER_SENTINEL = new Date("9999-12-31T23:59:59.999Z");
 
-export type MuteDuration =
-  | "1h"
-  | "8h"
-  | "24h"
-  | "1w"
-  | "forever";
+export type MuteDuration = "1h" | "8h" | "24h" | "1w" | "forever";
 
 const MUTE_DURATIONS_MS: Record<Exclude<MuteDuration, "forever">, number> = {
-  "1h":  1 * 60 * 60 * 1000,
-  "8h":  8 * 60 * 60 * 1000,
+  "1h": 1 * 60 * 60 * 1000,
+  "8h": 8 * 60 * 60 * 1000,
   "24h": 24 * 60 * 60 * 1000,
-  "1w":  7 * 24 * 60 * 60 * 1000,
+  "1w": 7 * 24 * 60 * 60 * 1000,
 };
 
 export const muteChatFunction = async (
@@ -315,10 +338,7 @@ export const muteChatFunction = async (
   return { chatId, mutedUntil };
 };
 
-export const unmuteChatFunction = async (
-  userId: string,
-  chatId: string,
-) => {
+export const unmuteChatFunction = async (userId: string, chatId: string) => {
   if (!userId) throw Unauthorized();
 
   const chat = await Chat.findOne({ _id: chatId, members: userId });

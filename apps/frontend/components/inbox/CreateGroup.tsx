@@ -93,7 +93,7 @@ export default function CreateGroup({
         aria-label="Create group"
         onClick={handleCreateGroup}
         disabled={actionLoading}
-        className="fixed bottom-2 right-2 w-10 h-10 flex items-center justify-center rounded-full bg-[#004030] text-white p-2 disabled:opacity-50"
+        className="fixed top-3 right-3 w-10 h-10 flex items-center justify-center rounded-full bg-cyan-900 text-white p-2 disabled:opacity-50"
       >
         <FaCheck />
       </button>

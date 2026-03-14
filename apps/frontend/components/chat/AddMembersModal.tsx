@@ -52,7 +52,7 @@ export default function AddMembersModal({
     <AnimatePresence>
       {show && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center text-base-content"
+          className="fixed inset-0 z-50 flex items-center px-4 justify-center text-base-content"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -72,7 +72,7 @@ export default function AddMembersModal({
             className="relative z-10 bg-base-200 flex flex-col 
                        w-full max-w-md 
                        max-h-[85vh] 
-                       rounded-xl border border-base-content/10 shadow-xl overflow-hidden"
+                       rounded-2xl border border-base-content/10 shadow-xl overflow-hidden"
           >
             <div className="flex flex-col h-full p-4 min-h-0">
               {/* Header */}

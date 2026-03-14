@@ -8,6 +8,7 @@ import {
   getMessageContextFunction,
   getNewerMessagesFunction,
   getUnreadCountsFunction,
+  globalSearchMessagesFunction,
   markChatAsReadFunction,
   markMessagesAsSeenFunction,
   searchMessagesFunction,
@@ -450,4 +451,18 @@ export const getNewerMessages = async (
   } catch (err) {
     next(err);
   }
+};
+
+
+export const globalSearchMessages = async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+  const { query, limit } = req.query;
+
+  const result = await globalSearchMessagesFunction(
+    userId,
+    query as string,
+    limit ? parseInt(limit as string) : 20,
+  );
+
+  res.status(200).json(result);
 };

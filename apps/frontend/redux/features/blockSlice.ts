@@ -16,8 +16,8 @@ export interface BlockedUser {
 }
 
 interface BlockState {
-  blockedUsers: BlockedUser[]; // users I have blocked
-  blockedByUsers: string[]; // IDs of users who blocked me (for UI gating)
+  blockedUsers: BlockedUser[];
+  blockedByUsers: string[];
   loading: boolean;
   actionLoading: boolean;
   error: string | null;
@@ -40,6 +40,21 @@ export const fetchBlockedUsers = createAsyncThunk<
     return rejectWithValue("Failed to fetch blocked users");
   }
 });
+
+/**
+ * Fetch the list of users that have blocked this user.
+ */
+export const fetchBlockedByUsers = createAsyncThunk<string[], void>(
+  "block/fetchBlockedBy",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await api.get("/block/blocked-by", { withCredentials: true });
+      return res.data.blockedByUserIds;
+    } catch {
+      return rejectWithValue("Failed to fetch blockedBy users");
+    }
+  },
+);
 
 /**
  * Block a user by their ID.
@@ -133,6 +148,11 @@ const blockSlice = createSlice({
       .addCase(fetchBlockedUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload ?? "Failed to fetch blocked users";
+      })
+
+      /* -------- FETCH USERS BLOCKED THIS USER -------- */
+      .addCase(fetchBlockedByUsers.fulfilled, (state, action) => {
+        state.blockedByUsers = action.payload;
       })
 
       /* -------- BLOCK USER -------- */

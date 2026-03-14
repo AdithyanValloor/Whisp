@@ -6,11 +6,13 @@ import { logoutUser } from "./authSlice";
 import { fetchMessages } from "./messageSlice";
 import type { RootState } from "@/redux/store";
 import type { AuthUser } from "./authSlice";
-import type { Chat } from "./chatSlice";
+
 import type { FriendUser, FriendRequest } from "./friendsSlice";
 import axios from "axios";
-import { fetchBlockedUsers } from "./blockSlice";
+import { fetchBlockedByUsers, fetchBlockedUsers } from "./blockSlice";
 import { fetchNotifications, InboxNotification } from "./notificationSlice";
+import { Chat } from "@/types/chat.types";
+import { fetchMessageRequests, MessageRequest } from "./requestSlice";
 
 /**
  * Result returned after successful application bootstrap.
@@ -23,6 +25,9 @@ interface BootstrapResult {
     incoming: FriendRequest[];
     outgoing: FriendRequest[];
   };
+  messageRequests: {
+  incoming: MessageRequest[];
+};
   chats: Chat[];
   unread: Record<string, number>;
   notifications: InboxNotification[];
@@ -54,6 +59,7 @@ export const bootstrapApp = createAsyncThunk<
         currentUser: null as unknown as AuthUser,
         friends: [],
         requests: { incoming: [], outgoing: [] },
+        messageRequests: { incoming: [], outgoing: [] },
         chats: [],
         unread: {},
         notifications: [],
@@ -68,14 +74,18 @@ export const bootstrapApp = createAsyncThunk<
       chats,
       unread,
       blockedUsers,
+      blockedByUsers,
       notificationResult,
+      messageRequests,
     ] = await Promise.all([
       dispatch(fetchFriends()).unwrap(),
       dispatch(fetchRequests()).unwrap(),
       dispatch(fetchChats()).unwrap(),
       dispatch(fetchUnreadCounts()).unwrap(),
       dispatch(fetchBlockedUsers()).unwrap(),
+      dispatch(fetchBlockedByUsers()).unwrap(),
       dispatch(fetchNotifications()).unwrap(),
+      dispatch(fetchMessageRequests()).unwrap(),
     ]);
 
     console.log("✅ Core data fetched, now fetching last messages");
@@ -111,7 +121,9 @@ export const bootstrapApp = createAsyncThunk<
       chats,
       unread,
       blockedUsers,
+      blockedByUsers,
       notifications: notificationResult.notifications,
+      messageRequests,
     };
   } catch (error: unknown) {
     console.error("❌ Bootstrap failed:", error);

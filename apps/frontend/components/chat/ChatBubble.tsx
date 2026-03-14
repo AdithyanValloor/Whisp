@@ -4,9 +4,10 @@ import Image from "next/image";
 import { MessageType } from "@/redux/features/messageSlice";
 import { renderTwemoji } from "@/utils/renderEmoji";
 import { parseMessageText } from "@/utils/parseMessage";
-import { BadgeX, Check, CheckCheck, CircleSlash, Forward } from "lucide-react";
+import { BadgeX, Check, CheckCheck, Forward } from "lucide-react";
 import LinkPreviewCard from "../Message/LinkPreviewCard";
 import { useAppSelector } from "@/redux/hooks";
+import { useIsMobile } from "@/utils/screenSize";
 
 interface ChatBubbleProps {
   msg: MessageType;
@@ -84,11 +85,7 @@ export default function ChatBubble({
   const isMultipleEmoji = emojiCount >= 2 && emojiCount <= 5;
   const isEmojiOnly = isSingleEmoji || isMultipleEmoji;
   const jumpTo = useAppSelector((s) => s.messages.jumpTo);
-
-
-console.log("JUMPTO", jumpTo, "MSG", msg._id);
-
-  
+  const isMobile = useIsMobile();
 
   // Pixel size passed directly to twemoji — CSS font-size has no effect on <img> tags
   const emojiSize = isSingleEmoji ? 56 : 44;
@@ -99,7 +96,8 @@ console.log("JUMPTO", jumpTo, "MSG", msg._id);
       className={`chat relative text-base-content p-0 border-1 border-transparent
         ${!msg.deleted && msg.reactions && msg.reactions.length > 0 ? "pb-6" : ""}
         ${isMe ? "chat-end" : "chat-start"}
-        hover:bg-base-content/10 rounded-sm px-4 transition-colors
+        hover:bg-base-content/10 rounded-sm transition-colors
+        ${isMobile ? "px-2" : "px-4"}
         ${jumpTo?.messageId === msg._id ? "bg-cyan-900/30" : ""}
         ${editingMessage?._id === msg._id ? "bg-base-content/10" : ""}
         ${replyingTo?._id === msg._id ? "bg-base-content/10" : ""}
@@ -108,7 +106,7 @@ console.log("JUMPTO", jumpTo, "MSG", msg._id);
     >
       {!grouped && (
         <div className="chat-image avatar">
-          <div className="w-10 h-10 rounded-full overflow-hidden">
+          <div className="w-10 h-10 -mx-1 rounded-full overflow-hidden">
             <Image
               src={profilePic}
               alt="profile"
@@ -122,7 +120,7 @@ console.log("JUMPTO", jumpTo, "MSG", msg._id);
 
       {!grouped && (
         <div className="chat-header">
-          {senderName} {msg.edited && !msg.deleted ? "(edited)" : ""}
+          {senderName}
           <time className="opacity-50 ml-1">
             {new Date(msg.createdAt).toLocaleTimeString([], {
               hour: "2-digit",
@@ -136,7 +134,7 @@ console.log("JUMPTO", jumpTo, "MSG", msg._id);
       {isEmojiOnly ? (
         <div
           className={`relative chat-bubble !bg-transparent !shadow-none !p-0 flex flex-col
-            ${grouped ? (isMe ? "mx-10" : "mx-10") : ""}
+            ${grouped ? (isMe ? "mx-9" : "mx-9") : ""}
             max-w-[75%] sm:max-w-[65%] md:max-w-[55%] xl:max-w-[50%]`}
         >
           <div
@@ -197,10 +195,10 @@ console.log("JUMPTO", jumpTo, "MSG", msg._id);
             }
             p-2
             ${isMe ? "bg-cyan-950 text-white" : "bg-base-100"}
-            ${grouped ? (isMe ? "mx-10" : "mx-10") : ""}
+            ${grouped ? (isMe ? "mx-8" : "mx-8") : ""}
             ${msg.deleted ? "italic opacity-50" : ""}
             break-words overflow-hidden whitespace-pre-wrap
-            max-w-[350px] w-fit         
+            max-w-[280px] md:max-w-[400px] w-fit         
             `}
         >
           {msg.forwarded && !msg.deleted && (
@@ -284,9 +282,8 @@ console.log("JUMPTO", jumpTo, "MSG", msg._id);
 
       {!msg.deleted && msg.reactions && msg.reactions.length > 0 && (
         <div
-          className={`absolute flex flex-wrap gap-[2px] px-[6px] py-[1px] rounded-full text-sm bottom-8 select-none twemoji-container
-            ${isMe ? "right-16 justify-end" : "left-16 justify-start"}`}
-          style={{ transform: "translateY(100%)" }}
+          className={`absolute flex flex-wrap gap-[2px] px-[6px] py-[3px] rounded-full text-sm bottom-8 select-none twemoji-container translate-y-[100%]
+    ${isMe ? `${isMobile ? "right-12" : "right-14"} justify-end` : `${isMobile ? "left-12" : "left-14"} justify-start`}`}
         >
           {Object.entries(
             msg.reactions.reduce(

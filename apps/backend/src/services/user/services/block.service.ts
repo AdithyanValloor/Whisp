@@ -17,6 +17,14 @@ export const getBlockedUsers = async (userId: string) => {
   return blocks.map((b) => b.blocked);
 };
 
+export const getBlockedByUsers = async (userId: string) => {
+  if (!userId) throw Unauthorized();
+
+  const blocks = await BlockModel.find({ blocked: userId }).lean();
+
+  return blocks.map((b) => b.blocker.toString());
+};
+
 export const blockUser = async (userId: string, targetUserId: string) => {
   if (!userId) throw Unauthorized();
 

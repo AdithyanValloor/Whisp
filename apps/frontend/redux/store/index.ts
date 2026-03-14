@@ -11,6 +11,8 @@ import presenceReducer from "../features/presenceSlice";
 import typingReducer from "../features/typingSlice"
 import blockReducer from "../features/blockSlice";
 import notificationsReducer from "../features/notificationSlice"
+import requestReducer from "../features/requestSlice"
+import globalSearchReducer from "../features/globalSearchSlice"
 
 import { listenerMiddleware } from "../listeners";
 
@@ -60,6 +62,10 @@ export const store = configureStore({
     block: blockReducer,
 
     notifications: notificationsReducer,
+
+    requests: requestReducer,
+
+    globalSearch: globalSearchReducer,
   },
 
    /**

@@ -25,6 +25,8 @@ export default function Personal({
   const dispatch = useAppDispatch();
 
   const { chats, listLoading } = useAppSelector((state) => state.chat);
+
+
   const { user, sessionLoading } = useAppSelector((state) => state.auth);
 
   const perChatUnread = useAppSelector((state) => state.unread.perChat);
@@ -44,13 +46,13 @@ export default function Personal({
   }, []);
 
   /* -------- Fetch chats once -------- */
-  useEffect(() => {
-    if (user?._id && !sessionLoading) {
-      dispatch(fetchChats());
-    }
-  }, [dispatch, user?._id, sessionLoading]);
+  // useEffect(() => {
+  //   if (user?._id && !sessionLoading) {
+  //     dispatch(fetchChats());
+  //   }
+  // }, [dispatch, user?._id, sessionLoading]);
 
-  if (sessionLoading || (listLoading && chats.length === 0)) {
+  if (sessionLoading) {
     return <p className="p-3">Loading chats...</p>;
   }
 

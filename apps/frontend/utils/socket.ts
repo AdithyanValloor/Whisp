@@ -20,8 +20,6 @@ import {
   updateChatOwner,
 } from "@/redux/features/chatSlice";
 
-import type { Chat } from "@/redux/features/chatSlice";
-
 import { setUnreadCount } from "@/redux/features/unreadSlice";
 import { updatePresence } from "@/redux/features/presenceSlice";
 
@@ -50,6 +48,11 @@ import {
   removeNotificationByFriendRequest,
   setUnreadNotificationCount,
 } from "@/redux/features/notificationSlice";
+import {
+  addIncomingMessageRequest,
+  removeIncomingMessageRequest,
+} from "@/redux/features/requestSlice";
+import { Chat } from "@/types/chat.types";
 
 /* -------------------- SINGLETON STATE -------------------- */
 
@@ -92,7 +95,7 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
 
   if (!socket) {
     socket = io(socketURL || "http://localhost:9000", {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
@@ -247,6 +250,25 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
 
     socket.on("friend_removed", ({ friendId }) => {
       store.dispatch(removeFriendFromSocket(friendId));
+    });
+
+    /* -------------------- INBOX NOTIFICATION -------------------- */
+
+    socket.on("message_request_received", (request) => {
+      store.dispatch(addIncomingMessageRequest(request));
+    });
+
+    socket.on("message_request_sent", () => {
+      // no-op: chat added to list via accessChat.fulfilled
+    });
+
+    socket.on("message_request_accepted", ({ requestId, chat }) => {
+      store.dispatch(removeIncomingMessageRequest(requestId));
+      store.dispatch(upsertChat(chat));
+    });
+
+    socket.on("message_request_rejected", ({ chatId }) => {
+      store.dispatch(removeChat(chatId));
     });
 
     /* -------------------- INBOX NOTIFICATION -------------------- */

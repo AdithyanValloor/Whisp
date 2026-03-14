@@ -49,6 +49,7 @@ import {
   clearMentionsForChat,
   markMentionsReadForChat,
 } from "@/redux/features/notificationSlice";
+import { useIsMobile } from "@/utils/screenSize";
 
 interface ChatViewProps {
   chat: {
@@ -111,7 +112,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null);
   const [forward, setForward] = useState<MessageType | null>(null);
-  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   const isBlocked = useAppSelector((state: RootState) => {
     if (chat.isGroup) return false;
@@ -120,13 +120,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     const id = otherMember._id;
     const blockedByMe = state.block.blockedUsers.some((u) => u._id === id);
     const blockingMe = state.block.blockedByUsers.includes(id);
-    console.log("🔍 isBlocked check:", {
-      id,
-      blockedUsers: state.block.blockedUsers,
-      blockedByUsers: state.block.blockedByUsers,
-      blockedByMe,
-      blockingMe,
-    });
     return blockedByMe || blockingMe;
   });
 
@@ -143,9 +136,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     if (!otherMember) return false;
     return state.block.blockedByUsers.includes(otherMember._id);
   });
-
-  console.log("CHAT:", chat);
-  console.log("MESSAGES COUNT:", messages.length);
 
   useEffect(() => {
     setActiveChatId(chat._id);
@@ -165,22 +155,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   }, [lastMessage?.linkPreview]);
 
   // Detect mobile screen
-  useEffect(() => {
-    const m = window.matchMedia("(max-width: 767px)");
-    const onChange = (e: MediaQueryListEvent | MediaQueryList) => {
-      setIsMobile(!!e.matches);
-    };
-    setIsMobile(!!m.matches);
-    m.addEventListener
-      ? m.addEventListener("change", onChange)
-      : (m.onchange = onChange);
-
-    return () => {
-      m.removeEventListener
-        ? m.removeEventListener("change", onChange)
-        : (m.onchange = null);
-    };
-  }, []);
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     dispatch(markMentionsReadForChat(chat._id));
@@ -217,8 +192,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     displayStatus = "online";
   }
 
-  console.log(displayStatus);
-
   const displayName = displayUser.displayName;
   const name = displayUser.username;
   const displayPic = displayUser.profilePicture?.url || "/default-pfp.png";
@@ -230,7 +203,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
 
   // Reset state when chat changes
   useEffect(() => {
-    console.log("🔄 Chat changed to:", chat._id);
     hasMarkedInitialRef.current = false;
     isMarkingRef.current = false;
     setShowProfile(false);
@@ -244,7 +216,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
       const container = document.querySelector(".messages-container");
       if (container) {
         container.scrollTop = container.scrollHeight;
-        console.log("📜 Scrolled to bottom on chat change");
       }
     }, 150);
 
@@ -266,18 +237,15 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
       return;
     }
 
-    console.log("=== FETCHING MESSAGES FOR CHAT:", chat._id);
     hasFetchedRef.current.add(chat._id);
 
     dispatch(fetchMessages(chat._id))
       .unwrap()
       .then((result) => {
-        console.log("✅ Messages fetched successfully");
         setTimeout(() => {
           const container = document.querySelector(".messages-container");
           if (container) {
             container.scrollTop = container.scrollHeight;
-            console.log("📜 Scrolled to bottom after fetch");
           }
         }, 100);
       })
@@ -367,8 +335,80 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     }
   };
 
+  // Shared sidebar 
+  const sidebarContent = (
+    <div className={`h-full w-full overflow-hidden ${!isMobile && "rounded-2xl shadow-md border border-base-content/10 "}`}>
+      {sidebarMode === "search" && (
+        <ChatSearchComponent
+          chatId={chat._id}
+          currentUser={currentUser}
+          onClose={() => setSidebarMode(null)}
+          onSelectMessage={(id) => {
+            scrollToMessage(id);
+          }}
+        />
+      )}
+
+      {sidebarMode === "profile" && (
+        <>
+          {chat.isGroup ? (
+            <GroupSidebar
+              group={chat}
+              currentUserId={currentUser._id}
+              onBack={() => setSidebarMode(null)} 
+              onAddMembers={(ids) =>
+                dispatch(addMembers({ chatId: chat._id, members: ids }))
+              }
+              onRemoveMember={(id) =>
+                dispatch(
+                  removeMembers({ chatId: chat._id, member: id }),
+                )
+              }
+              onMakeAdmin={(id) =>
+                dispatch(
+                  toggleAdmin({
+                    chatId: chat._id,
+                    member: id,
+                    makeAdmin: true,
+                  }),
+                )
+              }
+              onRemoveAdmin={(id) =>
+                dispatch(
+                  toggleAdmin({
+                    chatId: chat._id,
+                    member: id,
+                    makeAdmin: false,
+                  }),
+                )
+              }
+              onLeaveGroup={() =>
+                dispatch(leaveGroup({ chatId: chat._id }))
+              }
+              onDeleteGroup={() =>
+                dispatch(deleteGroup({ chatId: chat._id }))
+              }
+              onTransferOwnership={(id) =>
+                dispatch(
+                  transferOwnership({
+                    chatId: chat._id,
+                    newOwnerId: id,
+                  }),
+                ).then(() => {
+                  dispatch(leaveGroup({ chatId: chat._id }));
+                })
+              }
+            />
+          ) : (
+            <ProfileView onBack={() => setSidebarMode(null)} user={displayUser} />
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
-    <div className="flex h-full w-full overflow-hidden">
+    <div className="flex h-full w-full overflow-hidden relative">
       {/* Main Chat Area */}
       <div
         className={`flex flex-col h-full transition-all duration-300 ease-in-out
@@ -463,103 +503,40 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         </div>
       </div>
 
-      {/* Profile/Group Sidebar - Smooth slide-in animation */}
-      <AnimatePresence mode="popLayout">
-        {sidebarMode && (
-          <motion.div
-            key="sidebar"
-            initial={isMobile ? { x: "100%" } : undefined}
-            animate={isMobile ? { x: 0 } : undefined}
-            exit={isMobile ? { x: "100%" } : undefined}
-            transition={{ duration: 0.22, ease: "easeInOut" }}
-            className={`
-              ${isMobile ? "absolute inset-0 z-30" : "relative w-1/3"}
-              h-full mx-2 pb-3`}
-          >
-            <div className="h-full w-full shadow-md border border-base-content/10 overflow-hidden rounded-2xl">
-              {sidebarMode === "search" && (
-                <ChatSearchComponent
-                  chatId={chat._id}
-                  currentUser={currentUser}
-                  onClose={() => setSidebarMode(null)}
-                  onSelectMessage={(id) => {
-                    scrollToMessage(id);
-                  }}
-                />
-              )}
+      {/* Desktop Sidebar — inline, no overlay needed */}
+      {!isMobile && sidebarMode && (
+        <div className="relative w-1/3 mx-2 pb-3 h-full">
+          {sidebarContent}
+        </div>
+      )}
 
-              {sidebarMode === "profile" && (
-                <>
-                  {isMobile && (
-                    <div className="flex items-center gap-2 px-4 py-3 border-b">
-                      <button
-                        type="button"
-                        aria-label="Close sidebar"
-                        onClick={() => setSidebarMode(null)}
-                        className="p-2 rounded-full hover:bg-base-200 transition"
-                      >
-                        <ArrowLeft size={20} />
-                      </button>
-                      <span className="font-semibold">
-                        {chat.isGroup ? "Group Info" : "Profile"}
-                      </span>
-                    </div>
-                  )}
+      {/* Mobile Sidebar — full-screen overlay with smooth slide-from-right animation */}
+      <AnimatePresence>
+        {isMobile && sidebarMode && (
+          <>
+            {/* Dimmed backdrop — tap to close */}
+            <motion.div
+              key="backdrop"
+              className="absolute inset-0 z-20 bg-black/30"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+              onClick={() => setSidebarMode(null)}
+            />
 
-                  {chat.isGroup ? (
-                    <GroupSidebar
-                      group={chat}
-                      currentUserId={currentUser._id}
-                      onAddMembers={(ids) =>
-                        dispatch(addMembers({ chatId: chat._id, members: ids }))
-                      }
-                      onRemoveMember={(id) =>
-                        dispatch(
-                          removeMembers({ chatId: chat._id, member: id }),
-                        )
-                      }
-                      onMakeAdmin={(id) =>
-                        dispatch(
-                          toggleAdmin({
-                            chatId: chat._id,
-                            member: id,
-                            makeAdmin: true,
-                          }),
-                        )
-                      }
-                      onRemoveAdmin={(id) =>
-                        dispatch(
-                          toggleAdmin({
-                            chatId: chat._id,
-                            member: id,
-                            makeAdmin: false,
-                          }),
-                        )
-                      }
-                      onLeaveGroup={() =>
-                        dispatch(leaveGroup({ chatId: chat._id }))
-                      }
-                      onDeleteGroup={() =>
-                        dispatch(deleteGroup({ chatId: chat._id }))
-                      }
-                      onTransferOwnership={(id) =>
-                        dispatch(
-                          transferOwnership({
-                            chatId: chat._id,
-                            newOwnerId: id,
-                          }),
-                        ).then(() => {
-                          dispatch(leaveGroup({ chatId: chat._id }));
-                        })
-                      }
-                    />
-                  ) : (
-                    <ProfileView user={displayUser} />
-                  )}
-                </>
-              )}
-            </div>
-          </motion.div>
+            {/* Sliding panel */}
+            <motion.div
+              key="mobile-sidebar"
+              className="absolute inset-0 z-30 bg-base-100 flex flex-col overflow-hidden"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
+            >
+              {sidebarContent}
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 

@@ -19,6 +19,7 @@ import IconButton from "../GlobalComponents/IconButtons";
 import AddMembersModal from "../chat/AddMembersModal";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
 import TransferOwnershipModal from "../chat/TransferOwnershipModal";
+import { useIsMobile } from "@/utils/screenSize";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ interface GroupSidebarProps {
   onMakeAdmin?: (userId: string) => void;
   onRemoveAdmin?: (userId: string) => void;
   onTransferOwnership?: (userId: string) => void;
+  onBack?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -72,6 +74,7 @@ export default function GroupSidebar({
   onRemoveMember,
   onMakeAdmin,
   onRemoveAdmin,
+  onBack,
 }: GroupSidebarProps) {
   const [selectedProfile, setSelectedProfile] = useState<MemberWithRole | null>(
     null,
@@ -83,6 +86,7 @@ export default function GroupSidebar({
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const isMobile = useIsMobile()
 
   const [dropdownPos, setDropdownPos] = useState<{
     x: number;
@@ -112,18 +116,6 @@ export default function GroupSidebar({
 
   const isLastMember = group.members.length === 1;
   const needsTransfer = isOwner && !isLastMember;
-
-  console.log(
-    "Duplicate check:",
-    new Set(membersWithRoles.map((m) => m._id)).size,
-    membersWithRoles.length,
-  );
-
-  console.log("creatorId:", creatorId);
-  console.log(
-    "members:",
-    group.members.map((m) => m._id),
-  );
 
   // Populate available friends when modal opens
   useEffect(() => {
@@ -193,9 +185,16 @@ export default function GroupSidebar({
       >
         {/* Scrollable content wrapper */}
         <div className="flex flex-col w-full h-full overflow-y-auto overflow-x-hidden px-3 pb-4">
+                {onBack && isMobile && (
+                  <div className="absolute top-3 z-51 left-3">
+                    <IconButton ariaLabel="Go back" onClick={onBack}>
+                      <ArrowLeft size={20} />
+                    </IconButton>
+                  </div>
+                )}
           {/* Add Members button */}
           {isAdmin && (
-            <div className="flex justify-end py-3 shrink-0">
+            <div className="absolute right-5 top-1 flex justify-end py-3 shrink-0">
               {/* <div className="w-[45px] h-[45px] bg-base-100 border border-base-content/10 flex items-center justify-center gap-1 px-3 py-1.5 rounded-full hover:bg-green-900/30 cursor-pointer transition-colors text-sm"> */}
               <button
                 type="button"
@@ -209,7 +208,7 @@ export default function GroupSidebar({
           )}
 
           {/* Group profile card */}
-          <div className={`mt-3 shrink-0`}>
+          <div className={`mt-22 shrink-0`}>
             <div className="flex border border-base-content/10 flex-col items-center text-center bg-base-100 rounded-xl p-4 shadow">
               <div className="w-20 h-20 rounded-full bg-base-200 border border-base-content/10 flex items-center justify-center text-3xl font-semibold select-none">
                 {group.chatName[0]}
@@ -406,7 +405,7 @@ export default function GroupSidebar({
       >
         <div className="relative h-full w-full overflow-y-auto">
           {selectedProfile && (
-            <ProfileView onBack={handleProfileBack} user={selectedProfile} />
+            <ProfileView onBack={handleProfileBack} onMessage user={selectedProfile} />
           )}
         </div>
       </div>

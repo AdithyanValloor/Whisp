@@ -10,6 +10,7 @@ import StatusSection from "../status/StatusSection";
 import ArchivedChats from "../AchievedChats/ArchievedChats";
 import ProfileDropdown from "../User profile/UserProfile";
 import NotificationInbox from "../InboxNotification/NotificationInbox";
+import { useIsMobile } from "@/utils/screenSize";
 
 /**
  * Props for MainSection.
@@ -35,22 +36,10 @@ export default function MainSection({
   // Detect whether a chat is currently open
   const isChatOpen = pathname.startsWith("/chat/");
 
-  const [isMobile, setIsMobile] = useState(false);
 
   /* ---------- Mobile detection ---------- */
 
-  /**
-   * Track viewport size to adjust mobile slide animations.
-   */
-  useEffect(() => {
-    const m = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsMobile(m.matches);
-
-    update();
-    m.addEventListener("change", update);
-
-    return () => m.removeEventListener("change", update);
-  }, []);
+  const isMobile = useIsMobile()
 
   /* ---------- Sections ---------- */
 

@@ -352,14 +352,14 @@ export default function FriendCard(props: FriendCardProps) {
               </p>
             )}
 
-            {chatMuted && (
+            {chatMuted && !hideLastMessage &&(
               <FaBellSlash 
                 size={13} 
                 className="ml-1.5 text-base-content/50" 
               />
             )}
 
-            {isPinned && (
+            {isPinned && !hideLastMessage &&(
               <RiPushpinFill
                 size={13}
                 className="ml-1.5 text-base-content/50"

@@ -50,14 +50,14 @@ export default function AllFriends({ setActiveTab }: AllFriendsProps) {
     dispatch(fetchFriends());
   }, [dispatch]);
 
-  const openChat = async (friendId: string) => {
-    if (!user) return;
+const openChat = async (friendId: string) => {
+  if (!user) return;
 
-    const chat = await dispatch(accessChat(friendId)).unwrap();
+  const result = await dispatch(accessChat({ userId: friendId })).unwrap();
 
-    router.push(`/chat/${chat._id}`);
-    setActiveTab("Inbox");
-  };
+  router.push(`/chat/${result.data._id}`);
+  setActiveTab("Inbox");
+};
 
   if (listLoading) {
     return (
