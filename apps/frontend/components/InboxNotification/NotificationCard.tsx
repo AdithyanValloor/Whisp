@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import defaultPFP from "@/public/default-pfp.png";
-import { AtSign, Users, Reply, X, UserRoundPlus, UserRoundCheck, UsersRound } from "lucide-react";
+import {
+  AtSign,
+  Reply,
+  X,
+  UserRoundPlus,
+  UserRoundCheck,
+  UsersRound,
+} from "lucide-react";
 
 import { useAppDispatch } from "@/redux/hooks";
 import { acceptFriend, rejectFriend } from "@/redux/features/friendsSlice";
@@ -25,16 +32,12 @@ interface NotificationCardProps {
 
 function timeAgo(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
-
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
-
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 /* ───────────────── icon config ───────────────── */
@@ -45,32 +48,28 @@ const iconConfig: Record<
 > = {
   friend_request_received: {
     Icon: UserRoundPlus,
-    bg: "bg-yellow-950 pl-[2px]",
+    bg: "bg-yellow-950",
     color: "text-yellow-400",
   },
-
   friend_request_accepted: {
     Icon: UserRoundCheck,
-    bg: "bg-green-950 pl-[2px]",
+    bg: "bg-green-950",
     color: "text-green-400",
   },
-
   mention: {
     Icon: AtSign,
     bg: "bg-green-950",
     color: "text-green-400",
   },
-
   group_added: {
     Icon: UsersRound,
-    bg: "bg-cyan-950 pl-[2px]",
-    color: "text-cyan-500",
+    bg: "bg-cyan-950",
+    color: "text-cyan-400",
   },
-
   reply: {
     Icon: Reply,
-    bg: "bg-info/15",
-    color: "text-info",
+    bg: "bg-blue-950",
+    color: "text-blue-400",
   },
 };
 
@@ -82,33 +81,21 @@ function buildMessage(notification: InboxNotification) {
 
   switch (notification.type) {
     case "friend_request_accepted":
-      return {
-        title: `${name} accepted your friend request`,
-      };
-
+      return { title: `${name} accepted your friend request` };
     case "friend_request_received":
-      return {
-        title: `${name} sent you a friend request`,
-      };
-
+      return { title: `${name} sent you a friend request` };
     case "mention":
-      return {
-        title: `${name} mentioned you`,
-        subtitle: notification.message?.content,
-      };
-
+      return { title: `${name} mentioned you`, subtitle: notification.message?.content };
     case "group_added":
       return {
         title: `${name} added you to ${notification.group?.chatName}`,
         subtitle: "Tap to open the group",
       };
-
     case "reply":
       return {
         title: `${name} replied to your message`,
         subtitle: notification.message?.content,
       };
-
     default:
       return { title: "Notification" };
   }
@@ -123,11 +110,8 @@ export default function NotificationCard({
   const dispatch = useAppDispatch();
 
   const { Icon, bg, color } = iconConfig[notification.type];
-
   const { title, subtitle } = buildMessage(notification);
-
   const pfpSrc = notification.actor?.profilePicture?.url || defaultPFP;
-
   const isFriendRequest = notification.type === "friend_request_received";
 
   const handleAccept = (e: React.MouseEvent) => {
@@ -150,7 +134,6 @@ export default function NotificationCard({
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-
     dispatch(deleteNotificationLocal(notification._id));
     dispatch(deleteNotification(notification._id));
   };
@@ -163,96 +146,86 @@ export default function NotificationCard({
       onKeyDown={(e) => e.key === "Enter" && onClick?.(notification)}
       className={`
         relative w-full flex items-start gap-3 px-3 py-3 rounded-xl
-        transition-colors duration-150 text-left cursor-pointer group overflow-hidden 
-        ${
-          notification.read
-            ? "hover:bg-base-content/5"
-            : "bg-base-content/2 hover:bg-base-content/5"
-        }
+        transition-colors duration-150 text-left cursor-pointer group mb-1
+        ${notification.read ? "hover:bg-base-content/5" : "bg-base-content/[0.03] hover:bg-base-content/5"}
       `}
     >
-      {/* Avatar */}
-
+      {/* Unread left bar */}
       {!notification.read && (
-        <span className="absolute top-0 left-0  shrink-0 w-[2px] h-full opacity-30 rounded-full bg-cyan-500" />
+        <span className="absolute top-2 bottom-2 left-0 w-[2px] rounded-full bg-cyan-500/50" />
       )}
 
+      {/* Avatar + icon badge */}
       <div className="relative shrink-0">
         <Image
           src={pfpSrc}
           alt="avatar"
-          width={42}
-          height={42}
+          width={40}
+          height={40}
           className="rounded-full object-cover border border-base-content/10"
         />
-
         <span
-          className={`
-            absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center
-            border-3 border-base-200 ${bg}
-          `}
+          className={`absolute -bottom-1 -right-1 w-[18px] h-[18px] rounded-full
+            flex items-center justify-center border-2 border-base-200 ${bg}`}
         >
-          <Icon size={12} className={color} strokeWidth={2.5} />
+          <Icon size={10} className={color} strokeWidth={2.5} />
         </span>
       </div>
 
       {/* Content */}
-
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 pr-5">
         <p
           className={`text-sm leading-snug ${
-            notification.read
-              ? "text-base-content/70"
-              : "text-base-content font-medium"
+            notification.read ? "text-base-content/60" : "text-base-content font-medium"
           }`}
         >
           {title}
         </p>
 
         {subtitle && (
-          <p className="text-xs text-base-content/50 mt-0.5 truncate">
-            {subtitle}
-          </p>
+          <p className="text-xs text-base-content/40 mt-0.5 truncate">{subtitle}</p>
         )}
 
-        <p className="text-xs text-base-content/40 mt-1">
+        <p className="text-[11px] text-base-content/30 mt-1 tabular-nums">
           {timeAgo(notification.createdAt)}
         </p>
 
-        {/* Friend Request Actions */}
-
+        {/* Friend request actions */}
         {isFriendRequest && (
-          <div className="flex gap-2 mt-3">
-            <AppButton onClick={handleAccept} className="flex-1">
-              Accept
-            </AppButton>
-
-            <AppButton
-              onClick={handleReject}
-              className="flex-1 bg-red-900 hover:bg-red-800"
+          <div className="flex gap-2 mt-2.5">
+            <button
+              type="button"
+              onClick={handleAccept}
+              className="flex-1 py-1.5 text-xs font-medium rounded-lg
+                bg-green-700 text-white hover:bg-green-800 transition-colors cursor-pointer"
             >
-              Reject
-            </AppButton>
+              Accept
+            </button>
+            <button
+              type="button"
+              onClick={handleReject}
+              className="flex-1 py-1.5 text-xs font-medium rounded-lg
+              
+                bg-base-300 text-base-content/60 hover:bg-red-900/40 hover:text-red-400
+                transition-colors cursor-pointer"
+            >
+              Decline
+            </button>
           </div>
         )}
       </div>
 
+      {/* Delete button — visible on group hover */}
       <button
-        aria-label="delete"
+        type="button"
+        aria-label="Dismiss notification"
         onClick={handleDelete}
-        className="
-    absolute top-1 right-1
-    p-1 rounded-full
-    text-base-content/40
-    hover:text-base-content
-    cursor-pointer
-    transition group-hover:opacity-100 opacity-0
-  "
+        className="absolute top-2 right-2 p-1 rounded-full
+          text-base-content/30 hover:text-base-content/70 hover:bg-base-content/10
+          opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
       >
-        <X size={15} />
+        <X size={13} />
       </button>
-
-      {/* Unread dot */}
     </div>
   );
 }

@@ -61,17 +61,22 @@ export const fetchBlockedByUsers = createAsyncThunk<string[], void>(
  * Also cleans up friend state and the DM chat from Redux.
  */
 export const blockUser = createAsyncThunk<
-  { targetUserId: string },
+  { targetUserId: string; blockedUser: BlockedUser },
   string,
   { rejectValue: string }
 >("block/blockUser", async (targetUserId, { dispatch, rejectWithValue }) => {
   try {
-    await api.post(`/block/${targetUserId}`, {}, { withCredentials: true });
-
-    // Remove from friend list + clean up any stray requests
+    const res = await api.post(
+      `/block/${targetUserId}`,
+      {},
+      { withCredentials: true },
+    );
     dispatch(removeFriendFromSocket(targetUserId));
 
-    return { targetUserId };
+    return {
+      targetUserId,
+      blockedUser: res.data.blockedUser,
+    };
   } catch {
     return rejectWithValue("Failed to block user");
   }
@@ -163,8 +168,15 @@ const blockSlice = createSlice({
           state.blockedUsers.push({ _id: action.meta.arg, username: "" });
         }
       })
-      .addCase(blockUser.fulfilled, (state) => {
+      .addCase(blockUser.fulfilled, (state, action) => {
         state.actionLoading = false;
+        // Find the optimistic stub and replace it in-place
+        const index = state.blockedUsers.findIndex(
+          (u) => u._id === action.payload.targetUserId,
+        );
+        if (index !== -1) {
+          state.blockedUsers[index] = action.payload.blockedUser; // ← swap stub → real
+        }
       })
       .addCase(blockUser.rejected, (state, action) => {
         state.actionLoading = false;

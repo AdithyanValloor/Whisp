@@ -74,22 +74,24 @@ function RequestCard({
           {request.firstMessage}
         </p>
 
-        <div className="flex gap-2 mt-3">
-          <AppButton
+        <div className="flex gap-2 mt-2.5">
+          <button
+            type="button"
             onClick={() => onAccept(request._id)}
-            isLoading={isBusy}
-            className="flex-1 font-semibold text-primary-content"
+            className="flex-1 py-1.5 text-xs font-medium rounded-lg
+                bg-green-700 text-white hover:bg-green-800 transition-colors cursor-pointer"
           >
             Accept
-          </AppButton>
-
-          <AppButton
+          </button>
+          <button
+            type="button"
             onClick={() => onReject(request._id)}
-            disabled={isBusy}
-            className="flex-1 font-semibold bg-red-900 hover:bg-red-800 border border-base-content/10"
+            className="flex-1 py-1.5 text-xs font-medium rounded-lg
+                bg-base-300 text-base-content/60 hover:bg-red-900/40 hover:text-red-400
+                transition-colors cursor-pointer"
           >
             Decline
-          </AppButton>
+          </button>
         </div>
       </div>
     </div>
@@ -159,9 +161,9 @@ export default function MessageRequests({ onClose }: MessageRequestsProps) {
               Message Requests
             </h1>
             {incoming.length > 0 && (
-                <span className="absolute top-1 -right-3 bg-red-600 text-white text-xs leading-none rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
-                  {incoming.length > 99 ? "99+" : incoming.length}
-                </span>
+              <span className="absolute top-1 -right-3 bg-red-600 text-white text-xs leading-none rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
+                {incoming.length > 99 ? "99+" : incoming.length}
+              </span>
             )}
           </div>
         </div>

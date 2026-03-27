@@ -1,6 +1,9 @@
 import express from "express";
 import { currentUser, login, logout, register } from "../controllers/user.controller.js";
 import { protect } from "../../auth/auth.middleware.js";
+import { accountRouter } from "./user.account.routes.js";
+import { privacyRouter } from "./user.privacy.routes.js";
+import { notificationSettingsRouter } from "./user.notificationSettings.routes.js";
 
 const router = express.Router()
 
@@ -31,5 +34,17 @@ router.post("/logout", logout);
  * @access Protected
  */
 router.get("/me", protect, currentUser);
+
+
+/**
+ * Mount account settings sub-router
+ * All routes in accountRouter are now accessible under /api/user/account/...
+ */
+router.use("/account", accountRouter);
+
+router.use("/privacy", privacyRouter);
+
+router.use("/notification-settings", notificationSettingsRouter);
+
 
 export { router as userRouter }

@@ -18,6 +18,7 @@ import {
   removeChatMember,
   updateChatAdmin,
   updateChatOwner,
+  accessChat,
 } from "@/redux/features/chatSlice";
 
 import { setUnreadCount } from "@/redux/features/unreadSlice";
@@ -74,10 +75,10 @@ const getCurrentUserId = (): string | undefined =>
  * Joins a Socket.IO room for a chat.
  * Reads userId from the store at call-time — never from a stale closure.
  */
-const joinGroupRoom = (chatId: string) => {
+export const joinGroupRoom = (chatId: string) => {
   const userId = getCurrentUserId();
-  if (!userId) return;
-  socket?.emit("joinGroup", { chatId, userId });
+  if (!userId || !socket) return;
+  socket.emit("joinGroup", { chatId, userId });
 };
 
 /**
@@ -238,6 +239,7 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
       if (!me) return;
       const friend = req.from._id === me ? req.to : req.from;
       store.dispatch(addFriendFromSocket({ requestId: req._id, friend }));
+      store.dispatch(accessChat({ userId: friend._id }));
     });
 
     socket.on("friend_request_rejected", (requestId) => {

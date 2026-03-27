@@ -52,6 +52,7 @@ export const blockUserController = async (
 
     res.status(200).json({
       message: "User blocked successfully",
+      blockedUser: result.blockedUser,
       ...result,
     });
   } catch (error) {

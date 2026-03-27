@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   useCallback,
+  useImperativeHandle,
 } from "react";
 import {
   fetchMessages,
@@ -39,6 +40,12 @@ interface MessagesProps {
   typingUsers: Record<string, string>;
   scrollTargetId?: string | null;
   scrollToMessage: (id: string) => void;
+  ref?: React.Ref<MessagesHandle>;
+  isBlockedByMe: boolean;
+}
+
+export interface MessagesHandle {
+  scrollToBottom: () => void;
 }
 
 export default function Messages({
@@ -52,7 +59,9 @@ export default function Messages({
   typingUsers,
   editingMessage,
   scrollToMessage,
+  isBlockedByMe,
   forwardMessage,
+  ref,
 }: MessagesProps) {
   const dispatch = useAppDispatch();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -66,6 +75,10 @@ export default function Messages({
   const jumpLockRef = useRef(false);
   const router = useRouter();
   const hasMarkedRef = useRef(false);
+
+  const messages = useAppSelector((state) =>
+    selectMessagesByChat(state, chatId),
+  );
 
   // FIX 1: pressTimer must be a ref, not a `let` — avoids stale closure leaks
   const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -85,7 +98,9 @@ export default function Messages({
 
   const [hasMore, setHasMore] = useState(() => chatMeta?.hasMore ?? true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(
+    () => messages.length === 0,
+  );
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [showNewMsgBadge, setShowNewMsgBadge] = useState(false);
   const [unreadDividerIndex, setUnreadDividerIndex] = useState<number | null>(
@@ -93,6 +108,14 @@ export default function Messages({
   );
   const [showForwardModal, SetShowForwardModal] = useState(false);
   const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
+
+  useImperativeHandle(ref, () => ({
+    scrollToBottom: () => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
+      }
+    },
+  }));
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -111,33 +134,32 @@ export default function Messages({
     msgId: string | null;
   }>({ visible: false, msgId: null });
 
-  const messages = useAppSelector((state) =>
-    selectMessagesByChat(state, chatId),
-  );
-
   // Scroll to bottom on initial load
+
+  // REMOVE both of the duplicate initial load effects that call markMessagesAsSeen
+  // and replace with this single one:
+
   useEffect(() => {
-    if (!isInitialLoadRef.current) return;
     if (messages.length === 0) return;
 
-    isInitialLoadRef.current = false;
-    setIsInitialLoading(false);
-
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }
-
-    requestAnimationFrame(() => {
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      setIsInitialLoading(false);
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
       }
-    });
+      requestAnimationFrame(() => {
+        if (containerRef.current) {
+          containerRef.current.scrollTop = containerRef.current.scrollHeight;
+        }
+      });
+    }
 
     if (!hasMarkedRef.current) {
       hasMarkedRef.current = true;
       dispatch(markMessagesAsSeen(chatId));
     }
-  }, [messages.length, chatId]);
+  }, [messages.length, chatId, dispatch]);
 
   // FIX 3: Stable callbacks with useCallback to avoid stale closures in scroll handlers
   const isNearBottom = useCallback(() => {
@@ -274,22 +296,22 @@ export default function Messages({
   // Reset on chat change
   useEffect(() => {
     if (prevChatIdRef.current !== chatId) {
+      const hasCached = messages.length > 0;
       pageRef.current = 1;
       setHasMore(chatMeta?.hasMore ?? true);
       setLoadingMore(false);
-      setIsInitialLoading(true);
+      setIsInitialLoading(!hasCached);
       setShowScrollBtn(false);
       setShowNewMsgBadge(false);
       setUnreadDividerIndex(null);
       lastMessageIdRef.current = null;
       loadingOlderRef.current = false;
-      isInitialLoadRef.current = true;
+      isInitialLoadRef.current = !hasCached; // ← only set once, no duplicate
       prevMessagesLengthRef.current = 0;
       animatedMessageIdRef.current = null;
       prevChatIdRef.current = chatId;
       jumpLockRef.current = false;
 
-      // Cancel any in-flight eased scroll from previous chat
       if (easedScrollRafRef.current !== null) {
         cancelAnimationFrame(easedScrollRafRef.current);
         easedScrollRafRef.current = null;
@@ -299,7 +321,7 @@ export default function Messages({
       clearTimeout(loadNewerDebounceRef.current);
       loadNewerDebounceRef.current = null;
     }
-  }, [chatId]);
+  }, [chatId, messages.length]);
 
   const clearedAt = useAppSelector(
     (s) => s.chat.chats.find((c) => c._id === chatId)?.clearedAt ?? null,
@@ -525,18 +547,22 @@ export default function Messages({
     if (messages.length === 0) return;
 
     isInitialLoadRef.current = false;
-    setIsInitialLoading(false);
+    setIsInitialLoading((prev) => (prev ? false : prev));
 
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-
     requestAnimationFrame(() => {
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
       }
     });
-  }, [messages.length, chatId]);
+
+    if (!hasMarkedRef.current) {
+      hasMarkedRef.current = true;
+      dispatch(markMessagesAsSeen(chatId));
+    }
+  }, [messages.length, chatId, dispatch]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -582,7 +608,7 @@ export default function Messages({
       const nearBottom = isNearBottom();
 
       if (isMyMessage || nearBottom) {
-        setTimeout(() => scrollToBottom(true), 100);
+        scrollToBottom(true);
         setShowNewMsgBadge(false);
         setUnreadDividerIndex(null);
       } else {
@@ -591,6 +617,12 @@ export default function Messages({
       }
 
       lastMessageIdRef.current = lastMessage._id;
+
+      // ↓ THIS IS THE FIX — mark seen immediately if chat is open and visible
+      if (!hasMarkedRef.current && (nearBottom || isMyMessage)) {
+        hasMarkedRef.current = true;
+        dispatch(markMessagesAsSeen(chatId));
+      }
     }
 
     prevMessagesLengthRef.current = messages.length;
@@ -598,7 +630,14 @@ export default function Messages({
     return () => {
       if (animationTimeout) clearTimeout(animationTimeout);
     };
-  }, [messages, currentUser._id, isNearBottom, scrollToBottom]);
+  }, [
+    messages,
+    currentUser._id,
+    isNearBottom,
+    scrollToBottom,
+    chatId,
+    dispatch,
+  ]);
 
   // Persistent observer — fires post-reflow so nearBottom check uses real geometry
   useEffect(() => {
@@ -644,7 +683,7 @@ export default function Messages({
   useEffect(() => {
     if (Object.keys(typingUsers).length === 0) return;
     if (isNearBottom()) {
-      setTimeout(() => scrollToBottom(true), 100);
+      scrollToBottom(true);
     }
   }, [typingUsers, isNearBottom, scrollToBottom]);
 
@@ -938,6 +977,7 @@ export default function Messages({
                       setForward={setForward}
                       onEdit={onEdit}
                       onDelete={onDelete}
+                      isBlockedByMe={isBlockedByMe}
                     />
                   )}
                 </motion.div>
@@ -952,10 +992,10 @@ export default function Messages({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="chat chat-start px-17 py-[1px]"
+              className="chat chat-start px-15 py-[1px]"
             >
-              <div className="bg-base-100 flex items-center gap-2 shadow text-base-content px-4 rounded-2xl py-1.5">
-                <span className="loading loading-dots loading-lg opacity-50" />
+              <div className="bg-base-100 flex items-center gap-2 shadow text-base-content px-5 rounded-full py-1.5">
+                <span className="loading loading-dots loading-md opacity-50" />
               </div>
             </motion.div>
           )}

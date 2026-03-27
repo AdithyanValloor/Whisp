@@ -10,7 +10,7 @@ export default function CallSection() {
             
             {/* Title */}
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold text-base-content">Calls</h1>
+                <h1 className="text-2xl font-semibold text-base-content p-1">Calls</h1>
             </div>
 
             {/* Search Bar */}

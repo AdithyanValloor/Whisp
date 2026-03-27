@@ -14,6 +14,9 @@ import { registerToastListener } from "@/utils/toastEmitter";
 import NotificationContainer from "./NotificationContainer";
 import { useRouter } from "next/navigation";
 import { isChatSilenced } from "@/utils/isChatMuted";
+import { useSelector } from "react-redux";
+import { RootState, store } from "@/redux/store";
+import { shouldNotify } from "@/utils/notificationGate";
 
 interface ToastContextType {
   showToast: (toast: Omit<Toast, "id">) => void;
@@ -57,9 +60,32 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     notificationSound.current.volume = 0.6;
   }, []);
 
+  const mapToastType = (type: string) => {
+    switch (type) {
+      case "message":
+        return "message";
+      case "friend_request":
+        return "friend_request";
+      case "friend_accept":
+        return "friend_accept";
+      case "notification":
+        return "group_added";
+      default:
+        return null;
+    }
+  };
+
   const showToast = (toast: Omit<Toast, "id">) => {
-    // Drop mention pings — the accompanying "message" toast covers it
+    const state = store.getState();
+    const settings = state.notificationSettings.settings;
+
     if (toast.type === "notification") return;
+
+    const mapped = mapToastType(toast.type);
+    if (!mapped) return;
+
+    const allowed = shouldNotify(mapped, settings);
+    if (!allowed) return;
 
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
 
@@ -78,7 +104,9 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
 
       setNotifications((prev) => {
         if (toast.chatId) {
-          const existingIndex = prev.findIndex((t) => t.chatId === toast.chatId);
+          const existingIndex = prev.findIndex(
+            (t) => t.chatId === toast.chatId,
+          );
           if (existingIndex !== -1) {
             const updated = [...prev];
             const existing = updated[existingIndex];

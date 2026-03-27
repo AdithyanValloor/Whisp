@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
 import axios from "axios";
-import { setUser } from "./authSlice";
+import { updateEmail, updateUsername } from "./authSlice";
 
 /* -------------------- TYPES -------------------- */
 
@@ -71,29 +71,11 @@ export const updateProfile = createAsyncThunk<
   Profile,
   Partial<Profile>,
   { rejectValue: string }
->("profile/update", async (data, { dispatch, rejectWithValue }) => {
+>("profile/update", async (data, { rejectWithValue }) => {
   try {
     const res = await api.put("/profile", data, { withCredentials: true });
 
     const updatedProfile: Profile = res.data;
-
-    /**
-     * Sync auth user with updated profile fields
-     * (e.g., display name and profile picture).
-     */
-    dispatch(
-      setUser({
-        _id: updatedProfile._id,
-        displayName: updatedProfile.displayName,
-        username: updatedProfile.username,
-        profilePicture: updatedProfile.profilePicture
-          ? {
-              url: updatedProfile.profilePicture.url,
-              public_id: null,
-            }
-          : null,
-      }),
-    );
 
     return updatedProfile;
   } catch (err) {
@@ -157,6 +139,16 @@ const profileSlice = createSlice({
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload ?? "Failed to update profile";
+      })
+
+      .addCase(updateUsername.fulfilled, (state, action) => {
+        if (state.profile) {
+          state.profile.username = action.payload.username;
+        }
+      })
+      .addCase(updateEmail.fulfilled, (state, action) => {
+        // email isn't in Profile type currently, add if needed
+        // if (state.profile) state.profile.email = action.payload.email;
       });
   },
 });

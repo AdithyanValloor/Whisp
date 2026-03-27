@@ -3,6 +3,7 @@ import { registerUser, loginUser, refreshTokenFunction } from "../../auth/auth.c
 import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
 import { UserModel } from "../models/user.model.js";
 import { authCookieOptions } from "../../../config/cookies.js";
+import { checkPassword } from "../services/user.service.js";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -176,5 +177,33 @@ export const currentUser = async (
     });
   } catch (err) {
     next(err);
+  }
+};
+
+/**
+ * ------------------------------------------------------------------
+ * Check Password
+ * ------------------------------------------------------------------
+ * POST /api/user/account/check-password
+ *
+ * Body: { password: string }
+ */
+export const checkPasswordController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const { password } = req.body;
+
+    const { isMatch } = await checkPassword(userId, password);
+
+    res.status(200).json({
+      success: true,
+      isMatch,
+    });
+  } catch (error) {
+    next(error);
   }
 };

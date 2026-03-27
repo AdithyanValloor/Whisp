@@ -59,7 +59,7 @@ function HighlightMatch({ text, query }: { text: string; query: string }) {
   return (
     <span>
       {text.slice(0, index)}
-      <span className="text-primary font-semibold">
+      <span className="text-green-500 font-semibold">
         {text.slice(index, index + query.length)}
       </span>
       {text.slice(index + query.length)}

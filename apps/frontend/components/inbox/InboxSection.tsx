@@ -18,6 +18,9 @@ import { createGroupChat } from "@/redux/features/chatSlice";
 import MessageRequests from "./Messagerequests";
 import GlobalSearch from "../Search/GlobalSearch";
 import { clearSearch } from "@/redux/features/globalSearchSlice";
+import { IoMdMail } from "react-icons/io";
+import { BiSolidMessageSquareAdd } from "react-icons/bi";
+import { UnreadCountBadge } from "../Notification/UnreadCountBadge";
 
 type ChatType = "personal" | "group";
 
@@ -97,7 +100,7 @@ export default function InboxSection() {
     setGroupName("");
     setSelectedUsers(new Set());
     setChatType("group");
-
+    
     router.push(`/chat/${res._id}`);
   };
 
@@ -116,24 +119,28 @@ export default function InboxSection() {
             Chats
           </h1>
           <div className="flex gap-2">
-            <div className="relative">
-              <IconButton
-                ariaLabel="Message request"
-                onClick={() => setShowMessageRequest(true)}
-              >
-                <Mail aria-hidden />
-              </IconButton>
-              {incoming.length > 0 && (
-                <span className="absolute top-1 right-0 z-50 bg-red-600 text-white text-xs leading-none rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
-                  {incoming.length > 99 ? "99+" : incoming.length}
-                </span>
-              )}
-            </div>
+            {incoming.length > 0 && (
+              <div className="relative">
+                <IconButton
+                  ariaLabel="Message request"
+                  onClick={() => setShowMessageRequest(true)}
+                >
+                  {/* <Mail aria-hidden /> */}
+                  <IoMdMail aria-hidden size={22} />
+                </IconButton>
+                {incoming.length > 0 && (
+                  <UnreadCountBadge
+                    position="top-1 right-0 z-50 pointer-events-none"
+                    count={incoming.length}
+                  />
+                )}
+              </div>
+            )}
             <IconButton
               ariaLabel="Create group chat"
               onClick={() => setShowCreateModal(true)}
             >
-              <MessageCirclePlus aria-hidden />
+              <BiSolidMessageSquareAdd aria-hidden size={22} />
             </IconButton>
           </div>
         </div>
@@ -168,9 +175,10 @@ export default function InboxSection() {
                   <span className="inline-flex relative items-center transition-colors duration-200 text-base-content/90 text-base">
                     {label}
                     {unread > 0 && (
-                      <span className="absolute -right-5 -top-1 leading-none bg-red-600 text-white text-xs rounded-full min-w-4 h-4 px-[4px] flex items-center justify-center">
-                        {unread}
-                      </span>
+                      <UnreadCountBadge
+                        position="-top-1 -right-4"
+                        count={unread}
+                      />
                     )}
                   </span>
                 </button>

@@ -1,9 +1,8 @@
 "use client";
 
 import { Check, X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import {
   fetchRequests,
   acceptFriend,
@@ -13,25 +12,55 @@ import {
 } from "@/redux/features/friendsSlice";
 import FriendCard from "../Message/FriendCard";
 import IconButton from "../GlobalComponents/IconButtons";
+import { accessChat } from "@/redux/features/chatSlice";
+import {
+  deleteNotification,
+  deleteNotificationLocal,
+  InboxNotification,
+} from "@/redux/features/notificationSlice";
 
-export default function Requests() {
+interface RequestsProps {
+  searchQuery: string;
+}
+
+export default function Requests({ searchQuery }: RequestsProps) {
   const dispatch = useAppDispatch();
 
-  const { requests, requestLoading } = useAppSelector(
-    (state) => state.friends
+  const { requests, requestLoading } = useAppSelector((state) => state.friends);
+  const { notifications } = useAppSelector((state) => state.notifications);
+  const { incoming, outgoing } = requests;
+
+  const filterRequests = (list: FriendRequest[], type: "incoming" | "outgoing") => {
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter((r) => {
+      const user = type === "incoming" ? r.from : r.to;
+      return (
+        user.username.toLowerCase().includes(q) ||
+        (user.displayName ?? "").toLowerCase().includes(q)
+      );
+    });
+  };
+
+  const filteredIncoming = useMemo(
+    () => filterRequests(incoming, "incoming"),
+    [incoming, searchQuery],
   );
 
-  const { incoming, outgoing } = requests;
+  const filteredOutgoing = useMemo(
+    () => filterRequests(outgoing, "outgoing"),
+    [outgoing, searchQuery],
+  );
 
   useEffect(() => {
     dispatch(fetchRequests());
   }, [dispatch]);
 
-  const renderRequestCard = (
-    request: FriendRequest,
-    type: "incoming" | "outgoing"
-  ) => {
+  const renderRequestCard = (request: FriendRequest, type: "incoming" | "outgoing") => {
     const user = type === "incoming" ? request.from : request.to;
+    const notification: InboxNotification | undefined = notifications.find(
+      (n) => n.friendRequest === request._id,
+    );
 
     return (
       <FriendCard
@@ -49,14 +78,26 @@ export default function Requests() {
             <div className="flex gap-1">
               <IconButton
                 ariaLabel="Accept friend request"
-                onClick={() => dispatch(acceptFriend(request._id))}
+                onClick={() => {
+                  dispatch(acceptFriend(request._id));
+                  dispatch(accessChat({ userId: request.from._id }));
+                  if (notification) {
+                    dispatch(deleteNotification(notification._id));
+                    dispatch(deleteNotificationLocal(notification._id));
+                  }
+                }}
               >
                 <Check size={20} />
               </IconButton>
-
               <IconButton
                 ariaLabel="Reject friend request"
-                onClick={() => dispatch(rejectFriend(request._id))}
+                onClick={() => {
+                  dispatch(rejectFriend(request._id));
+                  if (notification) {
+                    dispatch(deleteNotification(notification._id));
+                    dispatch(deleteNotificationLocal(notification._id));
+                  }
+                }}
               >
                 <X size={20} />
               </IconButton>
@@ -73,6 +114,7 @@ export default function Requests() {
       />
     );
   };
+
   if (requestLoading) {
     return (
       <div className="flex justify-center py-6">
@@ -81,29 +123,38 @@ export default function Requests() {
     );
   }
 
+  const noResults =
+    searchQuery.trim() &&
+    filteredIncoming.length === 0 &&
+    filteredOutgoing.length === 0;
+
+  if (noResults) {
+    return (
+      <p className="p-3 text-center opacity-70">
+        No requests match &ldquo;{searchQuery}&rdquo;
+      </p>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Incoming */}
-      {incoming.length > 0 && (
+      {filteredIncoming.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold text-center uppercase opacity-70 mb-2">
             Received
           </h2>
           <hr className="text-base-content/10 pb-2" />
-
-          {incoming.map((r) => renderRequestCard(r, "incoming"))}
+          {filteredIncoming.map((r) => renderRequestCard(r, "incoming"))}
         </section>
       )}
-        
-      {/* Outgoing */}
-      {outgoing.length > 0 && (
+
+      {filteredOutgoing.length > 0 && (
         <section>
           <h2 className="text-xs font-semibold text-center uppercase opacity-70 mb-2">
             Sent
           </h2>
           <hr className="text-base-content/10 pb-2" />
-
-          {outgoing.map((r) => renderRequestCard(r, "outgoing"))}
+          {filteredOutgoing.map((r) => renderRequestCard(r, "outgoing"))}
         </section>
       )}
     </div>

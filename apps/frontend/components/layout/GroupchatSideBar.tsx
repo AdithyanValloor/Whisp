@@ -185,7 +185,7 @@ export default function GroupSidebar({
       >
         {/* Scrollable content wrapper */}
         <div className="flex flex-col w-full h-full overflow-y-auto overflow-x-hidden px-3 pb-4">
-                {onBack && isMobile && (
+                {onBack && (
                   <div className="absolute top-3 z-51 left-3">
                     <IconButton ariaLabel="Go back" onClick={onBack}>
                       <ArrowLeft size={20} />

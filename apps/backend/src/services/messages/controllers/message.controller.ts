@@ -281,12 +281,15 @@ export const markMessagesAsSeen = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { success, modifiedCount } = await markMessagesAsSeenFunction(
+    const { success, modifiedCount, emitSeen } = await markMessagesAsSeenFunction(
       userId,
       req.params.chatId,
     );
 
-    emitMessagesSeen(req.params.chatId, userId, modifiedCount);
+    if (emitSeen) {
+      emitMessagesSeen(req.params.chatId, userId, modifiedCount);
+    }
+
     emitUnreadUpdate(userId, req.params.chatId, 0);
 
     res.status(200).json({ success });

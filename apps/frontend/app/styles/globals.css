@@ -6,17 +6,17 @@
 }
 @plugin 'tailwind-scrollbar';
 
-:root {
-  --font-family: var(--font-family);
-}
+/* :root {
+  --font-family: var(--font-inter);
+} */
 
 html {
-  font-family: var(--font-family);
+  font-family: var(--font-inter);
 }
 
 body {
-  -webkit-user-select: none;
-  user-select: none;
+  /* -webkit-user-select: none;
+  user-select: none; */
 }
 
 .border-contrast {

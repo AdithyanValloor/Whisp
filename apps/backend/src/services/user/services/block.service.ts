@@ -65,7 +65,7 @@ export const blockUser = async (userId: string, targetUserId: string) => {
     ],
   });
 
-  return { success: true };
+  return { success: true, blockedUser: targetUser };
 };
 
 export const unblockUser = async (userId: string, targetUserId: string) => {

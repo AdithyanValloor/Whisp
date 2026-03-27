@@ -6,6 +6,7 @@ import AllFriends from "./AllFriends";
 import Requests from "./Requests";
 import AddFriendInput from "../GlobalComponents/AddFriendInput";
 import SearchInput from "../GlobalComponents/SearchInput";
+import { UnreadCountBadge } from "../Notification/UnreadCountBadge";
 
 type FriendsTab = "all" | "pending" | "add";
 
@@ -15,6 +16,7 @@ interface FriendSectionProps {
 
 export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
   const [tab, setTab] = useState<FriendsTab>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { requests } = useAppSelector((state) => state.friends);
 
@@ -28,6 +30,12 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
       setTab("all");
     }
   }, [requests.incoming.length, requests.outgoing.length]);
+
+  // Clear search when switching tabs
+  const handleTabChange = (newTab: FriendsTab) => {
+    setTab(newTab);
+    setSearchQuery("");
+  };
 
   const tabs = [
     "all",
@@ -55,7 +63,7 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
           <button
             key={key}
             type="button"
-            onClick={() => setTab(key)}
+            onClick={() => handleTabChange(key)}
             className="flex-1 py-2 text-sm cursor-pointer"
           >
             <span
@@ -65,9 +73,10 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
             >
               {label}
               {key === "pending" && pendingCount > 0 && (
-                <span className="absolute -right-4 -top-1 leading-none  bg-red-600 font-semibold text-white text-xs rounded-full min-w-4 h-4 px-[4px] flex items-center justify-center">
-                  {pendingCount}
-                </span>
+                <UnreadCountBadge
+                  position="-top-1 -right-4"
+                  count={pendingCount}
+                />
               )}
             </span>
           </button>
@@ -85,14 +94,23 @@ export default function FriendsSection({ setActiveTab }: FriendSectionProps) {
       </div>
 
       {/* Search / Add */}
-      {tab === "add" ? <AddFriendInput /> : <SearchInput />}
+      {tab === "add" ? (
+        <AddFriendInput />
+      ) : (
+        <SearchInput
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      )}
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {tab === "all" && <AllFriends setActiveTab={setActiveTab} />}
+        {tab === "all" && (
+          <AllFriends setActiveTab={setActiveTab} searchQuery={searchQuery} />
+        )}
         {tab === "pending" &&
           (requests.incoming.length > 0 || requests.outgoing.length > 0 ? (
-            <Requests />
+            <Requests searchQuery={searchQuery} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full gap-2 text-base-content/40">
               <span className="text-4xl">🎉</span>

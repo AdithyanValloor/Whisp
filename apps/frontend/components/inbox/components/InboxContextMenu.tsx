@@ -4,24 +4,43 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { LogOut, ChevronRight, Check, X } from "lucide-react";
-import { selectIsBlockedByMe, useAppDispatch, useAppSelector } from "@/redux/hooks";
 import {
-  togglePinLocal, togglePin,
-  markUnreadLocal, markAsUnread, markAsRead,
-  toggleArchive, toggleArchiveLocal,
-  clearChat, deleteChat, deleteChatLocal,
-  muteChat, unmuteChat, muteChatLocal,
+  selectIsBlockedByMe,
+  useAppDispatch,
+  useAppSelector,
+} from "@/redux/hooks";
+import {
+  togglePinLocal,
+  togglePin,
+  markUnreadLocal,
+  markAsUnread,
+  markAsRead,
+  toggleArchive,
+  toggleArchiveLocal,
+  clearChat,
+  deleteChat,
+  deleteChatLocal,
+  muteChat,
+  unmuteChat,
+  muteChatLocal,
 } from "@/redux/features/chatSlice";
 import { resetUnread } from "@/redux/features/unreadSlice";
 import { MdMarkChatRead, MdMarkUnreadChatAlt, MdBlock } from "react-icons/md";
 import { usePathname, useRouter } from "next/navigation";
-import { acceptFriend, addFriend, cancelFriend } from "@/redux/features/friendsSlice";
 import {
-  FaUserMinus, FaUserPlus, FaBell, FaBellSlash,
-} from "react-icons/fa6";
+  acceptFriend,
+  addFriend,
+  cancelFriend,
+} from "@/redux/features/friendsSlice";
+import { FaUserMinus, FaUserPlus, FaBell, FaBellSlash } from "react-icons/fa6";
 import {
-  RiChatDeleteFill, RiDeleteBin5Fill, RiEraserFill,
-  RiInboxArchiveFill, RiInboxUnarchiveFill, RiPushpinFill, RiUnpinFill,
+  RiChatDeleteFill,
+  RiDeleteBin5Fill,
+  RiEraserFill,
+  RiInboxArchiveFill,
+  RiInboxUnarchiveFill,
+  RiPushpinFill,
+  RiUnpinFill,
 } from "react-icons/ri";
 import { isChatMuted } from "@/utils/isChatMuted";
 import { useIsMobile } from "@/utils/screenSize";
@@ -31,10 +50,10 @@ import { useIsMobile } from "@/utils/screenSize";
 type MuteDuration = "1h" | "8h" | "24h" | "1w" | "forever";
 
 const MUTE_OPTIONS: { label: string; value: MuteDuration }[] = [
-  { label: "1 Hour",                value: "1h"      },
-  { label: "8 Hours",               value: "8h"      },
-  { label: "24 Hours",              value: "24h"     },
-  { label: "1 Week",                value: "1w"      },
+  { label: "1 Hour", value: "1h" },
+  { label: "8 Hours", value: "8h" },
+  { label: "24 Hours", value: "24h" },
+  { label: "1 Week", value: "1w" },
   { label: "Until I turn it back on", value: "forever" },
 ];
 
@@ -52,11 +71,19 @@ interface InboxContextMenuProps {
 }
 
 export default function InboxContextMenu({
-  x, y, onClose, menuRef, position,
-  chatType, chatId, onRemove, onExitGroup, onBlock,
+  x,
+  y,
+  onClose,
+  menuRef,
+  position,
+  chatType,
+  chatId,
+  onRemove,
+  onExitGroup,
+  onBlock,
 }: InboxContextMenuProps) {
   const chats = useAppSelector((state) => state.chat.chats);
-  const chat  = chats.find((c) => c._id === chatId);
+  const chat = chats.find((c) => c._id === chatId);
   const router = useRouter();
   const pathname = usePathname();
   const currentUser = useAppSelector((s) => s.auth.user);
@@ -70,9 +97,11 @@ export default function InboxContextMenu({
       ? chat.members.find((m) => m._id !== currentUser?._id)
       : null;
 
-  const isBlockedByMe = useAppSelector(selectIsBlockedByMe(targetUser?._id ?? ""));
+  const isBlockedByMe = useAppSelector(
+    selectIsBlockedByMe(targetUser?._id ?? ""),
+  );
   const isChatOpen = chatId && pathname === `/chat/${chatId}`;
-  const isPinned = chat?.isPinned  ?? false;
+  const isPinned = chat?.isPinned ?? false;
   const isArchived = chat?.isArchived ?? false;
   const chatMuted = chat?._id ? isChatMuted(chat._id) : false;
 
@@ -81,7 +110,7 @@ export default function InboxContextMenu({
   );
   const hasUnread = unreadCount > 0;
 
-  const friends             = useAppSelector((s) => s.friends.friends);
+  const friends = useAppSelector((s) => s.friends.friends);
   const { incoming, outgoing } = useAppSelector((s) => s.friends.requests);
 
   const friendStatus: "friend" | "outgoing" | "incoming" | "none" = (() => {
@@ -106,45 +135,69 @@ export default function InboxContextMenu({
       label: isArchived ? "Unarchive Chat" : "Archive Chat",
       icon: isArchived ? RiInboxUnarchiveFill : RiInboxArchiveFill,
     },
-    {
-      key: hasUnread ? "read" : "unread",
-      label: hasUnread ? "Mark as Read" : "Mark as Unread",
-      icon: hasUnread ? MdMarkChatRead : MdMarkUnreadChatAlt,
-    },
+    ...(!isBlockedByMe
+      ? [
+          {
+            key: hasUnread ? "read" : "unread",
+            label: hasUnread ? "Mark as Read" : "Mark as Unread",
+            icon: hasUnread ? MdMarkChatRead : MdMarkUnreadChatAlt,
+          },
+        ]
+      : []),
 
-    chatMuted
-      ? { key: "unmute", label: "Unmute Notifications", icon: FaBell }
-      : { key: "mute",   label: "Mute Notifications",  icon: FaBellSlash },
-
+    ...(!isArchived && !isBlockedByMe
+      ? [
+          chatMuted
+            ? { key: "unmute", label: "Unmute Notifications", icon: FaBell }
+            : { key: "mute", label: "Mute Notifications", icon: FaBellSlash },
+        ]
+      : []),
     ...(isChatOpen
       ? [{ key: "close", label: "Close Chat", icon: RiChatDeleteFill }]
       : []),
 
     { divider: true },
 
-    ...(chatType === "personal" && targetUser
+    ...(chatType === "personal" && targetUser && !isBlockedByMe
       ? [
           friendStatus === "friend"
-            ? { key: "remove", label: "Remove Friend",  icon: FaUserMinus,    danger: true }
+            ? {
+                key: "remove",
+                label: "Remove Friend",
+                icon: FaUserMinus,
+                danger: true,
+              }
             : friendStatus === "incoming"
-            ? { key: "accept", label: "Accept Request", icon: Check             }
-            : friendStatus === "outgoing"
-            ? { key: "cancel", label: "Cancel Request", icon: X              }
-            : { key: "add",    label: "Add Friend",     icon: FaUserPlus                 },
-          { key: "block", label: isBlockedByMe ? "Unblock User" : "Block User", icon: MdBlock, danger: true },
+              ? { key: "accept", label: "Accept Request", icon: Check }
+              : friendStatus === "outgoing"
+                ? { key: "cancel", label: "Cancel Request", icon: X }
+                : { key: "add", label: "Add Friend", icon: FaUserPlus },
         ]
       : []),
+    {
+      key: "block",
+      label: isBlockedByMe ? "Unblock User" : "Block User",
+      icon: MdBlock,
+      danger: true,
+    },
 
     ...(chatType === "group"
       ? [{ key: "exit", label: "Exit Group", icon: LogOut, danger: true }]
       : []),
 
-    { key: "clear",  label: "Clear Chat",  icon: RiEraserFill,   danger: true },
-    { key: "delete", label: "Delete Chat", icon: RiDeleteBin5Fill, danger: true },
+    { key: "clear", label: "Clear Chat", icon: RiEraserFill, danger: true },
+    {
+      key: "delete",
+      label: "Delete Chat",
+      icon: RiDeleteBin5Fill,
+      danger: true,
+    },
   ];
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
@@ -156,7 +209,9 @@ export default function InboxContextMenu({
         ? "9999-12-31T23:59:59.999Z"
         : new Date(
             Date.now() +
-              ({ "1h": 3.6e6, "8h": 2.88e7, "24h": 8.64e7, "1w": 6.048e8 }[duration] ?? 0),
+              ({ "1h": 3.6e6, "8h": 2.88e7, "24h": 8.64e7, "1w": 6.048e8 }[
+                duration
+              ] ?? 0),
           ).toISOString();
     dispatch(muteChatLocal({ chatId, mutedUntil: optimisticDate }));
     dispatch(muteChat({ chatId, duration }));
@@ -227,7 +282,10 @@ export default function InboxContextMenu({
         if (isChatOpen) router.replace("/chat");
         break;
       case "block":
-        if (targetUser) { onClose(); onBlock?.(targetUser._id, isBlockedByMe); }
+        if (targetUser) {
+          onClose();
+          onBlock?.(targetUser._id, isBlockedByMe);
+        }
         return;
       case "unmute":
         handleUnmute();
@@ -245,7 +303,7 @@ export default function InboxContextMenu({
   const dragStartY = useRef(0);
   const dragCurrentY = useRef(0);
   const isDragging = useRef(false);
-  const DISMISS_THRESHOLD = 80;  // px dragged down
+  const DISMISS_THRESHOLD = 80; // px dragged down
   const VELOCITY_THRESHOLD = 0.5; // px/ms
   const dragStartTime = useRef(0);
 
@@ -265,7 +323,8 @@ export default function InboxContextMenu({
     dragCurrentY.current = clientY;
     sheetRef.current.style.transform = `translateY(${delta}px)`;
     // Fade backdrop proportionally
-    const backdropEl = sheetRef.current.previousElementSibling as HTMLElement | null;
+    const backdropEl = sheetRef.current
+      .previousElementSibling as HTMLElement | null;
     if (backdropEl) {
       const opacity = Math.max(0, 0.4 - (delta / 300) * 0.4);
       backdropEl.style.opacity = String(opacity);
@@ -281,14 +340,17 @@ export default function InboxContextMenu({
 
     if (delta > DISMISS_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
       // Fling out
-      sheetRef.current.style.transition = "transform 0.26s cubic-bezier(0.32,0.72,0,1)";
+      sheetRef.current.style.transition =
+        "transform 0.26s cubic-bezier(0.32,0.72,0,1)";
       sheetRef.current.style.transform = "translateY(100%)";
       setTimeout(onClose, 240);
     } else {
       // Snap back
-      sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.32,0.72,0,1)";
+      sheetRef.current.style.transition =
+        "transform 0.3s cubic-bezier(0.32,0.72,0,1)";
       sheetRef.current.style.transform = "translateY(0)";
-      const backdropEl = sheetRef.current.previousElementSibling as HTMLElement | null;
+      const backdropEl = sheetRef.current
+        .previousElementSibling as HTMLElement | null;
       if (backdropEl) {
         backdropEl.style.transition = "opacity 0.3s ease";
         backdropEl.style.opacity = "0.4";
@@ -319,7 +381,8 @@ export default function InboxContextMenu({
         <motion.div
           ref={(el) => {
             // Assign to both menuRef and sheetRef
-            (menuRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+            (menuRef as React.MutableRefObject<HTMLDivElement | null>).current =
+              el;
             sheetRef.current = el;
           }}
           initial={{ y: "100%" }}
@@ -327,12 +390,18 @@ export default function InboxContextMenu({
           exit={{ y: "100%" }}
           transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
           className="fixed bottom-0 left-0 right-0 z-[99999] bg-base-100 border-t border-base-content/10 shadow-2xl rounded-t-2xl"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 16px)", touchAction: "none" }}
+          style={{
+            paddingBottom: "env(safe-area-inset-bottom, 16px)",
+            touchAction: "none",
+          }}
         >
           {/* Drag handle — touch/pointer events attached here */}
           <div
             className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
-            onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.clientY); }}
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              onDragStart(e.clientY);
+            }}
             onPointerMove={(e) => onDragMove(e.clientY)}
             onPointerUp={() => onDragEnd()}
             onPointerCancel={() => onDragEnd()}
@@ -369,9 +438,11 @@ export default function InboxContextMenu({
                       flex items-center gap-3.5
                       w-full px-3 py-3.5
                       rounded-xl text-[15px] transition-colors duration-150 cursor-pointer text-left
-                      ${item.danger
-                        ? "text-red-400 hover:bg-red-300/10 active:bg-red-300/15"
-                        : "text-base-content hover:bg-base-content/8 active:bg-base-content/12"}
+                      ${
+                        item.danger
+                          ? "text-red-400 hover:bg-red-300/10 active:bg-red-300/15"
+                          : "text-base-content hover:bg-base-content/8 active:bg-base-content/12"
+                      }
                     `}
                   >
                     <Icon size={20} className="flex-shrink-0 opacity-75" />
@@ -419,7 +490,11 @@ export default function InboxContextMenu({
   // ─── Desktop: floating context menu ─────────────────────────────────────────
   return createPortal(
     <>
-      <div className="fixed inset-0 z-[99998]" onClick={onClose} onContextMenu={onClose} />
+      <div
+        className="fixed inset-0 z-[99998]"
+        onClick={onClose}
+        onContextMenu={onClose}
+      />
 
       <motion.div
         ref={menuRef}
@@ -438,11 +513,15 @@ export default function InboxContextMenu({
         <ul className="flex flex-col gap-1">
           {menuItems.map((item, index) => {
             if ("divider" in item) {
-              return <li key={`divider-${index}`}><hr className="my-1 border-base-content/10" /></li>;
+              return (
+                <li key={`divider-${index}`}>
+                  <hr className="my-1 border-base-content/10" />
+                </li>
+              );
             }
 
             const Icon = item.icon;
-            const isMuteItem   = item.key === "mute";
+            const isMuteItem = item.key === "mute";
             const isUnmuteItem = item.key === "unmute";
 
             return (
@@ -463,20 +542,28 @@ export default function InboxContextMenu({
                     flex items-center gap-3
                     w-full ${isMuteItem ? "pl-2" : "px-2"} py-2
                     rounded-lg text-sm transition-colors duration-150 cursor-pointer
-                    ${item.danger
-                      ? "text-red-400 hover:bg-red-300/10"
-                      : "text-base-content hover:bg-base-content/10"}
+                    ${
+                      item.danger
+                        ? "text-red-400 hover:bg-red-300/10"
+                        : "text-base-content hover:bg-base-content/10"
+                    }
                   `}
                 >
                   {isMuteItem ? (
                     <span className="relative flex items-center gap-3 w-full">
                       <FaBellSlash size={18} />
                       <span className="opacity-80">{item.label}</span>
-                      <ChevronRight size={18} className="absolute right-0 opacity-50" />
+                      <ChevronRight
+                        size={18}
+                        className="absolute right-0 opacity-50"
+                      />
                     </span>
                   ) : (
                     <>
-                      <Icon size={18} className={`${item.key === "remove" || item.key === "add" ? "ml-[2px] -mr-[2px]" : ""} flex-shrink-0`} />
+                      <Icon
+                        size={18}
+                        className={`${item.key === "remove" || item.key === "add" ? "ml-[2px] -mr-[2px]" : ""} flex-shrink-0`}
+                      />
                       <span className="opacity-80">{item.label}</span>
                     </>
                   )}

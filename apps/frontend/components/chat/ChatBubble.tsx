@@ -282,8 +282,8 @@ export default function ChatBubble({
 
       {!msg.deleted && msg.reactions && msg.reactions.length > 0 && (
         <div
-          className={`absolute flex flex-wrap gap-[2px] px-[6px] py-[3px] rounded-full text-sm bottom-8 select-none twemoji-container translate-y-[100%]
-    ${isMe ? `${isMobile ? "right-12" : "right-14"} justify-end` : `${isMobile ? "left-12" : "left-14"} justify-start`}`}
+          className={`absolute flex flex-wrap gap-[2px] px-[7px] py-[3px] rounded-full text-sm bottom-8 select-none twemoji-container translate-y-[100%]
+            ${isMe ? `${isMobile ? "right-12" : "right-14"} justify-end` : `${isMobile ? "left-12" : "left-14"} justify-start`}`}
         >
           {Object.entries(
             msg.reactions.reduce(

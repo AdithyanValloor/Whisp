@@ -5,8 +5,8 @@ export const createMuiTheme = () => {
   return createTheme({
     shape: { borderRadius: 12 },
 
-     typography: {
-      fontFamily: 'var(--font-family)',
+    typography: {
+      fontFamily: 'var(--font-inter)',
     },
 
     components: {

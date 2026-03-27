@@ -20,6 +20,7 @@ import { errorHandler } from "./middleware/error.middleware.js";
 import { blockRouter } from "./services/user/routes/block.routes.js";
 import { inboxNotificationsRouter } from "./services/notifications/routes/inboxNotification.routes.js";
 import { messageRequestRouter } from "./services/messages/routes/messageRequest.routes.js";
+import { startScheduledDeletionJob } from "./jobs/scheduledDeletionJob.js";
 
 export const createApp = (): Application => {
   const app = express();
@@ -33,14 +34,13 @@ export const createApp = (): Application => {
   // );
 
   app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "http://192.168.20.50:3000"
-    ],
-    credentials: true,
-  })
-);
+    cors({
+      origin: ["http://localhost:3000", "http://192.168.20.50:3000"],
+      credentials: true,
+    }),
+  );
+
+  startScheduledDeletionJob();
 
   app.use(express.json());
   app.use(cookieParser());

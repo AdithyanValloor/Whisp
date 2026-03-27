@@ -8,8 +8,9 @@ import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { IoSend } from "react-icons/io5";
-import { Chat } from "@/redux/features/chatSlice";
+
 import { useAppSelector } from "@/redux/hooks";
+import { Chat } from "@/types/chat.types";
 
 interface User {
   _id: string;
@@ -150,10 +151,10 @@ export default function ForwardModal({
                         <li
                           key={chat._id}
                           onClick={() => toggleChatSelection(chat._id)}
-                          className={`relative my-1 rounded-lg cursor-pointer border transition ${
+                          className={`relative my-1 rounded-xl cursor-pointer border transition ${
                             isSelected
-                              ? "bg-cyan-900/5 border-cyan-900"
-                              : "border-transparent hover:bg-base-300"
+                              ? "bg-green-900/5 border-green-900"
+                              : "border-transparent hover:bg-base-200"
                           }`}
                         >
                           <FriendCard
@@ -173,8 +174,8 @@ export default function ForwardModal({
                           />
 
                           {isSelected && (
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-900">
-                              <Check strokeWidth={2} />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-900">
+                              <Check size={18} strokeWidth={2} />
                             </span>
                           )}
                         </li>

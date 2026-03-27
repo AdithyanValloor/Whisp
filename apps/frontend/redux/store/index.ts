@@ -13,6 +13,8 @@ import blockReducer from "../features/blockSlice";
 import notificationsReducer from "../features/notificationSlice"
 import requestReducer from "../features/requestSlice"
 import globalSearchReducer from "../features/globalSearchSlice"
+import privacyReducer from "../features/privacySlice";
+import notificationSettingsReducer from "../features/Notificationsettingsslice"
 
 import { listenerMiddleware } from "../listeners";
 
@@ -66,6 +68,10 @@ export const store = configureStore({
     requests: requestReducer,
 
     globalSearch: globalSearchReducer,
+
+    privacy: privacyReducer,
+
+    notificationSettings: notificationSettingsReducer,
   },
 
    /**

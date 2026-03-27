@@ -11,20 +11,16 @@ import {
 import { Socket } from "socket.io-client";
 import { useRouter } from "next/navigation";
 import ProfileView from "../layout/profileView";
-import ProfilePicture from "../ProfilePicture/ProfilePicture";
-import { ArrowLeft } from "lucide-react";
 import { selectMessagesByChat } from "@/redux/selectors/messageSelectors";
-import { useAppSelector, useAppDispatch, selectIsBlocked } from "@/redux/hooks";
+import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import {
   fetchMessages,
   sendMessage,
   MessageType,
   deleteMessageApi,
   editMessageApi,
-  markMessagesAsSeen,
   fetchMessageContext,
   setJumpTo,
-  clearMentionedChat,
 } from "@/redux/features/messageSlice";
 import {
   addMembers,
@@ -35,11 +31,10 @@ import {
   transferOwnership,
 } from "@/redux/features/chatSlice";
 import GroupSidebar from "../layout/GroupchatSideBar";
-import { resetUnread } from "@/redux/features/unreadSlice";
 import MessageInput from "./MessageInput";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatHeader } from "./ChatHeader";
-import { ChatBody } from "./ChatBody";
+import { ChatBody, ChatBodyHandle } from "./ChatBody"; // ← import handle type
 import ChatSearchComponent from "./ChatSearchComponent";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
 import { setActiveChatId } from "@/utils/activeChat";
@@ -78,25 +73,19 @@ type SidebarMode = "profile" | "search" | null;
 export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const onlineStatus = useAppSelector((state) => state.presence.users);
 
-  const messages = useAppSelector((state) =>
-    selectMessagesByChat(state, chat._id),
-  );
-  const typingUsers = useAppSelector((s) => s.typing.byChat[chat._id] ?? {});
-  const unreadCount = useAppSelector(
-    (state) => state.unread.perChat[chat._id] || 0,
-  );
-
+  // ─── Refs ─────────────────────────────────────────────────────────────────
+  // Points into ChatBody → Messages, exposes scrollToBottom()
+  const chatBodyRef = useRef<ChatBodyHandle>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasFetchedRef = useRef<Set<string>>(new Set());
   const markAsSeenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isMarkingRef = useRef(false);
   const hasMarkedInitialRef = useRef(false);
+
+  // ─── State ────────────────────────────────────────────────────────────────
   const [message, setMessage] = useState("");
-  // ---------------------------------------------
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>(null);
-  const [showProfile, setShowProfile] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [editingMessage, setEditingMessage] = useState<MessageType | null>(
     null,
@@ -105,119 +94,117 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [showDeleteModal, setShowDeleteModal] = useState<{
     open: boolean;
     msg: MessageType | null;
-  }>({
-    open: false,
-    msg: null,
-  });
+  }>({ open: false, msg: null });
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null);
   const [forward, setForward] = useState<MessageType | null>(null);
 
+  // ─── Selectors ────────────────────────────────────────────────────────────
+  const onlineStatus = useAppSelector((state) => state.presence.users);
+  const messages = useAppSelector((state) =>
+    selectMessagesByChat(state, chat._id),
+  );
+  const typingUsers = useAppSelector((s) => s.typing.byChat[chat._id] ?? {});
+
   const isBlocked = useAppSelector((state: RootState) => {
     if (chat.isGroup) return false;
-    const otherMember = chat.members.find((m) => m._id !== currentUser._id);
-    if (!otherMember) return false;
-    const id = otherMember._id;
-    const blockedByMe = state.block.blockedUsers.some((u) => u._id === id);
-    const blockingMe = state.block.blockedByUsers.includes(id);
-    return blockedByMe || blockingMe;
+    const other = chat.members.find((m) => m._id !== currentUser._id);
+    if (!other) return false;
+    return (
+      state.block.blockedUsers.some((u) => u._id === other._id) ||
+      state.block.blockedByUsers.includes(other._id)
+    );
   });
 
   const isBlockedByMe = useAppSelector((state: RootState) => {
     if (chat.isGroup) return false;
-    const otherMember = chat.members.find((m) => m._id !== currentUser._id);
-    if (!otherMember) return false;
-    return state.block.blockedUsers.some((u) => u._id === otherMember._id);
+    const other = chat.members.find((m) => m._id !== currentUser._id);
+    if (!other) return false;
+    return state.block.blockedUsers.some((u) => u._id === other._id);
   });
 
   const isBlockingMe = useAppSelector((state: RootState) => {
     if (chat.isGroup) return false;
-    const otherMember = chat.members.find((m) => m._id !== currentUser._id);
-    if (!otherMember) return false;
-    return state.block.blockedByUsers.includes(otherMember._id);
+    const other = chat.members.find((m) => m._id !== currentUser._id);
+    if (!other) return false;
+    return state.block.blockedByUsers.includes(other._id);
   });
 
-  useEffect(() => {
-    setActiveChatId(chat._id);
+  // ─── Derived display values (memoized) ────────────────────────────────────
+  const otherMember = useMemo(
+    () => chat.members.find((m) => m._id !== currentUser._id),
+    [chat.members, currentUser._id],
+  );
 
-    return () => {
-      setActiveChatId(null);
-    };
-  }, [chat._id]);
-
-  const lastMessage = messages.at(-1);
-
-  useLayoutEffect(() => {
-    const container = document.querySelector(".messages-container");
-    if (!container) return;
-
-    container.scrollTop = container.scrollHeight;
-  }, [lastMessage?.linkPreview]);
-
-  // Detect mobile screen
-  const isMobile = useIsMobile()
-
-  useEffect(() => {
-    dispatch(markMentionsReadForChat(chat._id));
-    dispatch(clearMentionsForChat(chat._id));
-    dispatch(markMentionsReadForChat(chat._id));
-  }, [chat._id, dispatch]);
-
-  const displayUser = chat.isGroup
-    ? {
+  const displayUser = useMemo(() => {
+    if (chat.isGroup) {
+      return {
         _id: chat._id,
         username: chat.chatName,
         displayName: chat.chatName,
         profilePicture: { url: null },
-      }
-    : (chat.members.find((m) => m._id !== currentUser._id) ?? {
+      };
+    }
+    return (
+      otherMember ?? {
         _id: "unknown",
         username: "Unknown",
         displayName: "Unknown",
-        profilePicture: {
-          url: currentUser.profilePic ?? null,
-        },
-      });
+        profilePicture: { url: currentUser.profilePic ?? null },
+      }
+    );
+  }, [
+    chat.isGroup,
+    chat._id,
+    chat.chatName,
+    otherMember,
+    currentUser.profilePic,
+  ]);
 
-  let displayStatus: "online" | "offline" = "offline";
-
-  if (!chat.isGroup) {
-    const otherUser = chat.members.find((m) => m._id !== currentUser._id);
-
-    if (otherUser?._id) {
-      const userId = otherUser._id;
-      displayStatus = onlineStatus[userId] || "offline";
-    }
-  } else {
-    displayStatus = "online";
-  }
+  const displayStatus: "online" | "offline" = useMemo(() => {
+    if (chat.isGroup) return "online";
+    if (!otherMember) return "offline";
+    return onlineStatus[otherMember._id] || "offline";
+  }, [chat.isGroup, otherMember, onlineStatus]);
 
   const displayName = displayUser.displayName;
   const name = displayUser.username;
   const displayPic = displayUser.profilePicture?.url || "/default-pfp.png";
 
-  // Handle back button click - navigate back to chat list
-  const handleBackClick = () => {
-    router.push("/chat");
-  };
+  // ─── Scroll helper — delegates into Messages via imperative handle ─────────
+  const scrollToBottom = useCallback(() => {
+    chatBodyRef.current?.scrollToBottom();
+  }, []);
 
-  // Reset state when chat changes
+  // ─── Active chat tracking ──────────────────────────────────────────────────
+  useEffect(() => {
+    setActiveChatId(chat._id);
+    return () => setActiveChatId(null);
+  }, [chat._id]);
+
+  // ─── Scroll on link preview change ────────────────────────────────────────
+  const lastMessage = messages.at(-1);
+  useLayoutEffect(() => {
+    if (lastMessage?.linkPreview) scrollToBottom();
+  }, [lastMessage?.linkPreview, scrollToBottom]);
+
+  const isMobile = useIsMobile();
+
+  // ─── Mark mentions read ───────────────────────────────────────────────────
+  useEffect(() => {
+    dispatch(markMentionsReadForChat(chat._id));
+    dispatch(clearMentionsForChat(chat._id));
+  }, [chat._id, dispatch]);
+
+  // ─── Reset state on chat change ───────────────────────────────────────────
   useEffect(() => {
     hasMarkedInitialRef.current = false;
     isMarkingRef.current = false;
-    setShowProfile(false);
 
     if (markAsSeenTimeoutRef.current) {
       clearTimeout(markAsSeenTimeoutRef.current);
       markAsSeenTimeoutRef.current = null;
     }
-
-    setTimeout(() => {
-      const container = document.querySelector(".messages-container");
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-    }, 150);
 
     return () => {
       if (markAsSeenTimeoutRef.current) {
@@ -231,32 +218,26 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     };
   }, [chat._id]);
 
-  // Fetch messages for this chat
+  // ─── Fetch messages (skips if already fetched) ────────────────────────────
   useEffect(() => {
-    if (hasFetchedRef.current.has(chat._id)) {
-      return;
-    }
-
+    if (hasFetchedRef.current.has(chat._id)) return;
     hasFetchedRef.current.add(chat._id);
 
     dispatch(fetchMessages(chat._id))
       .unwrap()
-      .then((result) => {
-        setTimeout(() => {
-          const container = document.querySelector(".messages-container");
-          if (container) {
-            container.scrollTop = container.scrollHeight;
-          }
-        }, 100);
-      })
+      .then(() => scrollToBottom())
       .catch((err) => {
         console.error("❌ Failed to fetch messages:", err);
         hasFetchedRef.current.delete(chat._id);
       });
-  }, [chat._id, dispatch]);
+  }, [chat._id, dispatch, scrollToBottom]);
 
-  // Socket event listeners
-  const handleTyping = () => {
+  // ─── Handlers ─────────────────────────────────────────────────────────────
+  const handleBackClick = useCallback(() => {
+    router.push("/chat");
+  }, [router]);
+
+  const handleTyping = useCallback(() => {
     if (!socket?.connected) return;
 
     socket.emit("typing", {
@@ -276,9 +257,15 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         });
       }
     }, 1500);
-  };
+  }, [
+    socket,
+    chat._id,
+    currentUser._id,
+    currentUser.username,
+    currentUser.displayName,
+  ]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!message.trim() && !editingMessage) return;
     setShowPicker(false);
 
@@ -321,31 +308,51 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     } catch (err) {
       console.error("Send message failed:", err);
     }
-  };
+  }, [
+    message,
+    editingMessage,
+    dispatch,
+    chat._id,
+    chat.isGroup,
+    replyingTo,
+    pendingMentionIds,
+    socket,
+    currentUser._id,
+  ]);
 
-  const scrollToMessage = async (messageId: string) => {
-    const exists = messages.find((m) => m._id === messageId);
+  const scrollToMessage = useCallback(
+    async (messageId: string) => {
+      const exists = messages.find((m) => m._id === messageId);
+      if (!exists) {
+        await dispatch(
+          fetchMessageContext({ messageId, chatId: chat._id }),
+        ).unwrap();
+      } else {
+        dispatch(setJumpTo({ chatId: chat._id, messageId }));
+      }
+    },
+    [messages, dispatch, chat._id],
+  );
 
-    if (!exists) {
-      await dispatch(
-        fetchMessageContext({ messageId, chatId: chat._id }),
-      ).unwrap();
-    } else {
-      dispatch(setJumpTo({ chatId: chat._id, messageId }));
+  const handleUnblock = useCallback(() => {
+    if (!chat.isGroup && otherMember) {
+      dispatch(unblockUser(otherMember._id));
     }
-  };
+  }, [chat.isGroup, otherMember, dispatch]);
 
-  // Shared sidebar 
+  // ─── Sidebar content ──────────────────────────────────────────────────────
   const sidebarContent = (
-    <div className={`h-full w-full overflow-hidden ${!isMobile && "rounded-2xl shadow-md border border-base-content/10 "}`}>
+    <div
+      className={`h-full w-full overflow-hidden ${
+        !isMobile && "rounded-2xl shadow-md border border-base-content/10"
+      }`}
+    >
       {sidebarMode === "search" && (
         <ChatSearchComponent
           chatId={chat._id}
           currentUser={currentUser}
           onClose={() => setSidebarMode(null)}
-          onSelectMessage={(id) => {
-            scrollToMessage(id);
-          }}
+          onSelectMessage={(id) => scrollToMessage(id)}
         />
       )}
 
@@ -355,14 +362,12 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
             <GroupSidebar
               group={chat}
               currentUserId={currentUser._id}
-              onBack={() => setSidebarMode(null)} 
+              onBack={() => setSidebarMode(null)}
               onAddMembers={(ids) =>
                 dispatch(addMembers({ chatId: chat._id, members: ids }))
               }
               onRemoveMember={(id) =>
-                dispatch(
-                  removeMembers({ chatId: chat._id, member: id }),
-                )
+                dispatch(removeMembers({ chatId: chat._id, member: id }))
               }
               onMakeAdmin={(id) =>
                 dispatch(
@@ -382,25 +387,21 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
                   }),
                 )
               }
-              onLeaveGroup={() =>
-                dispatch(leaveGroup({ chatId: chat._id }))
-              }
-              onDeleteGroup={() =>
-                dispatch(deleteGroup({ chatId: chat._id }))
-              }
+              onLeaveGroup={() => dispatch(leaveGroup({ chatId: chat._id }))}
+              onDeleteGroup={() => dispatch(deleteGroup({ chatId: chat._id }))}
               onTransferOwnership={(id) =>
                 dispatch(
-                  transferOwnership({
-                    chatId: chat._id,
-                    newOwnerId: id,
-                  }),
+                  transferOwnership({ chatId: chat._id, newOwnerId: id }),
                 ).then(() => {
                   dispatch(leaveGroup({ chatId: chat._id }));
                 })
               }
             />
           ) : (
-            <ProfileView onBack={() => setSidebarMode(null)} user={displayUser} />
+            <ProfileView
+              onBack={() => setSidebarMode(null)}
+              user={displayUser}
+            />
           )}
         </>
       )}
@@ -411,11 +412,10 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
     <div className="flex h-full w-full overflow-hidden relative">
       {/* Main Chat Area */}
       <div
-        className={`flex flex-col h-full transition-all duration-300 ease-in-out
-          ${isMobile || !sidebarMode ? "w-full" : "w-2/3"}
-        `}
+        className={`flex flex-col h-full transition-all duration-300 ease-in-out ${
+          isMobile || !sidebarMode ? "w-full" : "w-2/3"
+        }`}
       >
-        {/* Header */}
         <ChatHeader
           isMobile={isMobile}
           displayName={displayName || name}
@@ -427,25 +427,27 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
           }
           setSidebarMode={setSidebarMode}
         />
-        {/* Messages Area */}
+
+        {/* ref gives us chatBodyRef.current.scrollToBottom() */}
         <ChatBody
+          ref={chatBodyRef}
           chatId={chat._id}
           currentUser={currentUser}
           typingUsers={typingUsers}
           replyingTo={replyingTo}
           editingMessage={editingMessage}
-          setReplyingTo={setReplyingTo}
-          forwardMessage={forward}
-          setForward={setForward}
           onEdit={(msg) => {
             setReplyingTo(null);
             setEditingMessage(msg);
           }}
           onDelete={(msg) => setShowDeleteModal({ open: true, msg })}
+          setReplyingTo={setReplyingTo}
+          setForward={setForward}
+          forwardMessage={forward}
           scrollToMessage={scrollToMessage}
+          isBlockedByMe={isBlockedByMe}
         />
 
-        {/* Delete Modal */}
         <ConfirmModal
           open={showDeleteModal.open}
           title="Delete Message"
@@ -466,7 +468,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
           }}
         />
 
-        {/* Message Input */}
         <div className="flex-shrink-0 safe-area-bottom">
           <MessageInput
             isMobile={isMobile}
@@ -487,34 +488,20 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
             groupMembers={chat.isGroup ? chat.members : []}
             currentUserId={currentUser._id}
             onMentionsChange={setPendingMentionIds}
-            onUnblock={() => {
-              if (!chat.isGroup) {
-                const otherMember = chat.members.find(
-                  (m) => m._id !== currentUser._id,
-                );
-                if (otherMember) {
-                  dispatch(unblockUser(otherMember._id));
-                } else {
-                  console.error("Could not find other member to unblock");
-                }
-              }
-            }}
+            onUnblock={handleUnblock}
           />
         </div>
       </div>
 
-      {/* Desktop Sidebar — inline, no overlay needed */}
+      {/* Desktop Sidebar */}
       {!isMobile && sidebarMode && (
-        <div className="relative w-1/3 mx-2 pb-3 h-full">
-          {sidebarContent}
-        </div>
+        <div className="relative w-1/3 mx-2 pb-3 h-full">{sidebarContent}</div>
       )}
 
-      {/* Mobile Sidebar — full-screen overlay with smooth slide-from-right animation */}
+      {/* Mobile Sidebar */}
       <AnimatePresence>
         {isMobile && sidebarMode && (
           <>
-            {/* Dimmed backdrop — tap to close */}
             <motion.div
               key="backdrop"
               className="absolute inset-0 z-20 bg-black/30"
@@ -524,8 +511,6 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
               transition={{ duration: 0.22, ease: "easeInOut" }}
               onClick={() => setSidebarMode(null)}
             />
-
-            {/* Sliding panel */}
             <motion.div
               key="mobile-sidebar"
               className="absolute inset-0 z-30 bg-base-100 flex flex-col overflow-hidden"

@@ -18,6 +18,8 @@ import defaultPFP from "@/public/default-pfp.png";
 import { selectActiveUnreadTotal } from "@/redux/selectors/unreadSelectors";
 import { usePathname } from "next/navigation";
 import { useIsMobile } from "@/utils/screenSize";
+import { BiSolidMessageSquareDots } from "react-icons/bi";
+import { UnreadCountBadge } from "../Notification/UnreadCountBadge";
 
 interface SideBarProps {
   activeTab: string;
@@ -90,7 +92,8 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
     { title: "Menu", icon: <Menu size={20} />, isMenu: true },
     {
       title: "Chats",
-      icon: <AiFillMessage size={22} />,
+      // icon: <AiFillMessage size={22} />,
+      icon: <BiSolidMessageSquareDots size={22} />,
       notificationCount: totalUnread,
     },
     {
@@ -193,14 +196,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
           <div className="w-10 flex justify-center flex-shrink-0 relative">
             {btn.icon}
             {!!btn.notificationCount && btn.notificationCount > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 400 }}
-                className="absolute -top-1 -right-0 bg-red-600 text-white text-xs rounded-full min-w-4 h-4 px-1 flex items-center justify-center font-semibold"
-              >
-                {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
-              </motion.span>
+              <UnreadCountBadge position="-top-1.5 right-0.5" count={btn.notificationCount}/>
             )}
           </div>
 
@@ -240,9 +236,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
           <div className="relative">
             {btn.icon}
             {!!btn.notificationCount && btn.notificationCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs leading-none rounded-full min-w-4 h-4 px-1 flex items-center justify-center">
-                {btn.notificationCount > 99 ? "99+" : btn.notificationCount}
-              </span>
+              <UnreadCountBadge position={`${isMobile && "-top-1 -right-2"}`} count={btn.notificationCount}/>
             )}
           </div>
 

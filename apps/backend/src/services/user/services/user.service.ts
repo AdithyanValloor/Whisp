@@ -3,6 +3,7 @@ import {
   Unauthorized,
   NotFound,
 } from "../../../utils/errors/httpErrors.js";
+import bcrypt from "bcrypt";
 
 /**
  * Input type for profile updates
@@ -90,4 +91,29 @@ export const updateProfileByUserId = async (
   await profile.save();
 
   return profile;
+};
+
+/**
+ * ------------------------------------------------------------------
+ * Check Password
+ * ------------------------------------------------------------------
+ * @desc    Verifies the user's current password without making any changes.
+ *          Used for sensitive action gates (e.g. account deletion confirm).
+ *
+ * @param   userId   - Authenticated user's ID
+ * @param   password - Plaintext password to verify
+ *
+ * @throws  Unauthorized - If password is wrong
+ * @throws  NotFound     - If user does not exist
+ *
+ * @returns void
+ */
+export const checkPassword = async (userId: string, password: string) => {
+  const user = await UserModel.findById(userId).select("+password");
+
+  if (!user) throw NotFound("User not found");
+
+  const isMatch = await bcrypt.compare(password, user.password);
+
+  return { isMatch };
 };

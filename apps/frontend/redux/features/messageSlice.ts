@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
-import axios from "axios";
 import { resetUnread } from "./unreadSlice";
 import { RootState } from "../store";
 import { clearChat, deleteChat } from "./chatSlice";

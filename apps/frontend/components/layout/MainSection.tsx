@@ -51,7 +51,7 @@ export default function MainSection({
     Friends: <FriendsSection setActiveTab={setActiveTab} />,
     "Call history": <CallSection />,
     Status: <StatusSection />,
-    Inbox: <NotificationInbox />,
+    Inbox: <NotificationInbox setActiveTab={setActiveTab}/>,
     "Archived chats": <ArchivedChats />,
     Settings: (
       <ProfileDropdown

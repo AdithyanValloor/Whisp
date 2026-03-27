@@ -13,6 +13,7 @@ import { ChatUserStateModel } from "../../chat/models/chatUserState.model.js";
 import { createInboxNotification } from "../../notifications/services/inboxNotification.service.js";
 import { emitMessageRequestSent } from "../../../socket/emitters/messageRequest.emitters.js";
 import { MessageRequestModel } from "../../user/models/messageRequest.model.js";
+import { UserModel } from "../../user/models/user.model.js";
 
 /**
  * Parses @mention user IDs from content and validates they are group members.
@@ -106,29 +107,68 @@ export const getAllMessagesFunction = async (
  *
  * @throws {Unauthorized} If userId is missing.
  */
+
 export const getUnreadCountsFunction = async (userId: string) => {
   if (!userId) throw Unauthorized();
 
-  const states = await ChatUserStateModel.find({ userId });
+  // Get all chats the user belongs to
+  const userChats = await Chat.find({ members: userId }).select("_id");
+  const chatIds = userChats.map((c) => c._id.toString());
+
+  if (chatIds.length === 0) return {};
+
+  // Get existing states (may not exist for new accounts)
+  const states = await ChatUserStateModel.find({
+    userId,
+    chatId: { $in: chatIds },
+  });
+
+  const stateMap = new Map(states.map((s) => [s.chatId.toString(), s]));
 
   const unreadData: Record<string, number> = {};
 
-  for (const state of states) {
+  for (const chatId of chatIds) {
+    const state = stateMap.get(chatId);
+
     const filter: FilterQuery<IMessage> = {
-      chat: state.chatId,
+      chat: chatId,
       deleted: false,
       sender: { $ne: userId },
       createdAt: {
-        $gt: state.lastReadAt || state.clearedAt || new Date(0),
+        $gt: state?.lastReadAt ?? state?.clearedAt ?? new Date(0),
       },
     };
 
     const count = await Message.countDocuments(filter);
-    unreadData[state.chatId.toString()] = count;
+    unreadData[chatId] = count;
   }
 
   return unreadData;
 };
+
+// export const getUnreadCountsFunction = async (userId: string) => {
+//   if (!userId) throw Unauthorized();
+
+//   const states = await ChatUserStateModel.find({ userId });
+
+//   const unreadData: Record<string, number> = {};
+
+//   for (const state of states) {
+//     const filter: FilterQuery<IMessage> = {
+//       chat: state.chatId,
+//       deleted: false,
+//       sender: { $ne: userId },
+//       createdAt: {
+//         $gt: state.lastReadAt || state.clearedAt || new Date(0),
+//       },
+//     };
+
+//     const count = await Message.countDocuments(filter);
+//     unreadData[state.chatId.toString()] = count;
+//   }
+
+//   return unreadData;
+// };
 
 /**
  * Creates a message in a chat and increments unread counts for all other members.
@@ -556,7 +596,10 @@ export const markMessagesAsSeenFunction = async (
   const chat = await Chat.findOne({ _id: chatId, members: userId });
   if (!chat) throw Forbidden("Not allowed");
 
-  // Only consider messages sent by others
+  // Check the user's read receipt privacy setting
+  const user = await UserModel.findById(userId).select("privacy");
+  const readReceiptsEnabled = user?.privacy?.readReceipts ?? true;
+
   const latestIncomingMessage = await Message.findOne({
     chat: chatId,
     deleted: false,
@@ -565,18 +608,7 @@ export const markMessagesAsSeenFunction = async (
     .sort({ createdAt: -1 })
     .select("createdAt");
 
-  // Mark messages seen
-  const updated = await Message.updateMany(
-    { chat: chatId, sender: { $ne: userId }, seenBy: { $ne: userId } },
-    { $addToSet: { seenBy: userId } },
-  );
-
-  await Message.updateMany(
-    { chat: chatId, sender: { $ne: userId }, deliveredTo: userId },
-    { $pull: { deliveredTo: userId } },
-  );
-
-  // Update lastReadAt ONLY if there was an incoming message
+  // Always update lastReadAt for unread count tracking — this is internal
   if (latestIncomingMessage) {
     await ChatUserStateModel.findOneAndUpdate(
       { userId, chatId },
@@ -585,7 +617,33 @@ export const markMessagesAsSeenFunction = async (
     );
   }
 
-  return { success: true, modifiedCount: updated.modifiedCount };
+  // Only write seenBy and pull deliveredTo if read receipts are on
+  // If off — others won't see the "seen" status, but unread counts still clear
+  if (readReceiptsEnabled) {
+    await Message.updateMany(
+      { chat: chatId, sender: { $ne: userId }, seenBy: { $ne: userId } },
+      { $addToSet: { seenBy: userId } },
+    );
+
+    await Message.updateMany(
+      { chat: chatId, sender: { $ne: userId }, deliveredTo: userId },
+      { $pull: { deliveredTo: userId } },
+    );
+  }
+
+  const updated = await Message.countDocuments({
+    chat: chatId,
+    sender: { $ne: userId },
+    seenBy: { $ne: userId },
+  });
+
+  // Return whether receipts are enabled so the controller
+  // knows whether to emit the seen socket event to others
+  return {
+    success: true,
+    modifiedCount: updated,
+    emitSeen: readReceiptsEnabled, // ← controller uses this
+  };
 };
 
 /**
@@ -929,7 +987,7 @@ export const globalSearchMessagesFunction = async (
         select: "_id username displayName",
       },
     })
-    .populate("sender", "displayName username profilePicture")
+    .populate("sender", "displayName username profilePicture");
 
   return { messages };
 };

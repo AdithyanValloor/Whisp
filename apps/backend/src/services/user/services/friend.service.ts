@@ -9,8 +9,14 @@ import {
 
 import { toFriendRequestSocketPayload } from "../utils/normalizeFriendRequest.js";
 import { BlockModel } from "../models/block.model.js";
-import { createInboxNotification, deleteNotificationByFriendRequest } from "../../notifications/services/inboxNotification.service.js";
-import { emitNotificationRemoved, emitUnreadNotificationCount } from "../../../socket/emitters/notification.emitters.js";
+import {
+  createInboxNotification,
+  deleteNotificationByFriendRequest,
+} from "../../notifications/services/inboxNotification.service.js";
+import {
+  emitNotificationRemoved,
+  emitUnreadNotificationCount,
+} from "../../../socket/emitters/notification.emitters.js";
 import { InboxNotificationModel } from "../../notifications/models/inboxNotification.model.js";
 
 /**
@@ -86,6 +92,16 @@ export const sendFriendRequest = async (
   const toUser = await UserModel.findOne({ username: toUsername });
   if (!toUser) throw NotFound("User not found");
 
+  // Self-check first — most obvious validation
+  if (fromUser.id === toUser.id) {
+    throw BadRequest("Cannot send friend request to yourself");
+  }
+
+  // Already friends
+  if (fromUser.friendList.some((id) => id.toString() === toUser.id)) {
+    throw BadRequest("Already friends");
+  }
+  // Block check
   const blockExists = await BlockModel.findOne({
     $or: [
       { blocker: fromUserId, blocked: toUser.id },
@@ -97,14 +113,29 @@ export const sendFriendRequest = async (
     throw BadRequest("Cannot send friend request to this user");
   }
 
-  if (fromUser.id === toUser.id) {
-    throw BadRequest("Cannot send friend request to yourself");
+  // Privacy check — only reached by legitimate new requests
+  if (toUser.privacy?.friendRequests === "nobody") {
+    throw BadRequest("This user is not accepting friend requests");
   }
 
-  if (fromUser.friendList.includes(toUser.id)) {
-    throw BadRequest("Already friends");
+  if (toUser.privacy?.friendRequests === "friends") {
+    // fromUser is already fetched, reuse its friendList
+    const senderFriendSet = new Set(
+      fromUser.friendList.map((id) => id.toString()),
+    );
+
+    const hasMutualFriend = toUser.friendList.some((id) =>
+      senderFriendSet.has(id.toString()),
+    );
+
+    if (!hasMutualFriend) {
+      throw BadRequest(
+        "This user only accepts requests from friends of friends",
+      );
+    }
   }
 
+  // Duplicate request check
   const existingRequest = await FriendRequestModel.findOne({
     from: fromUserId,
     to: toUser.id,
@@ -139,7 +170,6 @@ export const sendFriendRequest = async (
     toUserId: toUser.id.toString(),
   };
 };
-
 /**
  * ------------------------------------------------------------------
  * Accept Friend Request
@@ -297,15 +327,15 @@ export const cancelFriendRequest = async (
 
   const deleted = await deleteNotificationByFriendRequest(reqId);
 
-if (deleted) {
-  emitNotificationRemoved(toUserId, reqId);
+  if (deleted) {
+    emitNotificationRemoved(toUserId, reqId);
 
-  const freshCount = await InboxNotificationModel.countDocuments({
-    user: deleted.userId,
-    read: false,
-  });
-  emitUnreadNotificationCount(deleted.userId, freshCount); 
-}
+    const freshCount = await InboxNotificationModel.countDocuments({
+      user: deleted.userId,
+      read: false,
+    });
+    emitUnreadNotificationCount(deleted.userId, freshCount);
+  }
   await request.deleteOne();
 
   return { toUserId, requestId: reqId };

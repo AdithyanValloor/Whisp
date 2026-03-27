@@ -1,22 +1,22 @@
 
 export const AVAILABLE_THEMES = [
   "light",
-  "forest",
-  "sunset",
-  "business",
-  "dracula",
   "lemonade",
   "retro",
+  "forest",
+  "business",
+  "sunset",
+  "dracula",
 ] as const;
 
 export const THEME_LABELS: Record<AppTheme, string> = {
   light: "Light",
+  retro: "Sunset",
   forest: "Dark",
   sunset: "Teal",
   business: "Corporate",
   dracula: "Midnight",
   lemonade: "Sage",
-  retro: "Sunset",
   system: "System",
 };
 

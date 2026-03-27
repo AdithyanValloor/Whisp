@@ -6,8 +6,15 @@ import { createPortal } from "react-dom";
 import { AnimatePresence } from "framer-motion";
 import { useEffect, useRef } from "react";
 import { MdAddReaction } from "react-icons/md";
-import { RiDeleteBin5Fill, RiEditFill, RiFileCopyFill, RiReplyFill, RiShareForwardFill } from "react-icons/ri";
+import {
+  RiDeleteBin5Fill,
+  RiEditFill,
+  RiFileCopyFill,
+  RiReplyFill,
+  RiShareForwardFill,
+} from "react-icons/ri";
 import { useIsMobile } from "@/utils/screenSize";
+import { IconType } from "react-icons/lib";
 
 interface ContextMenuProps {
   contextMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -27,7 +34,16 @@ interface ContextMenuProps {
   SetShowForwardModal: () => void;
   onEdit?: (msg: MessageType) => void;
   onDelete?: (msg: MessageType) => void;
+  isBlockedByMe: boolean;
 }
+
+type MenuItem = {
+  label: string;
+  icon: IconType;
+  action: () => void;
+  show: boolean;
+  danger?: boolean;
+};
 
 export default function ContextMenu({
   contextMenuRef,
@@ -42,6 +58,7 @@ export default function ContextMenu({
   SetShowForwardModal,
   onEdit,
   onDelete,
+  isBlockedByMe,
 }: ContextMenuProps) {
   const isMobile = useIsMobile();
 
@@ -75,7 +92,8 @@ export default function ContextMenu({
     const delta = Math.max(0, clientY - dragStartY.current);
     dragCurrentY.current = clientY;
     sheetRef.current.style.transform = `translateY(${delta}px)`;
-    const backdropEl = sheetRef.current.previousElementSibling as HTMLElement | null;
+    const backdropEl = sheetRef.current
+      .previousElementSibling as HTMLElement | null;
     if (backdropEl) {
       const opacity = Math.max(0, 0.4 - (delta / 300) * 0.4);
       backdropEl.style.opacity = String(opacity);
@@ -90,13 +108,16 @@ export default function ContextMenu({
     const velocity = delta / Math.max(elapsed, 1);
 
     if (delta > DISMISS_THRESHOLD || velocity > VELOCITY_THRESHOLD) {
-      sheetRef.current.style.transition = "transform 0.26s cubic-bezier(0.32,0.72,0,1)";
+      sheetRef.current.style.transition =
+        "transform 0.26s cubic-bezier(0.32,0.72,0,1)";
       sheetRef.current.style.transform = "translateY(100%)";
       setTimeout(closeContextMenu, 240);
     } else {
-      sheetRef.current.style.transition = "transform 0.3s cubic-bezier(0.32,0.72,0,1)";
+      sheetRef.current.style.transition =
+        "transform 0.3s cubic-bezier(0.32,0.72,0,1)";
       sheetRef.current.style.transform = "translateY(0)";
-      const backdropEl = sheetRef.current.previousElementSibling as HTMLElement | null;
+      const backdropEl = sheetRef.current
+        .previousElementSibling as HTMLElement | null;
       if (backdropEl) {
         backdropEl.style.transition = "opacity 0.3s ease";
         backdropEl.style.opacity = "0.4";
@@ -105,46 +126,72 @@ export default function ContextMenu({
   };
 
   const menuItems = [
-    {
-      label: "React",
-      icon: MdAddReaction,
-      action: () => { openFullPicker(msg._id); },
-      show: true,
-    },
-    {
-      label: "Reply",
-      icon: RiReplyFill,
-      action: () => { handleReply(msg); closeContextMenu(); },
-      show: true,
-    },
+    !isBlockedByMe
+      ? [
+          {
+            label: "React",
+            icon: MdAddReaction,
+            action: () => {
+              openFullPicker(msg._id);
+            },
+            show: true,
+          },
+          {
+            label: "Reply",
+            icon: RiReplyFill,
+            action: () => {
+              handleReply(msg);
+              closeContextMenu();
+            },
+            show: true,
+          },
+        ]
+      : [],
     {
       label: "Forward",
       icon: RiShareForwardFill,
-      action: () => { setForward(msg); SetShowForwardModal(); closeContextMenu(); },
+      action: () => {
+        setForward(msg);
+        SetShowForwardModal();
+        closeContextMenu();
+      },
       show: true,
     },
-    {
-      label: "Edit",
-      icon: RiEditFill,
-      action: () => { setReplyingTo(null); onEdit?.(msg); closeContextMenu(); },
-      show: isMe && !msg.forwarded,
-    },
+    !isBlockedByMe
+      ? [
+          {
+            label: "Edit",
+            icon: RiEditFill,
+            action: () => {
+              setReplyingTo(null);
+              onEdit?.(msg);
+              closeContextMenu();
+            },
+            show: isMe && !msg.forwarded,
+          },
+        ]
+      : [],
     {
       label: "Copy",
       icon: RiFileCopyFill,
-      action: () => { navigator.clipboard.writeText(msg.content); closeContextMenu(); },
+      action: () => {
+        navigator.clipboard.writeText(msg.content);
+        closeContextMenu();
+      },
       show: true,
     },
     {
       label: "Delete",
       icon: RiDeleteBin5Fill,
-      action: () => { onDelete?.(msg); closeContextMenu(); },
+      action: () => {
+        onDelete?.(msg);
+        closeContextMenu();
+      },
       show: isMe,
       danger: true,
     },
   ];
-
-  const visibleItems = menuItems.filter((item) => item.show);
+const visibleItems = menuItems.flat().filter((item): item is MenuItem => item.show);
 
   if (typeof document === "undefined") return null;
 
@@ -168,7 +215,9 @@ export default function ContextMenu({
             {/* Bottom sheet */}
             <motion.div
               ref={(el) => {
-                (contextMenuRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+                (
+                  contextMenuRef as React.MutableRefObject<HTMLDivElement | null>
+                ).current = el;
                 sheetRef.current = el;
               }}
               initial={{ y: "100%" }}
@@ -176,12 +225,18 @@ export default function ContextMenu({
               exit={{ y: "100%" }}
               transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
               className="fixed bottom-0 left-0 right-0 z-[99999] bg-base-100 border-t border-base-content/10 shadow-2xl rounded-t-2xl"
-              style={{ paddingBottom: "env(safe-area-inset-bottom, 16px)", touchAction: "none" }}
+              style={{
+                paddingBottom: "env(safe-area-inset-bottom, 16px)",
+                touchAction: "none",
+              }}
             >
               {/* Drag handle */}
               <div
                 className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
-                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); onDragStart(e.clientY); }}
+                onPointerDown={(e) => {
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  onDragStart(e.clientY);
+                }}
                 onPointerMove={(e) => onDragMove(e.clientY)}
                 onPointerUp={() => onDragEnd()}
                 onPointerCancel={() => onDragEnd()}
@@ -201,9 +256,11 @@ export default function ContextMenu({
                           flex items-center gap-3.5
                           w-full px-3 py-3.5
                           rounded-xl text-[15px] transition-colors duration-150 cursor-pointer text-left
-                          ${item.danger
-                            ? "text-red-400 hover:bg-red-300/10 active:bg-red-300/15"
-                            : "text-base-content hover:bg-base-content/8 active:bg-base-content/12"}
+                          ${
+                            item.danger
+                              ? "text-red-400 hover:bg-red-300/10 active:bg-red-300/15"
+                              : "text-base-content hover:bg-base-content/8 active:bg-base-content/12"
+                          }
                         `}
                       >
                         <Icon size={20} className="flex-shrink-0 opacity-75" />
@@ -264,9 +321,11 @@ export default function ContextMenu({
                         transition-colors duration-150
                         cursor-pointer
                         opacity-80
-                        ${item.danger
-                          ? "text-red-400 hover:bg-red-400/10"
-                          : "text-base-content hover:bg-base-content/10"}
+                        ${
+                          item.danger
+                            ? "text-red-400 hover:bg-red-400/10"
+                            : "text-base-content hover:bg-base-content/10"
+                        }
                       `}
                       onClick={item.action}
                     >

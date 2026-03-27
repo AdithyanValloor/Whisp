@@ -1,122 +1,206 @@
-import mongoose, {Schema, Types, model} from "mongoose";
+import mongoose, { Schema, Types, model } from "mongoose";
 
 export interface IUser extends Document {
-    username: string
-    displayName: string
-    email: string
-    mobile?: string
-    password: string
-    friendList: Types.ObjectId[]
-    pronouns?: string | null
-    status?: string | null
-    bio: string | null
-    dateOfBirth?: Date | null
-    profilePicture: {
-        url: string | null;
-        public_id: string | null;
-    }
-    coverPicture: {
-        url: string | null;
-        public_id: string | null;
-    }
-    isBanned: boolean
-    isActive: boolean
-    banExpiry: Date | null
-    banType: 'temporary' | 'permanent' | null
-    createdAt: Date
-    updatedAt: Date
+  username: string;
+  displayName: string;
+  email: string;
+  mobile?: string;
+  password: string;
+  friendList: Types.ObjectId[];
+  pronouns?: string | null;
+  status?: string | null;
+  bio: string | null;
+  dateOfBirth?: Date | null;
+  profilePicture: {
+    url: string | null;
+    public_id: string | null;
+  };
+  coverPicture: {
+    url: string | null;
+    public_id: string | null;
+  };
+  isBanned: boolean;
+  isActive: boolean;
+  banExpiry: Date | null;
+  banType: "temporary" | "permanent" | null;
+  createdAt: Date;
+  updatedAt: Date;
+  isDeleted: boolean;
+  deletedAt: Date | null;
+  scheduledDeletionAt: Date | null;
+  deletionWarningEmailSentAt: Date | null;
+  deactivatedAt: Date | null;
+  privacy: {
+    friendRequests: "everyone" | "friends" | "nobody";
+    readReceipts: boolean;
+    typingIndicators: boolean;
+  };
+  notificationSettings: {
+    allNotifications: boolean;
+    newMessages: boolean;
+    mentions: boolean;
+    replies: boolean;
+    friendRequests: boolean;
+    friendRequestAccepted: boolean;
+    groupAdded: boolean;
+  };
 }
 
-const userSchema: Schema<IUser> = new Schema (
-    {
-        username: {
-            type: String,
-            required: true,
-            trim: true,
-            unique: true,
-            minlength: 3
-        },
-        displayName: {
-            type: String,
-        },
-        email: {
-            type: String,
-            required: true,
-            unique: true,
-            lowercase: true,
-            trim: true
-        },
-        mobile: {
-            type: String
-        },
-        password: {
-            type: String,
-            required: true,
-            minlength: 8
-        },
-        pronouns: {
-            type: String,
-            default: null
-        },
-        friendList: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "User",
-            }
-        ],
-        bio: {
-            type: String,
-            default: null
-        },
-        status: {
-            type: String,
-            default: null
-        },
-        profilePicture: {
-            url: {
-                type: String,
-                default: null,
-            },
-            public_id: {
-                type: String,
-                default: null,
-            },
-        },
-        coverPicture: {
-            url: {
-                type: String,
-                default: null,
-            },
-            public_id: {
-                type: String,
-                default: null,
-            },
-        },
-        isActive: {
-            type: Boolean,
-            default: true
-        },
-        banType: {
-            type: String,
-            enum: ['temporary', 'permanent'],
-            default: null
-        },
-        dateOfBirth: {
-            type: Date,
-            // required: true
-        },
-        isBanned: {
-            type: Boolean,
-            default: false
-        },
-        banExpiry: { 
-            type: Date, 
-            default: null,  
-        },
+const userSchema: Schema<IUser> = new Schema(
+  {
+    username: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+      minlength: 3,
     },
-    {
-        timestamps: true
-    }
-)
+    displayName: {
+      type: String,
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    mobile: {
+      type: String,
+    },
+    password: {
+      type: String,
+      required: true,
+      minlength: 8,
+    },
+    pronouns: {
+      type: String,
+      default: null,
+    },
+    friendList: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    bio: {
+      type: String,
+      default: null,
+    },
+    status: {
+      type: String,
+      default: null,
+    },
+    profilePicture: {
+      url: {
+        type: String,
+        default: null,
+      },
+      public_id: {
+        type: String,
+        default: null,
+      },
+    },
+    coverPicture: {
+      url: {
+        type: String,
+        default: null,
+      },
+      public_id: {
+        type: String,
+        default: null,
+      },
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    banType: {
+      type: String,
+      enum: ["temporary", "permanent"],
+      default: null,
+    },
+    dateOfBirth: {
+      type: Date,
+      // required: true
+    },
+    isBanned: {
+      type: Boolean,
+      default: false,
+    },
+    banExpiry: {
+      type: Date,
+      default: null,
+    },
+    scheduledDeletionAt: {
+      type: Date,
+      default: null,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletionWarningEmailSentAt: {
+      type: Date,
+      default: null,
+    },
+    deactivatedAt: {
+      type: Date,
+      default: null,
+    },
+    privacy: {
+      friendRequests: {
+        type: String,
+        enum: ["everyone", "friends", "nobody"],
+        default: "everyone",
+      },
+      readReceipts: {
+        type: Boolean,
+        default: true,
+      },
+      typingIndicators: {
+        type: Boolean,
+        default: true,
+      },
+    },
+    notificationSettings: {
+      allNotifications: {
+        type: Boolean,
+        default: true,
+      },
+      newMessages: {
+        type: Boolean,
+        default: true,
+      },
+      mentions: {
+        type: Boolean,
+        default: true,
+      },
+      replies: {
+        type: Boolean,
+        default: true,
+      },
+      friendRequests: {
+        type: Boolean,
+        default: true,
+      },
+      friendRequestAccepted: {
+        type: Boolean,
+        default: true,
+      },
+      groupAdded: {
+        type: Boolean,
+        default: true,
+      },
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
 
-export  const UserModel = model<IUser>("User", userSchema)
+export const UserModel = model<IUser>("User", userSchema);
