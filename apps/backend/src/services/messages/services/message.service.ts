@@ -14,6 +14,8 @@ import { createInboxNotification } from "../../notifications/services/inboxNotif
 import { emitMessageRequestSent } from "../../../socket/emitters/messageRequest.emitters.js";
 import { MessageRequestModel } from "../../user/models/messageRequest.model.js";
 import { UserModel } from "../../user/models/user.model.js";
+import { MessageFile } from "../types/message.types.js";
+import { deleteFile } from "../../s3/s3.service.js";
 
 /**
  * Parses @mention user IDs from content and validates they are group members.
@@ -146,30 +148,6 @@ export const getUnreadCountsFunction = async (userId: string) => {
   return unreadData;
 };
 
-// export const getUnreadCountsFunction = async (userId: string) => {
-//   if (!userId) throw Unauthorized();
-
-//   const states = await ChatUserStateModel.find({ userId });
-
-//   const unreadData: Record<string, number> = {};
-
-//   for (const state of states) {
-//     const filter: FilterQuery<IMessage> = {
-//       chat: state.chatId,
-//       deleted: false,
-//       sender: { $ne: userId },
-//       createdAt: {
-//         $gt: state.lastReadAt || state.clearedAt || new Date(0),
-//       },
-//     };
-
-//     const count = await Message.countDocuments(filter);
-//     unreadData[state.chatId.toString()] = count;
-//   }
-
-//   return unreadData;
-// };
-
 /**
  * Creates a message in a chat and increments unread counts for all other members.
  * Block checks are enforced for DMs. Socket emissions handled by the controller.
@@ -183,10 +161,13 @@ export const sendMessageFunction = async (
   senderId: string,
   replyTo?: string | null,
   mentionIds?: string[],
+  file?: MessageFile,
 ) => {
   if (!senderId) throw Unauthorized();
   if (!chatId) throw BadRequest("ChatId is required");
-  if (!content) throw BadRequest("Message content is required");
+  if (!content && !file) {
+    throw BadRequest("Message must contain content or file");
+  }
 
   const chat = await Chat.findOne({
     _id: chatId,
@@ -216,13 +197,14 @@ export const sendMessageFunction = async (
 
   const deliveredTo = chat.members.filter((id) => id.toString() !== senderId);
 
-  const firstUrl = extractFirstUrl(content);
+  const firstUrl = content ? extractFirstUrl(content) : null;
 
   const resolvedMentions = resolveMentions(mentionIds, chat);
 
   const message = await Message.create({
     sender: senderId,
-    content,
+    content: content || "",
+    file: file || undefined,
     chat: chatId,
     deliveredTo,
     replyTo: replyTo || null,
@@ -708,6 +690,10 @@ export const deleteMessageFunction = async (
   message.forwardedFrom = null;
   message.reactions = [];
   message.linkPreview = undefined;
+
+  if (message.file?.key) {
+    await deleteFile(message.file.key);
+  }
 
   await message.save();
 

@@ -41,7 +41,7 @@ export default function UserSettings({
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
-    window.location.href = "/login";
+    window.location.replace('/login');
   };
 
   const settingsItems: SettingsItem[] = [
@@ -90,11 +90,9 @@ export default function UserSettings({
         {activePage === "Profile" && (
           <EditProfileForm onBack={() => setActivePage(null)} />
         )}
-        {activePage === "Account" && (
-          <AccountSettings/>
-        )}
+        {activePage === "Account" && <AccountSettings />}
         {activePage === "Theme" && <ThemeSettings />}
-        {activePage === "Notifications" && <NotificationSettings/>}
+        {activePage === "Notifications" && <NotificationSettings />}
         {activePage === "Privacy" && <PrivacySettings />}
       </SubPage>
     );

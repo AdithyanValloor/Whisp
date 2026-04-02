@@ -36,7 +36,6 @@ export const fetchChats = createAsyncThunk<
 >("chat/fetchChats", async (_, { rejectWithValue }) => {
   try {
     const res = await api.get("/chat");
-    console.log("FETCH CHATS RAW RESPONSE:", res.data);
     return res.data;
   } catch (err) {
     console.log("FETCH CHATS ERROR:", err);

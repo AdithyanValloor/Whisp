@@ -1,5 +1,10 @@
 import { Request, Response, NextFunction } from "express";
-import { MessageBody, MessageParams } from "../types/message.types.js";
+import {
+  EditMessageBody,
+  ForwardMessageBody,
+  MessageParams,
+  SendMessageBody,
+} from "../types/message.types.js";
 import {
   deleteMessageFunction,
   editMessageFunction,
@@ -63,7 +68,7 @@ export const getAllMessages = async (
  * Emits: new_message, unread_update, edit_message (async, link preview only)
  */
 export const sendMessage = async (
-  req: Request<{}, {}, MessageBody>,
+  req: Request<{}, {}, SendMessageBody>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -71,10 +76,32 @@ export const sendMessage = async (
     const senderId = req.user?.id;
     if (!senderId) throw Unauthorized();
 
-    const { chatId, content, replyTo, mentionIds } = req.body;
+    const { chatId, content, replyTo, mentionIds, file } = req.body;
 
     if (!chatId) throw BadRequest("ChatId is required");
-    if (!content) throw BadRequest("Message content is required");
+    if (!content && !file) {
+      throw BadRequest("Message must contain content or file");
+    }
+
+    const VALID_KEY_REGEX = /^chat\/[^/]+\/[a-f0-9-]+\.(png|jpg|pdf)$/;
+
+    if (file) {
+      if (!file.key.startsWith(`chat/${senderId}/`)) {
+        throw Unauthorized();
+      }
+
+      if (!VALID_KEY_REGEX.test(file.key)) {
+        throw BadRequest("Invalid file key");
+      }
+
+      if (
+        typeof file.key !== "string" ||
+        typeof file.mimeType !== "string" ||
+        typeof file.size !== "number"
+      ) {
+        throw BadRequest("Invalid file data");
+      }
+    }
 
     const {
       populated,
@@ -85,10 +112,11 @@ export const sendMessage = async (
       mentionedUserIds,
     } = await sendMessageFunction(
       chatId,
-      content,
+      content ?? "",
       senderId,
       replyTo,
       mentionIds,
+      file,
     );
 
     emitNewMessage(chatId, toMessageSocketPayload(populated));
@@ -149,7 +177,7 @@ export const sendMessage = async (
  * Emits: new_message, unread_update — once per successful target chat
  */
 export const forwardMessage = async (
-  req: Request<{}, {}, MessageBody>,
+  req: Request<{}, {}, ForwardMessageBody>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -281,10 +309,8 @@ export const markMessagesAsSeen = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { success, modifiedCount, emitSeen } = await markMessagesAsSeenFunction(
-      userId,
-      req.params.chatId,
-    );
+    const { success, modifiedCount, emitSeen } =
+      await markMessagesAsSeenFunction(userId, req.params.chatId);
 
     if (emitSeen) {
       emitMessagesSeen(req.params.chatId, userId, modifiedCount);
@@ -306,7 +332,7 @@ export const markMessagesAsSeen = async (
  * Emits: edit_message
  */
 export const editMessage = async (
-  req: Request<MessageParams, {}, MessageBody>,
+  req: Request<MessageParams, {}, EditMessageBody>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -455,7 +481,6 @@ export const getNewerMessages = async (
     next(err);
   }
 };
-
 
 export const globalSearchMessages = async (req: Request, res: Response) => {
   const userId = req.user?.id;

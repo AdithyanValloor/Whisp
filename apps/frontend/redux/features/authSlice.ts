@@ -145,11 +145,11 @@ export const updateUsername = createAsyncThunk<
  */
 export const updateEmail = createAsyncThunk<
   AuthUser,
-  { email: string },
+  { email: string, otp: string },
   { rejectValue: string }
->("auth/updateEmail", async ({ email }, { rejectWithValue }) => {
+>("auth/updateEmail", async ({ email, otp }, { rejectWithValue }) => {
   try {
-    const res = await api.patch("/user/account/email", { email });
+    const res = await api.patch("/user/account/email", { email, otp });
     return mapAuthUser(res.data.data);
   } catch (err: unknown) {
     if (axios.isAxiosError(err)) {

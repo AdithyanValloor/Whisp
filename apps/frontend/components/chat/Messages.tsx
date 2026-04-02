@@ -860,12 +860,13 @@ export default function Messages({
             transition={{ duration: 0.2 }}
             className="flex justify-center items-center py-3"
           >
-            <div className="flex items-center gap-2 px-4 py-2 bg-base-200/50 rounded-full">
-              <span className="loading loading-spinner loading-xs opacity-60" />
-              <span className="text-xs opacity-60">Loading messages...</span>
+            <div className="flex items-center gap-2 px-4 py-2 bg-base-100/50 border border-base-content/10 rounded-full">
+              <span className="loading loading-spinner loading-xs opacity-60 text-base-content" />
+              <span className="text-xs opacity-60 text-base-content">Loading messages...</span>
             </div>
           </motion.div>
         )}
+
 
         <AnimatePresence>
           {!isInitialLoading &&
@@ -1037,7 +1038,7 @@ export default function Messages({
             transition={{ duration: 0.2 }}
             className="absolute flex items-center justify-center 
               bottom-0 right-4 mb-5 p-2 
-              bg-base-100 text-base-content/40 
+              bg-base-200 text-base-content/40 
               hover:bg-base-200 cursor-pointer 
               rounded-full shadow"
           >

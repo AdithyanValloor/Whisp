@@ -1,16 +1,20 @@
+// user/controllers/user.controller.ts
+
 import { Request, Response, NextFunction } from "express";
-import { registerUser, loginUser, refreshTokenFunction } from "../../auth/auth.controller.js";
 import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
 import { UserModel } from "../models/user.model.js";
 import { authCookieOptions } from "../../../config/cookies.js";
 import { checkPassword } from "../services/user.service.js";
+import {
+  loginUser,
+  registerUser,
+  sendRegistrationOtp,
+  verifyRegistrationOtp,
+  refreshTokenFunction,
+} from "../../auth/auth.service.js";
 
-const isProd = process.env.NODE_ENV === "production";
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-/**
- * Shape of request body expected for user registration.
- * All fields are optional at type-level and validated at runtime.
- */
 interface RegisterBody {
   displayName?: string;
   username?: string;
@@ -18,28 +22,54 @@ interface RegisterBody {
   password?: string;
 }
 
-/**
- * Shape of request body expected for user login.
- */
 interface LoginBody {
   email?: string;
   password?: string;
 }
 
+// ── OTP ───────────────────────────────────────────────────────────────────────
+
 /**
- * @desc Register a new user
- * @route POST /api/user/register
+ * @route  POST /api/user/send-otp
  * @access Public
- *
- * Responsibilities:
- * - Validate incoming request body
- * - Delegate business logic to auth service
- * - Set refresh token cookie
- * - Return access token + safe user payload
- *
- * Error handling:
- * - Validation errors -> 400
- * - Service errors are forwarded to global error handler
+ */
+export const sendOtp = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { email } = req.body;
+    await sendRegistrationOtp(email);
+    res.status(200).json({ message: "OTP sent to " + email });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * @route  POST /api/user/verify-otp
+ * @access Public
+ */
+export const verifyOtp = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { email, otp } = req.body;
+    await verifyRegistrationOtp(email, otp);
+    res.status(200).json({ message: "Email verified" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Register ──────────────────────────────────────────────────────────────────
+
+/**
+ * @route  POST /api/user/register
+ * @access Public
  */
 export const register = async (
   req: Request<{}, {}, RegisterBody>,
@@ -49,45 +79,37 @@ export const register = async (
   try {
     const { displayName, username, email, password } = req.body;
 
-    // Runtime validation (do not trust client input)
     if (!displayName || !username || !email || !password) {
       throw BadRequest("Invalid request body");
     }
 
-    const { accessToken, refreshToken, safeUser } =
-      await registerUser(displayName, username, email, password);
+    const { accessToken, refreshToken, safeUser } = await registerUser(
+      displayName,
+      username,
+      email,
+      password
+    );
 
-    // Store refresh and access token securely in httpOnly cookie
     res.cookie("accessToken", accessToken, {
       ...authCookieOptions,
       maxAge: 15 * 60 * 1000,
     });
-
     res.cookie("refreshToken", refreshToken, {
       ...authCookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.status(200).json({ user: safeUser });
-
+    res.status(201).json({ user: safeUser });
   } catch (err) {
-    next(err); // Delegate to centralized error handler
+    next(err);
   }
 };
 
+// ── Login ─────────────────────────────────────────────────────────────────────
+
 /**
- * @desc Authenticate user credentials
- * @route POST /api/user/login
+ * @route  POST /api/user/login
  * @access Public
- *
- * Responsibilities:
- * - Validate request body
- * - Verify credentials via auth service
- * - Set refresh token cookie
- * - Return access token + safe user payload
- *
- * Security notes:
- * - Error messages are generic to avoid credential enumeration
  */
 export const login = async (
   req: Request<{}, {}, LoginBody>,
@@ -101,35 +123,31 @@ export const login = async (
       throw BadRequest("Email and password required");
     }
 
-    const { accessToken, refreshToken, safeUser } =
-      await loginUser(email, password);
+    const { accessToken, refreshToken, safeUser } = await loginUser(
+      email,
+      password
+    );
 
-    // Store refresh and access token securely in httpOnly cookie
     res.cookie("accessToken", accessToken, {
       ...authCookieOptions,
       maxAge: 15 * 60 * 1000,
     });
-
     res.cookie("refreshToken", refreshToken, {
       ...authCookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
     res.status(200).json({ user: safeUser });
-
   } catch (err) {
     next(err);
   }
 };
 
+// ── Logout ────────────────────────────────────────────────────────────────────
+
 /**
- * @desc Log out user by clearing refresh token cookie
- * @route POST /api/user/logout
- * @access Authenticated User
- *
- * Notes:
- * - Stateless logout (JWT-based)
- * - Client access token becomes invalid naturally on expiry
+ * @route  POST /api/user/logout
+ * @access Public
  */
 export const logout = (_req: Request, res: Response) => {
   res.clearCookie("refreshToken", authCookieOptions);
@@ -137,20 +155,37 @@ export const logout = (_req: Request, res: Response) => {
   res.status(200).json({ message: "Logged out successfully" });
 };
 
+// ── Refresh Token ─────────────────────────────────────────────────────────────
+
 /**
- * @desc Fetch the currently authenticated user's profile
- * @route GET /api/user/me
- * @access Private (Requires valid access token)
- *
- * Responsibilities:
- * - Read authenticated user info from `req.user`
- * - Fetch user record from database
- * - Return safe user object (password excluded)
- *
- * Notes:
- * - Relies on `protect` middleware to populate `req.user`
- * - Does NOT refresh tokens
- * - Does NOT expose sensitive fields
+ * @route  POST /api/user/refresh
+ * @access Public (cookie-authenticated)
+ */
+export const refreshToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const token = req.cookies?.refreshToken;
+    const { accessToken, user } = await refreshTokenFunction(token);
+
+    res.cookie("accessToken", accessToken, {
+      ...authCookieOptions,
+      maxAge: 15 * 60 * 1000,
+    });
+
+    res.status(200).json({ user });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Current User ──────────────────────────────────────────────────────────────
+
+/**
+ * @route  GET /api/user/me
+ * @access Protected
  */
 export const currentUser = async (
   req: Request,
@@ -160,38 +195,27 @@ export const currentUser = async (
   try {
     const userId = req.user?.id;
 
-    // Defensive check in case auth middleware is misconfigured
-    if (!userId) {
-      throw Unauthorized();
-    }
+    if (!userId) throw Unauthorized();
 
     const user = await UserModel.findById(userId).select("-password");
+    if (!user) throw Unauthorized("User no longer exists");
 
-    if (!user) {
-      throw Unauthorized("User no longer exists");
-    }
-
-    res.status(200).json({
-      message: "Current user fetched successfully",
-      user,
-    });
+    res.status(200).json({ message: "Current user fetched successfully", user });
   } catch (err) {
     next(err);
   }
 };
 
+// ── Check Password ────────────────────────────────────────────────────────────
+
 /**
- * ------------------------------------------------------------------
- * Check Password
- * ------------------------------------------------------------------
- * POST /api/user/account/check-password
- *
- * Body: { password: string }
+ * @route  POST /api/user/account/check-password
+ * @access Protected
  */
 export const checkPasswordController = async (
   req: Request,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -199,11 +223,8 @@ export const checkPasswordController = async (
 
     const { isMatch } = await checkPassword(userId, password);
 
-    res.status(200).json({
-      success: true,
-      isMatch,
-    });
-  } catch (error) {
-    next(error);
+    res.status(200).json({ success: true, isMatch });
+  } catch (err) {
+    next(err);
   }
 };

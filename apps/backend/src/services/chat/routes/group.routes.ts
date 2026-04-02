@@ -1,41 +1,30 @@
-import { Router } from "express"
-import { 
-    createGroupChat, 
-    addMembers, 
-    removeMembers, 
-    toggleAdmin, 
-    leaveGroup, 
-    getGroupById,
-    deleteGroup,
-    transferOwnership
-} from "../controllers/group.controller.js"
-import { protect } from "../../auth/auth.middleware.js"
+import { Router } from "express";
+import {
+  createGroupChat,
+  addMembers,
+  removeMembers,
+  toggleAdmin,
+  leaveGroup,
+  getGroupById,
+  deleteGroup,
+  transferOwnership,
+} from "../controllers/group.controller.js";
+import { protect } from "../../auth/auth.middleware.js";
 
+const router = Router();
 
-const router = Router()
-
-// Create a new group chat
-router.post("/", protect, createGroupChat)
-
-// Fetch single group
+// Group creation and lookup routes.
+router.post("/", protect, createGroupChat);
 router.get("/:id", protect, getGroupById);
 
-// Add members to a group
-router.post("/members", protect, addMembers)
+// Membership and role management within a group.
+router.post("/members", protect, addMembers);
+router.delete("/members", protect, removeMembers);
+router.patch("/admin", protect, toggleAdmin);
 
-// Remove members from a group
-router.delete("/members", protect, removeMembers)
+// Group lifecycle actions for members and owners.
+router.post("/leave", protect, leaveGroup);
+router.delete("/delete", protect, deleteGroup);
+router.patch("/transfer-ownership", protect, transferOwnership);
 
-// Toggle admin role for a member
-router.patch("/admin", protect, toggleAdmin)
-
-// Leave a group
-router.post("/leave", protect, leaveGroup)
-
-// Delete group ( for owner )
-router.delete("/delete", protect, deleteGroup)
-
-// Transfer ownership ( for owner )
-router.patch("/transfer-ownership", protect, transferOwnership)
-
-export {router as groupChatRouter}
+export { router as groupChatRouter };

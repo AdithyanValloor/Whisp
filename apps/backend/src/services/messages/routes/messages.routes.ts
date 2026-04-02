@@ -1,60 +1,40 @@
 import { Router } from "express";
-import { 
-    getAllMessages, 
-    sendMessage, 
-    editMessage, 
-    deleteMessage, 
-    markChatAsRead,
-    getUnreadCounts,
-    markMessagesAsSeen,
-    toggleReaction,
-    searchMessages,
-    getMessageContext,
-    getNewerMessages,
-    forwardMessage,
-    globalSearchMessages
-} from "../controllers/message.controller.js"
-import { protect } from "../../auth/auth.middleware.js"
+import {
+  getAllMessages,
+  sendMessage,
+  editMessage,
+  deleteMessage,
+  markChatAsRead,
+  getUnreadCounts,
+  markMessagesAsSeen,
+  toggleReaction,
+  searchMessages,
+  getMessageContext,
+  getNewerMessages,
+  forwardMessage,
+  globalSearchMessages,
+} from "../controllers/message.controller.js";
+import { protect } from "../../auth/auth.middleware.js";
 
-const router = Router()
+const router = Router();
 
-// Get unread counts FIRST
-router.get("/unread", protect, getUnreadCounts)
-
-// Mark messages as read
-router.post("/mark-read/:chatId", protect, markChatAsRead)
-
-// Mark messages as seen
+// Message status and discovery routes.
+router.get("/unread", protect, getUnreadCounts);
+router.post("/mark-read/:chatId", protect, markChatAsRead);
 router.post("/mark-seen/:chatId", protect, markMessagesAsSeen);
-
-// Global search
 router.get("/search/global", protect, globalSearchMessages);
-
-// Search messages
 router.get("/search", protect, searchMessages);
-
-// Fetch all messages for a chat (dynamic)
-router.get("/:chatId", protect, getAllMessages)
-
-// Send a new message
-router.post("/", protect, sendMessage)
-
-// Forward a message
-router.post("/forward", protect, forwardMessage)
-
-// Edit a message by id
-router.put("/:messageId", protect, editMessage)
-
-// React a message by id
-router.post("/react/:messageId", protect, toggleReaction);
-
-// Delete a message by id
-router.delete("/:messageId", protect, deleteMessage)
-
-// Get message context
 router.get("/context/:messageId", protect, getMessageContext);
 
-// Get newer messages (downward fetching)
+// Message CRUD and actions within chats.
+router.get("/:chatId", protect, getAllMessages);
+router.post("/", protect, sendMessage);
+router.post("/forward", protect, forwardMessage);
+router.put("/:messageId", protect, editMessage);
+router.post("/react/:messageId", protect, toggleReaction);
+router.delete("/:messageId", protect, deleteMessage);
+
+// Fetches newer messages for incremental chat loading.
 router.get("/:chatId/newer", protect, getNewerMessages);
 
-export { router as messageRouter }
+export { router as messageRouter };

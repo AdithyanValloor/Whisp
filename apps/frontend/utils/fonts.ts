@@ -1,4 +1,4 @@
-import { Inter, Poppins, Modak, Jersey_10, Romanesco } from "next/font/google";
+import { Inter, Poppins, Modak, Poiret_One, Romanesco } from "next/font/google";
 
 export const inter = Inter({
   subsets: ["latin"],
@@ -16,7 +16,7 @@ export const modak = Modak({
   weight: ["400"],
 });
 
-export const romanesco = Romanesco({
+export const poiretOne = Poiret_One({
      subsets: ["latin"],
   weight: ["400"],
 })

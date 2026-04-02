@@ -1,0 +1,64 @@
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { v4 as uuid } from "uuid";
+import { s3, BUCKET_NAME } from "../../config/s3.js";
+
+const MIME_TO_EXT: Record<string, string> = {
+  "image/png": ".png",
+  "image/jpeg": ".jpg",
+  "application/pdf": ".pdf",
+};
+
+const UPLOAD_URL_EXPIRY = 60;
+const DOWNLOAD_URL_EXPIRY = 300;
+
+export const generateUploadUrl = async (
+  userId: string,
+  fileType: string,
+  fileSize: number,
+) => {
+  const ext = MIME_TO_EXT[fileType];
+  if (!ext) throw new Error(`Unsupported file type: ${fileType}`);
+
+  const key = `chat/${userId}/${uuid()}${ext}`;
+
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+    ContentType: fileType,
+    ContentLength: fileSize,
+    Metadata: {
+      uploadedBy: userId,
+    },
+  });
+
+  const uploadUrl = await getSignedUrl(s3, command, {
+    expiresIn: UPLOAD_URL_EXPIRY,
+  });
+
+  return { uploadUrl, key };
+};
+
+export const generateDownloadUrl = async (key: string) => {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+  });
+
+  const url = await getSignedUrl(s3, command, {
+    expiresIn: DOWNLOAD_URL_EXPIRY,
+  });
+
+  return url;
+};
+
+export const deleteFile = async (key: string) => {
+  const command = new DeleteObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+  });
+
+  await s3.send(command);
+
+  return true;
+};

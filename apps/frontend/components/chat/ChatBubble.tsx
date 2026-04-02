@@ -282,7 +282,7 @@ export default function ChatBubble({
 
       {!msg.deleted && msg.reactions && msg.reactions.length > 0 && (
         <div
-          className={`absolute flex flex-wrap gap-[2px] px-[7px] py-[3px] rounded-full text-sm bottom-8 select-none twemoji-container translate-y-[100%]
+          className={`absolute flex flex-wrap gap-[2px] px-[7px] py-[3px] rounded-full text-sm bottom-8 select-none twemoji-container translate-y-[95%]
             ${isMe ? `${isMobile ? "right-12" : "right-14"} justify-end` : `${isMobile ? "left-12" : "left-14"} justify-start`}`}
         >
           {Object.entries(
@@ -296,12 +296,12 @@ export default function ChatBubble({
           ).map(([emoji, count]) => (
             <span
               key={emoji}
-              className={`flex items-center border border-base-content/10 shadow-md justify-center py-0.5 px-2 gap-[4px] ${isMe ? "bg-base-100" : "bg-cyan-950"} rounded-full cursor-pointer transition-all`}
+              className={`flex items-center border border-base-content/10 shadow-md justify-center p-1 gap-[4px] ${isMe ? "bg-base-100" : "bg-cyan-950"} rounded-full cursor-pointer transition-all`}
               onClick={() => handleReaction(msg, emoji)}
             >
               <span
                 className="flex items-center justify-center leading-none"
-                dangerouslySetInnerHTML={{ __html: renderTwemoji(emoji) }}
+                dangerouslySetInnerHTML={{ __html: renderTwemoji(emoji, 15) }}
               />
               {count > 1 && (
                 <span className="text-xs font-semibold opacity-70 leading-none flex items-center">

@@ -1,3 +1,5 @@
+//user.account.service.ts
+
 import bcrypt from "bcrypt";
 import { UserModel } from "../models/user.model.js";
 import {
@@ -6,6 +8,68 @@ import {
   BadRequest,
   Conflict,
 } from "../../../utils/errors/httpErrors.js";
+import crypto from "crypto";
+import {
+  saveOtp,
+  verifyOtp,
+  markVerified,
+  isVerified,
+  clearEmail,
+} from "../../../utils/otp/otpStore.js";
+import { sendOtpEmail } from "../../../utils/otp/mailer.js";
+
+const generateOtp = () => crypto.randomInt(100_000, 999_999).toString();
+
+/**
+ * Step 1 — generate and send OTP to the NEW email address
+ */
+export const sendEmailChangeOtp = async (
+  userId: string,
+  newEmail: string
+): Promise<void> => {
+  const normalized = newEmail.trim().toLowerCase();
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(normalized)) throw BadRequest("Invalid email address");
+
+  // Must not be taken by someone else
+  const taken = await UserModel.findOne({ email: normalized, _id: { $ne: userId } });
+  if (taken) throw Conflict("Email is already registered to another account");
+
+  // Must differ from current email
+  const currentUser = await UserModel.findById(userId).select("email");
+  if (!currentUser) throw NotFound("User not found");
+  if (currentUser.email === normalized) throw BadRequest("New email must differ from your current email");
+
+  const otp = generateOtp();
+  saveOtp(normalized, otp);
+  await sendOtpEmail(normalized, otp);
+};
+
+/**
+ * Step 2 — verify OTP, then update email in DB
+ * Reuses the existing updateEmail() after verification passes
+ */
+export const verifyAndUpdateEmail = async (
+  userId: string,
+  newEmail: string,
+  otp: string
+): Promise<ReturnType<typeof updateEmail>> => {
+  const normalized = newEmail.trim().toLowerCase();
+
+  if (!otp) throw BadRequest("OTP is required");
+
+  const valid = verifyOtp(normalized, otp);
+  if (!valid) throw BadRequest("Invalid or expired OTP");
+
+  // OTP passed — persist the new email
+  const updatedUser = await updateEmail(userId, normalized);
+
+  clearEmail(normalized);
+
+  return updatedUser;
+};
+
 
 const SALT_ROUNDS = 12;
 const DELETION_GRACE_PERIOD_DAYS = 15;

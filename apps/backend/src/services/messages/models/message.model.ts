@@ -4,7 +4,7 @@ export interface IMessage extends Document {
   _id: Types.ObjectId;
   chat: Types.ObjectId;
   sender: Types.ObjectId;
-  content: string;
+  content?: string;
 
   edited: boolean;
   deleted: boolean;
@@ -30,6 +30,11 @@ export interface IMessage extends Document {
     image?: string;
     siteName?: string;
     isLargeImage?: Boolean;
+  };
+  file?: {
+    key: string;
+    mimeType: string;
+    size: number;
   };
 
   createdAt: Date;
@@ -116,6 +121,11 @@ const messageSchema: Schema<IMessage> = new Schema(
         isLargeImage: Boolean,
       },
       default: undefined,
+    },
+    file: {
+      key: String,
+      mimeType: String,
+      size: Number,
     },
   },
 

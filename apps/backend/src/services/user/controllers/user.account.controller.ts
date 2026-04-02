@@ -1,3 +1,5 @@
+//user.account.controller.ts
+
 import { Request, Response, NextFunction } from "express";
 import {
   updateUsername,
@@ -6,6 +8,8 @@ import {
   deactivateAccount,
   scheduleAccountDeletion,
   cancelScheduledDeletion,
+  sendEmailChangeOtp,
+  verifyAndUpdateEmail,
 } from "../services/user.account.service.js";
 
 /**
@@ -30,38 +34,6 @@ export const updateUsernameController = async (
     res.status(200).json({
       success: true,
       message: "Username updated successfully",
-      data: updatedUser,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * ------------------------------------------------------------------
- * Update Email
- * ------------------------------------------------------------------
- * PATCH /api/users/me/email
- *
- * Body: { email: string }
- */
-export const updateEmailController = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    const userId = req.user!.id;
-    const { email } = req.body;
-
-    const updatedUser = await updateEmail(userId, email);
-
-    // TODO: Trigger verification email here (e.g. sendVerificationEmail(updatedUser.email))
-
-    res.status(200).json({
-      success: true,
-      message:
-        "Email updated successfully. Please verify your new email address.",
       data: updatedUser,
     });
   } catch (error) {
@@ -178,6 +150,57 @@ export const cancelScheduledDeletionController = async (
     res.status(200).json({
       success: true,
       message: "Account deletion cancelled. Your account has been restored.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/user/account/email/send-otp
+ * Step 1 — send OTP to the new email address
+ * Body: { email: string }
+ */
+export const sendEmailChangeOtpController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { email } = req.body;
+
+    await sendEmailChangeOtp(userId, email);
+
+    res.status(200).json({
+      success: true,
+      message: "OTP sent",
+    });
+  } catch (error) {
+    next(error);
+  } 
+};
+
+/**
+ * PATCH /api/user/account/email
+ * Step 2 — verify OTP then save new email
+ * Body: { email: string; otp: string }
+ */
+export const updateEmailController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { email, otp } = req.body;
+
+    const updatedUser = await verifyAndUpdateEmail(userId, email, otp);
+
+    res.status(200).json({
+      success: true,
+      message: "Email updated successfully.",
+      data: updatedUser,
     });
   } catch (error) {
     next(error);

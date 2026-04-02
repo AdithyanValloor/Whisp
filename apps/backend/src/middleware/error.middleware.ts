@@ -22,7 +22,6 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  // Unknown / programming errors
   console.error("🔥 UNHANDLED ERROR:", err);
 
   res.status(500).json({

@@ -7,18 +7,9 @@ import { protect } from "../../auth/auth.middleware.js";
 
 const router = Router();
 
-/**
- * @route   GET /api/user/privacy
- * @desc    Get current user's privacy settings
- * @access  Private
- */
+// Privacy preferences for the authenticated user.
 router.get("/", protect, getPrivacyController);
 
-/**
- * @route   PATCH /api/user/privacy
- * @desc    Update current user's privacy settings
- * @access  Private
- */
 router.patch("/", protect, updatePrivacyController);
 
 export { router as privacyRouter };

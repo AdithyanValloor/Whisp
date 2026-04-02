@@ -19,12 +19,8 @@ import {
   SettingsPage,
   UserProfilePage,
 } from "./Pages";
-import { PiChatTeardropDotsBold } from "react-icons/pi";
-import { romanesco } from "@/utils/fonts";
-import { RiChatThreadFill } from "react-icons/ri";
-import Image from "next/image";
-import logo from "@/public/convy.svg";
 import { Logo } from "@/app/Logo";
+import { Glows, MinimalGlow } from "@/components/Glows/Glows";
 
 const CHILDREN_TABS = new Set(["Chats", "Archived chats"]);
 
@@ -121,7 +117,10 @@ export default function ChatLayout({
 
   return (
     <SocketContext.Provider value={socketRef.current}>
-      <div className="flex flex-col bg-base-300 h-screen transition-all ease-in-out duration-300">
+      <div className="relative  flex flex-col bg-base-300 h-screen transition-all ease-in-out duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-100 overflow-y-hidden">
+        {/* <Glows/> */}
+        <MinimalGlow />
+
         {/* Desktop top bar */}
     
         <Logo/>

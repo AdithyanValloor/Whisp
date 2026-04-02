@@ -6,59 +6,29 @@ import {
   deactivateAccountController,
   scheduleAccountDeletionController,
   cancelScheduledDeletionController,
+  sendEmailChangeOtpController,
 } from "../controllers/user.account.controller.js";
 import { protect } from "../../auth/auth.middleware.js";
 import { checkPasswordController } from "../controllers/user.controller.js";
 
 const router = Router();
 
-/**
- * PATCH /username
- * Change the authenticated user's username
- * Body: { username: string }
- */
+// Account settings routes for authenticated users.
 router.patch("/username", protect, updateUsernameController);
 
-/**
- * PATCH /email
- * Change the authenticated user's email (triggers re-verification)
- * Body: { email: string }
- */
+// Email change flow: send OTP first, then update the address.
+router.post("/email/send-otp", protect, sendEmailChangeOtpController);
 router.patch("/email", protect, updateEmailController);
 
-/**
- * PATCH /password
- * Change the authenticated user's password
- * Body: { currentPassword: string; newPassword: string }
- */
+// Password and account state management.
 router.patch("/password", protect, changePasswordController);
-
-/**
- * PATCH /deactivate
- * Soft-disable the authenticated user's account (reversible)
- * Body: none
- */
 router.patch("/deactivate", protect, deactivateAccountController);
 
-/**
- * POST /deletion/schedule
- * Schedule account for hard deletion after a grace period
- * Body: { password: string }
- */
+// Deferred deletion endpoints allow users to schedule or cancel removal.
 router.post("/deletion/schedule", protect, scheduleAccountDeletionController);
-
-/**
- * POST /deletion/cancel
- * Cancel a scheduled deletion if still within the grace period
- * Body: none
- */
 router.post("/deletion/cancel", protect, cancelScheduledDeletionController);
 
-/**
- * POST /check-password
- * Verify the user's current password (used before sensitive actions)
- * Body: { password: string }
- */
+// Used to confirm the current password before sensitive actions.
 router.post("/check-password", protect, checkPasswordController);
 
-export { router as accountRouter}
+export { router as accountRouter };

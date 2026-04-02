@@ -4,7 +4,6 @@ import { loginUser } from "@/redux/features/authSlice";
 import { useAppDispatch } from "@/redux/hooks";
 import { Eye, EyeClosed } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
 
@@ -24,7 +23,6 @@ export default function LoginPage() {
   });
 
   const dispatch = useAppDispatch();
-  const router = useRouter();
 
   const validate = () => {
     let valid = true;
@@ -58,19 +56,23 @@ export default function LoginPage() {
 
     try {
       await dispatch(loginUser({ email, password })).unwrap();
-      router.push("/chat");
-    } catch {
-      setError("Invalid credentials. Please try again.");
+      window.location.replace("/chat");
+    } catch (err: unknown) {
+      if (typeof err === "string") {
+        setError(err);
+      } else {
+        setError("Something went wrong");
+      }
     }
   };
 
   return (
-    <div className="h-screen flex items-center justify-center bg-base-200 px-4">
+    <>
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="relative w-full max-w-md bg-base-100 border border-base-content/10 rounded-2xl shadow-lg p-6 overflow-hidden"
+        className="relative w-full max-w-md bg-base-200/40 border border-base-content/20 rounded-3xl shadow-lg p-6 overflow-hidden"
       >
         <h2 className="text-xl font-semibold text-base-content text-center">
           Welcome Back
@@ -158,6 +160,6 @@ export default function LoginPage() {
         {/* Accent bar */}
         <div className="absolute bottom-0 left-0 w-full h-[3px] bg-cyan-900" />
       </motion.div>
-    </div>
+    </>
   );
 }

@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Archive,
   Inbox,
-  Menu,
   MessageCircleMore,
   Phone,
   Settings,
   UsersRound,
 } from "lucide-react";
-import { useAppSelector } from "@/redux/hooks";
-import { AiFillMessage } from "react-icons/ai";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import defaultPFP from "@/public/default-pfp.png";
-import { selectActiveUnreadTotal } from "@/redux/selectors/unreadSelectors";
 import { usePathname } from "next/navigation";
-import { useIsMobile } from "@/utils/screenSize";
 import { BiSolidMessageSquareDots } from "react-icons/bi";
+import defaultPFP from "@/public/default-pfp.png";
+import { useAppSelector } from "@/redux/hooks";
+import { selectActiveUnreadTotal } from "@/redux/selectors/unreadSelectors";
+import { useIsMobile } from "@/utils/screenSize";
 import { UnreadCountBadge } from "../Notification/UnreadCountBadge";
 
 interface SideBarProps {
@@ -29,12 +27,10 @@ interface SideBarProps {
 interface ButtonType {
   title: string;
   icon: React.ReactNode;
-  isMenu?: boolean;
   notificationCount?: number;
 }
 
 export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [indicatorTop, setIndicatorTop] = useState(0);
   const [indicatorVisible, setIndicatorVisible] = useState(false);
 
@@ -46,53 +42,30 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
   const notificationUnread = useAppSelector(
     (state) => state.notifications.unreadCount,
   );
-  const pendingCount = useMemo(
-    () => requests.incoming.length,
-    [requests.incoming.length],
-  );
+  const user = useAppSelector((state) => state.profile.profile);
 
   const pathname = usePathname();
-  const isChatOpen = pathname.startsWith("/chat/");
-  const user = useAppSelector((state) => state.profile.profile);
   const isMobile = useIsMobile();
-
-  /* ---------- Track active button position for indicator ---------- */
+  const isChatOpen = pathname.startsWith("/chat/");
+  const pendingCount = requests.incoming.length;
 
   useEffect(() => {
     const activeBtn = buttonRefs.current[activeTab];
     const sidebar = sidebarRef.current;
+
     if (!activeBtn || !sidebar) return;
 
     const btnRect = activeBtn.getBoundingClientRect();
     const sidebarRect = sidebar.getBoundingClientRect();
 
-    // Center the 24px (h-6) indicator on the button
+    // Keep the active rail aligned with the currently selected desktop button.
     setIndicatorTop(btnRect.top - sidebarRect.top + btnRect.height / 2 - 12);
     setIndicatorVisible(true);
   }, [activeTab]);
 
-  /* ---------- Click outside to collapse ---------- */
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        sidebarRef.current &&
-        !sidebarRef.current.contains(event.target as Node)
-      ) {
-        setIsExpanded(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  /* ---------- Button definitions ---------- */
-
   const buttons: ButtonType[] = [
-    { title: "Menu", icon: <Menu size={20} />, isMenu: true },
     {
       title: "Chats",
-      // icon: <AiFillMessage size={22} />,
       icon: <BiSolidMessageSquareDots size={22} />,
       notificationCount: totalUnread,
     },
@@ -120,7 +93,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
           alt="profile"
           width={35}
           height={35}
-          className="rounded-full object-cover border cursor-pointer"
+          className="cursor-pointer rounded-full border object-cover"
         />
       ),
     },
@@ -151,110 +124,82 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
           alt="profile"
           width={35}
           height={35}
-          className="rounded-full object-cover border cursor-pointer"
+          className="cursor-pointer rounded-full border object-cover"
         />
       ),
     },
   ];
 
-  /* ---------- Render helpers ---------- */
-
   const renderDesktopButton = (btn: ButtonType) => {
     const isActive = activeTab === btn.title;
 
-    const handleClick = () => {
-      if (btn.isMenu) {
-        setIsExpanded((prev) => !prev);
-      } else {
-        setActiveTab(btn.title);
-        setIsExpanded(false);
-      }
-    };
-
     return (
-      <div key={btn.title} className="relative">
-        <motion.button
-          ref={(el) => {
-            buttonRefs.current[btn.title] = el;
-          }}
-          onClick={handleClick}
-          whileTap={{ scale: 0.96 }}
-          whileHover={{ y: -1 }}
-          transition={{ type: "spring", stiffness: 350, damping: 25 }}
-          className={`
-            relative flex items-center h-11 px-3 ml-1 rounded-xl cursor-pointer
-            transition-colors duration-200
-            ${btn.title === "Menu" ? "hover:bg-transparent text-base-content/70" : ""}
-            ${
-              isActive
-                ? "bg-cyan-950/80 backdrop-blur-md text-white"
-                : "text-base-content/70 hover:bg-cyan-900/50 hover:text-white"
-            }
-          `}
-        >
-          {/* Icon */}
-          <div className="w-10 flex justify-center flex-shrink-0 relative">
-            {btn.icon}
-            {!!btn.notificationCount && btn.notificationCount > 0 && (
-              <UnreadCountBadge position="-top-1.5 right-0.5" count={btn.notificationCount}/>
-            )}
-          </div>
-
-          {/* Expandable label */}
-          <motion.span
-            animate={{
-              opacity: isExpanded ? 1 : 0,
-              width: isExpanded ? "auto" : 0,
-            }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden whitespace-nowrap text-sm font-medium"
-          >
-            {btn.title !== "Menu" ? btn.title : ""}
-          </motion.span>
-        </motion.button>
-      </div>
+      <button
+        key={btn.title}
+        ref={(el) => {
+          buttonRefs.current[btn.title] = el;
+        }}
+        onClick={() => setActiveTab(btn.title)}
+        className={`
+          relative flex h-11 w-full cursor-pointer items-center justify-center rounded-xl
+          transition-all duration-200
+          ${
+            isActive
+              ? "bg-cyan-950/80 text-white"
+              : "text-base-content/60 hover:bg-cyan-900/40 hover:text-white"
+          }
+        `}
+      >
+        <div className="relative">
+          {btn.icon}
+          {!!btn.notificationCount && btn.notificationCount > 0 && (
+            <UnreadCountBadge
+              position="-top-1.5 left-2.5"
+              count={btn.notificationCount}
+            />
+          )}
+        </div>
+      </button>
     );
   };
 
   const renderMobileButton = (btn: ButtonType) => {
     const isActive = activeTab === btn.title;
-
-    const handleClick = () => {
-      setActiveTab(btn.title);
-    };
+    const label =
+      btn.title === "Call history"
+        ? "Calls"
+        : btn.title === "User profile"
+          ? "Profile"
+          : btn.title;
 
     return (
-      <div key={btn.title} className="flex-1 relative">
+      <div key={btn.title} className="relative flex-1">
         <button
-          onClick={handleClick}
+          onClick={() => setActiveTab(btn.title)}
           className={`
-            w-full flex flex-col items-center justify-center gap-1 py-2 px-1
-            rounded-lg transition-colors duration-150
-            ${isActive ? "text-cyan-600" : "text-base-content/70 hover:text-base-content/80"}
+            relative flex w-full flex-col items-center justify-center gap-1 rounded-xl h-13
+            transition-all duration-200
+            ${
+              isActive
+                ? "bg-cyan-950/80 text-white"
+                : "text-base-content/60 hover:bg-cyan-900/40 hover:text-white"
+            }
           `}
         >
           <div className="relative">
             {btn.icon}
             {!!btn.notificationCount && btn.notificationCount > 0 && (
-              <UnreadCountBadge position={`${isMobile && "-top-1 -right-2"}`} count={btn.notificationCount}/>
+              <UnreadCountBadge
+                position="-top-1 -right-2"
+                count={btn.notificationCount}
+              />
             )}
           </div>
 
-          <span
-            className={`text-[10px] font-medium ${isActive ? "text-cyan-900" : ""}`}
-          >
-            {btn.title === "Call history"
-              ? "Calls"
-              : btn.title === "User profile"
-                ? "Profile"
-                : btn.title}
-          </span>
-
-          {/* Active dot */}
           {isActive && (
             <motion.div
               layoutId="mobileActiveIndicator"
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-cyan-400"
+              className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-full bg-cyan-400"
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
             />
           )}
@@ -263,42 +208,30 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
     );
   };
 
-  /* ---------- Mobile bottom nav ---------- */
-
   if (isMobile) {
     if (isChatOpen) return null;
 
     return (
       <div
         ref={sidebarRef}
-        className="absolute bottom-0 bg-base-100 shadow w-full px-2 py-1"
+        className="absolute bottom-0 left-0 w-full py-2 pt-1"
       >
-        <div className="flex items-center justify-around gap-1 max-w-lg mx-auto">
-          {mobileButtons.map((btn) => renderMobileButton(btn))}
+        <div className=" flex w-full items-center justify-around gap-2 bg-base-100 p-2 shadow">
+          {mobileButtons.map(renderMobileButton)}
         </div>
       </div>
     );
   }
 
-  /* ---------- Desktop sidebar ---------- */
-
   return (
-    <div className="relative h-full flex-shrink-0 z-50">
-      <motion.div
-        animate={{ width: isExpanded ? 240 : 60 }}
-        transition={{ type: "spring", stiffness: 320, damping: 32 }}
-        className={`absolute inset-0 flex flex-col mb-3 justify-between bg-base-300 rounded-2xl overflow-hidden ${
-          isExpanded ? "shadow-lg" : ""
-        }`}
+    <div className="relative z-50 h-full flex-shrink-0">
+      <div
         ref={sidebarRef}
+        className="absolute inset-0 mb-3 flex w-[60px] flex-col justify-between overflow-hidden rounded-2xl bg-transparent py-3"
       >
-        {/*
-          Single indicator bar — ONE element always in the DOM.
-          Animates its `top` value to slide between active buttons.
-          This is the correct pattern; layoutId across multiple elements does NOT work.
-        */}
+        {/* Shared active indicator for the desktop navigation stack. */}
         <motion.div
-          className="absolute left-0 w-[3px] h-6 bg-cyan-400 rounded-r-full pointer-events-none z-10"
+          className="pointer-events-none absolute left-0 z-10 h-6 w-[3px] rounded-r-full bg-cyan-400"
           animate={{
             top: indicatorTop,
             opacity: indicatorVisible ? 1 : 0,
@@ -306,14 +239,14 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
         />
 
-        <div className="flex flex-col gap-2 py-3">
+        <div className="flex flex-col gap-2 px-2">
           {buttons.map(renderDesktopButton)}
         </div>
 
-        <div className="flex flex-col gap-2 py-3">
+        <div className="flex flex-col gap-2 px-2">
           {bottomButtons.map(renderDesktopButton)}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

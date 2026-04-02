@@ -34,10 +34,12 @@ export default function RootPage() {
 
     if (user) {
       console.log("✅ User authenticated, redirecting to chat");
-      router.replace('/chat');
+      window.location.replace('/chat');
+      
+      // router.replace('/chat');
     } else {
       console.log("❌ No user session, redirecting to login");
-      router.replace('/login');
+      window.location.replace('/login');
     }
   }, [sessionLoading, user, router]);
 

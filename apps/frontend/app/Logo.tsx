@@ -1,22 +1,29 @@
 import Image from "next/image";
-import logo from "@/public/logo.svg";
+import logo from "@/public/convyLogo.png";
+import { poiretOne } from "@/utils/fonts";
 
-export function Logo() {
+export function Logo({ isPublic }: { isPublic?: boolean }) {
   return (
-    <div className="flex h-10 md:h-12 items-center opacity-90 justify-center shrink-0 bg-base-300">
-      <div className="flex items-center gap-1">
-        <Image
-          src={logo}
-          width={25}
-          height={25}
-          alt="Convy logo"
-          draggable={false}
-          className="select-none opacity-90 pointer-events-none"
-        />
-        <h1 className={`text-2xl mb-1 items-center font-light text-base-content`}>
-          convy
-        </h1>
-      </div>
+    <div className="flex h-14 md:h-16 items-center justify-center shrink-0">
+      <h1
+        className={`${poiretOne.className} ${
+          isPublic ? "text-5xl" : "text-4xl"
+        } leading-none tracking-tight text-base-content`}
+      >
+        c
+        <span
+          className={`inline-block align-middle w-[0.54em] h-[0.54em] ml-[0.05em] `}
+        >
+          <Image
+            src={logo}
+            alt="Convy logo"
+            width={100}
+            height={100}
+            className="object-contain"
+          />
+        </span>
+        nvy
+      </h1>
     </div>
   );
 }

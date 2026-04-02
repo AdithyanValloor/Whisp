@@ -21,6 +21,7 @@ import { blockRouter } from "./services/user/routes/block.routes.js";
 import { inboxNotificationsRouter } from "./services/notifications/routes/inboxNotification.routes.js";
 import { messageRequestRouter } from "./services/messages/routes/messageRequest.routes.js";
 import { startScheduledDeletionJob } from "./jobs/scheduledDeletionJob.js";
+import { s3Router } from "./services/s3/s3.routes.js";
 
 export const createApp = (): Application => {
   const app = express();
@@ -35,7 +36,7 @@ export const createApp = (): Application => {
 
   app.use(
     cors({
-      origin: ["http://localhost:3000", "http://192.168.20.50:3000"],
+      origin: ["http://localhost:3000", "http://192.168.20.50:3000",  "http://192.168.20.50:3001"],
       credentials: true,
     }),
   );
@@ -55,6 +56,7 @@ export const createApp = (): Application => {
   app.use("/api/block", blockRouter);
   app.use("/api/notifications", inboxNotificationsRouter);
   app.use("/api/message-request", messageRequestRouter);
+  app.use("/api/s3", s3Router);
 
   // Must be registered after all routes
   app.use(errorHandler);
