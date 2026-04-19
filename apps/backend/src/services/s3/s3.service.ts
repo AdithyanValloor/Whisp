@@ -9,27 +9,40 @@ const MIME_TO_EXT: Record<string, string> = {
   "application/pdf": ".pdf",
 };
 
-const UPLOAD_URL_EXPIRY = 60;
+const UPLOAD_URL_EXPIRY = 600;
 const DOWNLOAD_URL_EXPIRY = 300;
 
+type UploadContext =
+  | { type: "chat"; chatId: string }
+  | { type: "profile"; userId: string }
+  | { type: "group"; groupId: string };
+
 export const generateUploadUrl = async (
-  userId: string,
+  context: UploadContext,
   fileType: string,
   fileSize: number,
 ) => {
   const ext = MIME_TO_EXT[fileType];
   if (!ext) throw new Error(`Unsupported file type: ${fileType}`);
 
-  const key = `chat/${userId}/${uuid()}${ext}`;
+  let key: string;
+  
+  switch (context.type) {
+    case "chat":
+      key = `chat/${context.chatId}/${uuid()}${ext}`;
+      break;
+    case "profile":
+      key = `profile/${context.userId}/${uuid()}${ext}`;
+      break;
+    case "group":
+      key = `group/${context.groupId}/${uuid()}${ext}`;
+      break;
+  }
 
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
     Key: key,
     ContentType: fileType,
-    ContentLength: fileSize,
-    Metadata: {
-      uploadedBy: userId,
-    },
   });
 
   const uploadUrl = await getSignedUrl(s3, command, {

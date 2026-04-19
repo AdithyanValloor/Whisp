@@ -106,15 +106,14 @@ export default function AttachmentPicker({
 
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
-  // ✅ ONLY FIXED PART (positioning)
   useEffect(() => {
     if (showMenu && buttonRef.current && menuRef.current) {
       const rect = buttonRef.current.getBoundingClientRect();
       const menuHeight = menuRef.current.offsetHeight;
 
       setPosition({
-        top: rect.top - menuHeight - 8, // 👈 FIXED
-        left: rect.left,                // 👈 FIXED
+        top: rect.top - menuHeight - 8,
+        left: rect.left,
       });
     }
   }, [showMenu]);
@@ -161,6 +160,7 @@ export default function AttachmentPicker({
     e.target.value = "";
 
     if (!file) return;
+    
 
     const mimeType = file.type as AcceptedMimeType;
     if (!(mimeType in ACCEPTED_TYPES)) return;
@@ -245,7 +245,8 @@ export default function AttachmentPicker({
             </motion.div>
           </AnimatePresence>,
           document.body
-        )}
+        )
+      }
 
       {/* Hidden Input */}
       <input

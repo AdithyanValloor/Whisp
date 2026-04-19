@@ -7,6 +7,11 @@ export interface IChat extends Document {
   isGroup: boolean;
   chatName?: string;
 
+  avatar: {
+    url: string | null;
+    key: string | null;
+  };
+
   lastMessage?: Types.ObjectId;
 
   admin: Types.ObjectId[];
@@ -42,6 +47,17 @@ const ChatSchema: Schema<IChat> = new Schema(
     chatName: {
       type: String,
       trim: true,
+    },
+
+    avatar: {
+      url: {
+        type: String,
+        default: null,
+      },
+      key: {
+        type: String,
+        default: null,
+      },
     },
 
     lastMessage: {

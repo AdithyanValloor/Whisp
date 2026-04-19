@@ -55,7 +55,7 @@ const messageSchema: Schema<IMessage> = new Schema(
     },
     content: {
       type: String,
-      required: true,
+      default: "",
     },
     edited: {
       type: Boolean,

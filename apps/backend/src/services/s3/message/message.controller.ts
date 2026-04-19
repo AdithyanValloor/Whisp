@@ -1,19 +1,21 @@
 import { NextFunction, Response } from "express";
+import { AuthRequest } from "../../user/types/authRequest.js";
+import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
 import {
-  generateUploadUrl,
-  generateDownloadUrl,
   deleteFile,
-} from "./s3.service.js";
-import { Unauthorized, BadRequest } from "../../utils/errors/httpErrors.js";
-import { AuthRequest } from "../user/types/authRequest.js";
+  generateDownloadUrl,
+  generateUploadUrl,
+} from "../s3.service.js";
+import { Chat } from "../../chat/models/chat.model.js";
+import { Message } from "../../messages/models/message.model.js";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "application/pdf"]);
 
 const VALID_KEY_REGEX = /^chat\/[^/]+\/[a-f0-9-]+\.(png|jpg|pdf)$/;
 
-export const getUploadUrl = async (
+export const getChatUploadUrl = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
@@ -22,13 +24,18 @@ export const getUploadUrl = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { fileName, fileType, fileSize } = req.body;
+    const { fileType, fileSize, chatId } = req.body;
+
+    if (!chatId) throw BadRequest("ChatId required");
+
+    const chat = await Chat.findById(chatId);
+
+    if (!chat || !chat.members.some((id) => id.toString() === userId)) {
+      throw Unauthorized("Not part of this chat");
+    }
 
     if (
-      typeof fileName !== "string" ||
-      !fileName ||
       typeof fileType !== "string" ||
-      !fileType ||
       typeof fileSize !== "number" ||
       fileSize <= 0
     ) {
@@ -43,18 +50,57 @@ export const getUploadUrl = async (
       throw BadRequest("Unsupported file type");
     }
 
-    const data = await generateUploadUrl(userId, fileType, fileSize);
+    const data = await generateUploadUrl(
+      { type: "chat", chatId },
+      fileType,
+      fileSize,
+    );
 
-    res.json({
-      uploadUrl: data.uploadUrl,
-      key: data.key,
-    });
+    res.json(data);
   } catch (err) {
     next(err);
   }
 };
 
-export const getDownloadUrl = async (
+export const getChatDownloadUrl = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { key } = req.query;
+
+    if (!key || typeof key !== "string") {
+      throw BadRequest("Invalid key");
+    }
+
+    if (!VALID_KEY_REGEX.test(key)) {
+      throw BadRequest("Invalid key format");
+    }
+
+    const parts = key.split("/");
+    const chatId = parts[1];
+
+    if (!chatId) throw BadRequest("Invalid key structure");
+
+    const chat = await Chat.findById(chatId);
+
+    if (!chat || !chat.members.some(id => id.toString() === userId)) {
+      throw Unauthorized("Not allowed to access this file");
+    }
+
+    const url = await generateDownloadUrl(key);
+
+    res.json({ url });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteChatFile = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
@@ -73,38 +119,11 @@ export const getDownloadUrl = async (
       throw Unauthorized();
     }
 
-    const url = await generateDownloadUrl(key);
-
-    res.json({ url });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const deleteFileController = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) throw Unauthorized();
-
-    const { key } = req.query;
-
-    if (!key || typeof key !== "string") {
-      throw BadRequest("Invalid key");
+    try {
+      await deleteFile(key);
+    } catch (err) {
+      return next(err);
     }
-
-    if (!VALID_KEY_REGEX.test(key)) {
-      throw Unauthorized();
-    }
-
-    if (!key.startsWith(`chat/${userId}/`)) {
-      throw Unauthorized();
-    }
-
-    await deleteFile(key);
 
     res.json({ success: true });
   } catch (err) {

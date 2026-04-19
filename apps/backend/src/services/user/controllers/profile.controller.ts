@@ -2,9 +2,18 @@ import { Response, NextFunction } from "express";
 import { AuthRequest } from "../types/authRequest.js";
 import {
   getProfileByUserId,
+  getProfilePictureDownloadUrlService,
   updateProfileByUserId,
+  updateProfilePictureByUserId,
 } from "../services/user.service.js";
-import { Unauthorized, BadRequest } from "../../../utils/errors/httpErrors.js";
+import {
+  Unauthorized,
+  BadRequest,
+  NotFound,
+} from "../../../utils/errors/httpErrors.js";
+import { UserModel } from "../models/user.model.js";
+import { deleteFile } from "../../s3/s3.service.js";
+import { PROFILE_KEY_REGEX } from "../constants/regex.js";
 
 /**
  * ------------------------------------------------------------------
@@ -22,7 +31,7 @@ import { Unauthorized, BadRequest } from "../../../utils/errors/httpErrors.js";
 export const viewProfile = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -67,7 +76,7 @@ interface EditProfileBody {
 export const editProfile = async (
   req: AuthRequest<{}, {}, EditProfileBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -82,6 +91,55 @@ export const editProfile = async (
     const updatedProfile = await updateProfileByUserId(userId, req.body);
 
     res.status(200).json(updatedProfile);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateProfilePicture = async (
+  req: AuthRequest<{}, {}, { key: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { key } = req.body;
+
+    if (!key) {
+      throw BadRequest("Key required");
+    }
+
+    if (!PROFILE_KEY_REGEX.test(key) || !key.startsWith(`profile/${userId}/`)) {
+      throw Unauthorized();
+    }
+    const updated = await updateProfilePictureByUserId(userId, key);
+
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const getProfilePictureDownloadUrl = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { key } = req.query;
+
+    const url = await getProfilePictureDownloadUrlService(
+      userId,
+      key as string,
+    );
+
+    res.json({ url });
   } catch (err) {
     next(err);
   }

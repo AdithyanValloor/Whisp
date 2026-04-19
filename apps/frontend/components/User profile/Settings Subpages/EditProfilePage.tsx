@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import { updateProfile } from "@/redux/features/profileSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import { LuUserRoundPen, LuAtSign, LuAlignLeft } from "react-icons/lu";
+import ProfilePictureUploader from "../ProfilePictureUploader";
 
 interface EditProfileFormProps {
   onBack: () => void;
@@ -50,6 +51,7 @@ function FieldInput({
 export default function EditProfileForm({ onBack }: EditProfileFormProps) {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.profile.profile);
+  const profile = useAppSelector((state) => state.profile.profile);
 
   const initialValues = {
     displayName: user?.displayName || "",
@@ -80,6 +82,8 @@ export default function EditProfileForm({ onBack }: EditProfileFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-1">
+
+      <ProfilePictureUploader currentUrl={profile?.profilePicture?.url ?? undefined} />
 
       {/* Display Name */}
       <div className="flex items-start gap-3">

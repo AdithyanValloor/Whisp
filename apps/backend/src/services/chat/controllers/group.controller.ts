@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { NextFunction, Response } from "express";
 import {
   addMembersFunction,
   createGroupChatFunction,
@@ -8,13 +8,11 @@ import {
   removeMembersFunction,
   toggleAdminFunction,
   transferOwnershipFunction,
+  updateGroupAvatarById,
 } from "../services/group.service.js";
 import { handleChatError } from "../errors/chatErrors.js";
 import { AuthRequest } from "../../user/types/authRequest.js";
-import {
-  BadRequest,
-  Unauthorized,
-} from "../../../utils/errors/httpErrors.js";
+import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
 import {
   emitAdminToggled,
   emitGroupCreated,
@@ -25,6 +23,7 @@ import {
   emitMembersAdded,
   emitOwnershipTransferred,
 } from "../../../socket/emitters/group.emitter.js";
+import { PROFILE_KEY_REGEX } from "../../user/constants/regex.js";
 
 /**
  * ------------------------------------------------------------------
@@ -39,7 +38,7 @@ import {
  */
 export const createGroupChat = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { name, userIds }: { name?: string; userIds?: string[] } = req.body;
@@ -53,7 +52,7 @@ export const createGroupChat = async (
     const { group, memberIds } = await createGroupChatFunction(
       name,
       userIds,
-      currentUserId
+      currentUserId,
     );
 
     emitGroupCreated(group, memberIds);
@@ -77,7 +76,7 @@ export const createGroupChat = async (
  */
 export const getGroupById = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -108,7 +107,7 @@ export const getGroupById = async (
  */
 export const addMembers = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { chatId, members }: { chatId?: string; members?: string[] } =
@@ -123,7 +122,7 @@ export const addMembers = async (
     const { group, newMemberIds } = await addMembersFunction(
       chatId,
       members,
-      userId
+      userId,
     );
 
     emitMembersAdded(chatId, group, newMemberIds);
@@ -151,7 +150,7 @@ export const addMembers = async (
  */
 export const removeMembers = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { chatId, member }: { chatId?: string; member?: string } = req.body;
@@ -165,7 +164,7 @@ export const removeMembers = async (
     const { group, removedMemberId } = await removeMembersFunction(
       userId,
       chatId,
-      member
+      member,
     );
 
     emitMemberRemoved(chatId, removedMemberId);
@@ -195,7 +194,7 @@ export const removeMembers = async (
  */
 export const toggleAdmin = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const {
@@ -215,7 +214,7 @@ export const toggleAdmin = async (
       userId,
       chatId,
       member,
-      makeAdmin
+      makeAdmin,
     );
 
     emitAdminToggled(chatId, memberId, isAdmin);
@@ -243,7 +242,7 @@ export const toggleAdmin = async (
  */
 export const leaveGroup = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { chatId }: { chatId?: string } = req.body;
@@ -282,7 +281,7 @@ export const leaveGroup = async (
  */
 export const deleteGroup = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { chatId }: { chatId?: string } = req.body;
@@ -293,7 +292,7 @@ export const deleteGroup = async (
 
     const { chatId: deletedChatId, memberIds } = await deleteGroupFunction(
       userId,
-      chatId
+      chatId,
     );
 
     emitGroupDeleted(deletedChatId, memberIds);
@@ -319,7 +318,7 @@ export const deleteGroup = async (
  */
 export const transferOwnership = async (
   req: AuthRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { chatId, newOwnerId }: { chatId?: string; newOwnerId?: string } =
@@ -343,5 +342,32 @@ export const transferOwnership = async (
     });
   } catch (error) {
     handleChatError(res, error as Error);
+  }
+};
+
+export const updateGroupAvatar = async (
+  req: AuthRequest<{}, {}, { chatId: string; key: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { chatId, key } = req.body;
+
+    if (!chatId || !key) {
+      throw BadRequest("chatId and key required");
+    }
+
+    if (!PROFILE_KEY_REGEX.test(key) || !key.startsWith(`profile/${userId}/`)) {
+  throw Unauthorized();
+}
+
+    const result = await updateGroupAvatarById(userId, chatId, key);
+
+    res.json(result);
+  } catch (err) {
+    next(err);
   }
 };

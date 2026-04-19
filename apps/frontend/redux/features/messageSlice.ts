@@ -55,6 +55,11 @@ export interface MessageType {
     siteName?: string;
     isLargeImage?: boolean;
   };
+  file?: {
+    key: string;
+    mimeType: string;
+    size: number;
+  };
 }
 
 /**
@@ -88,6 +93,7 @@ interface MessagesState {
   listLoading: boolean;
   sendLoading: boolean;
   error: string | null;
+  downloadUrls: Record<string, string>;
 }
 
 const initialState: MessagesState = {
@@ -105,6 +111,7 @@ const initialState: MessagesState = {
   listLoading: false,
   sendLoading: false,
   error: null,
+  downloadUrls: {},
 };
 
 /* -------------------- THUNKS -------------------- */
@@ -156,6 +163,11 @@ export const sendMessage = createAsyncThunk<
     content: string;
     replyTo?: string | null;
     mentionIds?: string[];
+    file?: {
+      key: string;
+      mimeType: string;
+      size: number;
+    };
   },
   { rejectValue: string }
 >("messages/send", async (data, { rejectWithValue }) => {
@@ -366,7 +378,9 @@ export const fetchMessageContext = createAsyncThunk<
   },
 );
 
-// New thunk — fetches messages created AFTER a given timestamp (downward scroll)
+/**
+ * Fetch newer messages for a chat (used for jump-to-bottom when new messages arrive).
+ */
 export const fetchNewerMessages = createAsyncThunk<
   { chatId: string; messages: MessageType[]; hasMore: boolean },
   { chatId: string; after: string; limit?: number },
@@ -388,6 +402,26 @@ export const fetchNewerMessages = createAsyncThunk<
     }
   },
 );
+
+/**
+ * Get a pre-signed S3 download URL for an attachment key.
+ */
+export const getDownloadUrl = createAsyncThunk<
+  { key: string; url: string },
+  string,
+  { rejectValue: string }
+>("messages/getDownloadUrl", async (key, { rejectWithValue }) => {
+  try {
+    const res = await api.get("/file/chat/download", {
+      params: { key },
+      withCredentials: true,
+    });
+
+    return { key, url: res.data.url };
+  } catch {
+    return rejectWithValue("Failed to get download URL");
+  }
+});
 
 /* -------------------- HELPERS -------------------- */
 
@@ -711,6 +745,11 @@ const messagesSlice = createSlice({
         if (state.jumpTo?.chatId === chatId) {
           state.jumpTo = null;
         }
+      })
+
+      // Cache download URLs for attachments
+      .addCase(getDownloadUrl.fulfilled, (state, action) => {
+        state.downloadUrls[action.payload.key] = action.payload.url;
       });
   },
 });

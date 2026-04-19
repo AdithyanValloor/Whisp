@@ -13,11 +13,7 @@ export interface IUser extends Document {
   dateOfBirth?: Date | null;
   profilePicture: {
     url: string | null;
-    public_id: string | null;
-  };
-  coverPicture: {
-    url: string | null;
-    public_id: string | null;
+    key: string | null;
   };
   isBanned: boolean;
   isActive: boolean;
@@ -96,17 +92,7 @@ const userSchema: Schema<IUser> = new Schema(
         type: String,
         default: null,
       },
-      public_id: {
-        type: String,
-        default: null,
-      },
-    },
-    coverPicture: {
-      url: {
-        type: String,
-        default: null,
-      },
-      public_id: {
+      key: {
         type: String,
         default: null,
       },

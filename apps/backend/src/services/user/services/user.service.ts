@@ -2,8 +2,11 @@ import { UserModel } from "../models/user.model.js";
 import {
   Unauthorized,
   NotFound,
+  BadRequest,
 } from "../../../utils/errors/httpErrors.js";
 import bcrypt from "bcrypt";
+import { deleteFile, generateDownloadUrl } from "../../s3/s3.service.js";
+import { PROFILE_KEY_REGEX } from "../constants/regex.js";
 
 /**
  * Input type for profile updates
@@ -116,4 +119,52 @@ export const checkPassword = async (userId: string, password: string) => {
   const isMatch = await bcrypt.compare(password, user.password);
 
   return { isMatch };
+};
+
+export const updateProfilePictureByUserId = async (
+  userId: string,
+  key: string
+) => {
+  const user = await UserModel.findById(userId);
+
+  if (!user) throw NotFound("User not found");
+
+  if (user.profilePicture?.key) {
+    await deleteFile(user.profilePicture.key);
+  }
+
+  const url = await generateDownloadUrl(key);
+
+  user.profilePicture = {
+    key: key,
+    url: url,
+  };
+
+  await user.save();
+
+  return {
+    profilePicture: user.profilePicture,
+  };
+};
+
+export const getProfilePictureDownloadUrlService = async (
+  userId: string,
+  key: string,
+) => {
+  if (!key || typeof key !== "string") {
+    throw BadRequest("Invalid key");
+  }
+
+  if (!PROFILE_KEY_REGEX.test(key)) {
+    throw BadRequest("Invalid key format");
+  }
+
+  // Ensure user owns this file
+  if (!key.startsWith(`profile/${userId}/`)) {
+    throw Unauthorized();
+  }
+
+  const url = await generateDownloadUrl(key);
+
+  return url;
 };

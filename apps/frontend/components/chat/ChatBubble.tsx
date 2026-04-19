@@ -8,6 +8,7 @@ import { BadgeX, Check, CheckCheck, Forward } from "lucide-react";
 import LinkPreviewCard from "../Message/LinkPreviewCard";
 import { useAppSelector } from "@/redux/hooks";
 import { useIsMobile } from "@/utils/screenSize";
+import FilePreviewCard from "./FilePreviewCard";
 
 interface ChatBubbleProps {
   msg: MessageType;
@@ -193,7 +194,7 @@ export default function ChatBubble({
                   : "!rounded-bl-2xl"
                 : ""
             }
-            p-2
+            ${msg.file ? "p-1" : "p-2"}
             ${isMe ? "bg-cyan-950 text-white" : "bg-base-100"}
             ${grouped ? (isMe ? "mx-8" : "mx-8") : ""}
             ${msg.deleted ? "italic opacity-50" : ""}
@@ -251,6 +252,7 @@ export default function ChatBubble({
               />
             </div>
             {msg.linkPreview && <LinkPreviewCard preview={msg.linkPreview} />}
+            {msg.file && <FilePreviewCard file={msg.file} />}
             {msg.edited && !msg.deleted && (
               <div className={`flex py-1 ${isMe ? "justify-end" : ""}`}>
                 <span

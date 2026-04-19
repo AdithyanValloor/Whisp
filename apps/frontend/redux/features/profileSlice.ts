@@ -31,6 +31,7 @@ interface ProfileState {
   loading: boolean;
   fetched: boolean;
   error: string | null;
+  profilePictureUrls: Record<string, string>;
 }
 
 const initialState: ProfileState = {
@@ -38,6 +39,7 @@ const initialState: ProfileState = {
   loading: false,
   fetched: false,
   error: null,
+  profilePictureUrls: {},
 };
 
 /* -------------------- THUNKS -------------------- */
@@ -85,6 +87,29 @@ export const updateProfile = createAsyncThunk<
       );
     }
     return rejectWithValue("Failed to update profile");
+  }
+});
+
+export const updateProfilePicture = createAsyncThunk<
+  { url: string | null },
+  string,
+  { rejectValue: string }
+>("profile/updateProfilePicture", async (key, { rejectWithValue }) => {
+  try {
+    const res = await api.put(
+      "/file/profile-picture",
+      { key },
+      { withCredentials: true },
+    );
+
+    return res.data.profilePicture;
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      return rejectWithValue(
+        err.response?.data?.message ?? "Failed to update profile picture",
+      );
+    }
+    return rejectWithValue("Failed to update profile picture");
   }
 });
 
@@ -149,6 +174,11 @@ const profileSlice = createSlice({
       .addCase(updateEmail.fulfilled, (state, action) => {
         // email isn't in Profile type currently, add if needed
         // if (state.profile) state.profile.email = action.payload.email;
+      })
+      .addCase(updateProfilePicture.fulfilled, (state, action) => {
+        if (state.profile) {
+          state.profile.profilePicture = action.payload;
+        }
       });
   },
 });

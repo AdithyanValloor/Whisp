@@ -8,6 +8,7 @@ import {
 } from "../../../utils/errors/httpErrors.js";
 import { BlockModel } from "../../user/models/block.model.js";
 import { createInboxNotification } from "../../notifications/services/inboxNotification.service.js";
+import { deleteFile, generateDownloadUrl } from "../../s3/s3.service.js";
 
 /**
  * Populates a group chat with all required related fields.
@@ -450,5 +451,37 @@ export const transferOwnershipFunction = async (
   return {
     group,
     newOwnerId,
+  };
+};
+
+export const updateGroupAvatarById = async (
+  userId: string,
+  chatId: string,
+  key: string,
+) => {
+  const group = await Chat.findById(chatId);
+  if (!group) throw NotFound("Group not found");
+
+  const isAdmin =
+    group.admin.some((id) => id.toString() === userId) ||
+    group.createdBy?.toString() === userId;
+
+  if (!isAdmin) throw Unauthorized();
+
+  if (group.avatar?.key) {
+    await deleteFile(group.avatar.key);
+  }
+
+  const url = await generateDownloadUrl(key);
+
+  group.avatar = {
+    key,
+    url,
+  };
+
+  await group.save();
+
+  return {
+    avatar: group.avatar,
   };
 };

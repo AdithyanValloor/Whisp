@@ -33,6 +33,9 @@ import {
 } from "../../../socket/emitters/message.emmitter.js";
 import { fetchLinkPreview } from "../utils/linkPreview.js";
 import { Message } from "../models/message.model.js";
+import { Chat } from "../../chat/models/chat.model.js";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 /**
  * GET /api/message/:chatId?page&limit
@@ -84,10 +87,28 @@ export const sendMessage = async (
     }
 
     const VALID_KEY_REGEX = /^chat\/[^/]+\/[a-f0-9-]+\.(png|jpg|pdf)$/;
+    const ALLOWED_TYPES = new Set([
+      "image/png",
+      "image/jpeg",
+      "application/pdf",
+    ]);
 
     if (file) {
-      if (!file.key.startsWith(`chat/${senderId}/`)) {
-        throw Unauthorized();
+      const parts = file.key.split("/");
+      const chatIdFromKey = parts[1];
+
+      if (!chatIdFromKey) {
+        throw BadRequest("Invalid file key");
+      }
+      
+      const chat = await Chat.findById(chatIdFromKey);
+
+      if (!chat || !chat.members.some((id) => id.toString() === senderId)) {
+        throw Unauthorized("Not allowed to send file in this chat");
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        throw BadRequest("File too large");
       }
 
       if (!VALID_KEY_REGEX.test(file.key)) {
@@ -100,6 +121,10 @@ export const sendMessage = async (
         typeof file.size !== "number"
       ) {
         throw BadRequest("Invalid file data");
+      }
+
+      if (!ALLOWED_TYPES.has(file.mimeType)) {
+        throw BadRequest("Invalid file type");
       }
     }
 

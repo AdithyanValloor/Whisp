@@ -45,6 +45,8 @@ import {
   markMentionsReadForChat,
 } from "@/redux/features/notificationSlice";
 import { useIsMobile } from "@/utils/screenSize";
+import { SelectedFile } from "./Attachmentpicker";
+import { uploadFileToS3 } from "@/utils/uploadToS3";
 
 interface ChatViewProps {
   chat: {
@@ -90,6 +92,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [editingMessage, setEditingMessage] = useState<MessageType | null>(
     null,
   );
+  const [uploading, setUploading] = useState(false);
   const [pendingMentionIds, setPendingMentionIds] = useState<string[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState<{
     open: boolean;
@@ -98,6 +101,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   const [isPageVisible, setIsPageVisible] = useState(!document.hidden);
   const [replyingTo, setReplyingTo] = useState<MessageType | null>(null);
   const [forward, setForward] = useState<MessageType | null>(null);
+  const [stagedFile, setStagedFile] = useState<SelectedFile | null>(null);
 
   // ─── Selectors ────────────────────────────────────────────────────────────
   const onlineStatus = useAppSelector((state) => state.presence.users);
@@ -266,7 +270,9 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   ]);
 
   const handleSend = useCallback(async () => {
-    if (!message.trim() && !editingMessage) return;
+    if (!message.trim() && !editingMessage && !stagedFile) return;
+    if (uploading) return;
+
     setShowPicker(false);
 
     if (editingMessage) {
@@ -279,6 +285,17 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
       );
       setEditingMessage(null);
       return;
+    }
+
+    let fileData;
+
+    if (stagedFile) {
+      setUploading(true);
+      try {
+        fileData = await uploadFileToS3(stagedFile.file, chat._id);
+      } finally {
+        setUploading(false);
+      }
     }
 
     const content = message;
@@ -294,8 +311,14 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
           ...(chat.isGroup && pendingMentionIds.length > 0
             ? { mentionIds: pendingMentionIds }
             : {}),
+          ...(fileData ? { file: fileData } : {}),
         }),
       ).unwrap();
+
+      setMessage("");
+
+      if (stagedFile?.previewUrl) URL.revokeObjectURL(stagedFile.previewUrl);
+      setStagedFile?.(null);
 
       setReplyingTo(null);
 
@@ -311,6 +334,8 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
   }, [
     message,
     editingMessage,
+    stagedFile,
+    uploading,
     dispatch,
     chat._id,
     chat.isGroup,
@@ -489,6 +514,9 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
             currentUserId={currentUser._id}
             onMentionsChange={setPendingMentionIds}
             onUnblock={handleUnblock}
+            stagedFile={stagedFile}
+            setStagedFile={setStagedFile}
+            isUploading={uploading}
           />
         </div>
       </div>

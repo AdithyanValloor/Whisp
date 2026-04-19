@@ -56,7 +56,7 @@ export const createApp = (): Application => {
   app.use("/api/block", blockRouter);
   app.use("/api/notifications", inboxNotificationsRouter);
   app.use("/api/message-request", messageRequestRouter);
-  app.use("/api/s3", s3Router);
+  app.use("/api/file", s3Router);
 
   // Must be registered after all routes
   app.use(errorHandler);
