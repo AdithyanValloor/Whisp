@@ -14,8 +14,7 @@ export interface NotificationActor {
   username: string;
   displayName?: string;
   profilePicture?: {
-    url: string | null;
-    public_id: string | null;
+    key: string | null;
   };
 }
 

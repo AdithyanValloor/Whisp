@@ -69,7 +69,7 @@ export default function Requests({ searchQuery }: RequestsProps) {
         user={{
           name: user.username,
           displayName: user.displayName ?? user.username,
-          profilePic: user.profilePicture?.url || "/default-pfp.png",
+          profilePicture: user.profilePicture,
         }}
         chatType="other"
         hideLastMessage

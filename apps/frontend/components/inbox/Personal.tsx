@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { useRef, useState, useCallback } from "react";
+import { useAppSelector } from "@/redux/hooks";
 import FriendCard from "../Message/FriendCard";
-import { fetchChats } from "@/redux/features/chatSlice";
+import { getLastMessagePreview } from "@/utils/lastMessagePreview";
 
 interface ContextMenuState {
   x: number;
@@ -22,7 +22,6 @@ export default function Personal({
   onOpenChat,
   selectedChatId,
 }: PersonalProps) {
-  const dispatch = useAppDispatch();
 
   const { chats, listLoading } = useAppSelector((state) => state.chat);
 
@@ -44,13 +43,6 @@ export default function Personal({
     setContextMenu(null);
   }, []);
 
-  /* -------- Fetch chats once -------- */
-  // useEffect(() => {
-  //   if (user?._id && !sessionLoading) {
-  //     dispatch(fetchChats());
-  //   }
-  // }, [dispatch, user?._id, sessionLoading]);
-
   if (sessionLoading) {
     return <p className="p-3">Loading chats...</p>;
   }
@@ -67,6 +59,10 @@ export default function Personal({
         const otherUser = chat.members.find((m) => m._id !== user?._id);
         const unreadCount = perChatUnread[chat._id] || 0;
 
+        console.log("Last Messages : ", chat.lastMessage?.file);
+
+        const lastMessage = getLastMessagePreview(chat.lastMessage);
+
         return (
           <FriendCard
             ifInbox
@@ -75,8 +71,8 @@ export default function Personal({
               _id: otherUser?._id,
               name: otherUser?.username || chat.chatName,
               displayName: otherUser?.displayName,
-              profilePic: otherUser?.profilePicture?.url || "",
-              lastMessage: chat.lastMessage?.content || "",
+              profilePicture: otherUser?.profilePicture,
+              lastMessage: lastMessage,
             }}
             chatType="personal"
             msgId={chat._id}
@@ -100,13 +96,6 @@ export default function Personal({
           />
         );
       })}
-
-      {/*
-        Portal-rendered menu lives here at the Personal level.
-        AnimatePresence handles the exit animation.
-        The menu is rendered via createPortal inside InboxContextMenu,
-        so its DOM position is always document.body — fully above the layout.
-      */}
     </div>
   );
 }

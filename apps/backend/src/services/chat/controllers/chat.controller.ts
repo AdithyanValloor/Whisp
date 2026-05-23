@@ -20,19 +20,8 @@ import {
 } from "../../../utils/errors/httpErrors.js";
 import { Chat } from "../models/chat.model.js";
 
-/**
- * ------------------------------------------------------------------
- * Fetch User Chats
- * ------------------------------------------------------------------
- * @desc    Retrieves all chats that the authenticated user is part of
- * @route   GET /api/chat
- * @access  Private (Requires valid access token)
- *
- * Notes:
- * - Requires `protect` middleware to attach `req.user`
- * - Returns both private and group chats
- * - Errors are forwarded to the global error handler
- */
+/** Chat controller handlers for authenticated chat actions. */
+
 export const fetchChats = async (
   req: AuthRequest,
   res: Response,
@@ -41,7 +30,7 @@ export const fetchChats = async (
   try {
     const userId = req.user?.id;
 
-    // Safety check in case auth middleware is missing/misconfigured
+    // Protect against missing or misconfigured auth middleware.
     if (!userId) {
       throw Unauthorized();
     }
@@ -54,37 +43,19 @@ export const fetchChats = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Access or Create One-to-One Chat
- * ------------------------------------------------------------------
- * @desc    Returns an existing one-to-one chat or creates a new one
- * @route   POST /api/chat
- * @access  Private (Requires valid access token)
- *
- * Request Body:
- * - userId: string → ID of the user to chat with
- *
- * Notes:
- * - Prevents chat access without authentication
- * - Business logic is handled inside service layer
- * - Controller only validates inputs and auth state
- */
 export const accessChat = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { userId, message }: { userId?: string, message?:string } = req.body;
+    const { userId, message }: { userId?: string; message?: string } = req.body;
     const currentUserId = req.user?.id;
 
-    // Validate request body
     if (!userId) {
       throw BadRequest("UserId parameter is required");
     }
 
-    // Validate authentication
     if (!currentUserId) {
       throw Unauthorized();
     }
@@ -106,16 +77,16 @@ export const togglePinChat = async (
     const userId = req.user?.id;
     const { chatId } = req.params;
 
+    if (!userId) {
+      throw Unauthorized();
+    }
+
     const chat = await Chat.findOne({
       _id: chatId,
       members: userId,
     });
 
     if (!chat) throw Forbidden("Not allowed");
-
-    if (!userId) {
-      throw Unauthorized();
-    }
 
     const result = await togglePinChatFunction(userId, chatId);
 
@@ -134,16 +105,16 @@ export const toggleArchiveChat = async (
     const userId = req.user?.id;
     const { chatId } = req.params;
 
+    if (!userId) {
+      throw Unauthorized();
+    }
+
     const chat = await Chat.findOne({
       _id: chatId,
       members: userId,
     });
 
     if (!chat) throw Forbidden("Not allowed");
-
-    if (!userId) {
-      throw Unauthorized();
-    }
 
     const result = await toggleArchiveChatFunction(userId, chatId);
 
@@ -247,6 +218,7 @@ export const muteChat = async (
 
     if (!userId) throw Unauthorized();
     if (!chatId) throw BadRequest("ChatId is required");
+
     if (!duration || !VALID_DURATIONS.includes(duration)) {
       throw BadRequest(
         `duration must be one of: ${VALID_DURATIONS.join(", ")}`,
@@ -254,6 +226,7 @@ export const muteChat = async (
     }
 
     const result = await muteChatFunction(userId, chatId, duration);
+
     res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -273,6 +246,7 @@ export const unmuteChat = async (
     if (!chatId) throw BadRequest("ChatId is required");
 
     const result = await unmuteChatFunction(userId, chatId);
+
     res.status(200).json(result);
   } catch (err) {
     next(err);

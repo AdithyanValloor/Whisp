@@ -19,15 +19,15 @@ if (!MONGO_URI) {
 
 export const connectDb = async (): Promise<void> => {
   try {
-    const connection = await mongoose.connect(MONGO_URI);
+    const connection = await mongoose.connect(MONGO_URI, {
+      maxPoolSize: 20,
+    });
 
-    console.log(
-      `MongoDB connected: ${connection.connection.host}`
-    );
+    console.log(`MongoDB connected: ${connection.connection.host}`);
   } catch (error) {
     console.error(
       "MongoDB connection failed:",
-      error instanceof Error ? error.message : error
+      error instanceof Error ? error.message : error,
     );
 
     process.exit(1);

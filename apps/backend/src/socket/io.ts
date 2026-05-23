@@ -1,11 +1,4 @@
-/**
- * Socket.IO instance manager.
- *
- * Provides a shared IO reference so other layers (e.g., REST controllers)
- * can emit events without importing the socket bootstrap logic.
- *
- * Must be initialized during server startup before use.
- */
+/** Shared Socket.IO server instance. */
 
 import type { Server } from "socket.io";
 

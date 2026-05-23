@@ -12,8 +12,7 @@ export interface FriendUser {
   username: string;
   displayName?: string;
   profilePicture?: {
-    url: string | null;
-    public_id: string | null;
+    key: string | null;
   };
   isActive?: boolean;
   isBanned?: boolean;

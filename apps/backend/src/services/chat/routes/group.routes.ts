@@ -8,6 +8,7 @@ import {
   getGroupById,
   deleteGroup,
   transferOwnership,
+  editName,
 } from "../controllers/group.controller.js";
 import { protect } from "../../auth/auth.middleware.js";
 
@@ -16,6 +17,9 @@ const router = Router();
 // Group creation and lookup routes.
 router.post("/", protect, createGroupChat);
 router.get("/:id", protect, getGroupById);
+
+// Group name edit.
+router.patch("/edit-name", protect, editName);
 
 // Membership and role management within a group.
 router.post("/members", protect, addMembers);

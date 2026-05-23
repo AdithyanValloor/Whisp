@@ -84,7 +84,7 @@ export default function AllFriends({ setActiveTab, searchQuery }: AllFriendsProp
             _id: friend._id,
             name: friend.username,
             displayName: friend.displayName ?? friend.username,
-            profilePic: friend.profilePicture?.url || "/default-pfp.png",
+            profilePicture: friend.profilePicture,
           }}
           forceActive={activeMenuId === friend._id}
           onClick={() => openChat(friend._id)}

@@ -1,14 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 
 /**
- * In-memory per-user-per-chat message rate limiter.
- *
- * Prevents rapid message spam. Single-instance only —
- * replace with Redis for horizontal scaling.
+ * In-memory message limiter scoped to a user/chat pair.
+ * Helps slow down rapid message spam on a single server instance.
  */
-
 const rateMap = new Map<string, number>();
-const RATE_LIMIT_MS = 1000; // 1 second
+const RATE_LIMIT_MS = 1000;
 const MAX_KEYS = 10_000;
 
 export const messageRateLimiter = (
@@ -16,7 +13,6 @@ export const messageRateLimiter = (
   res: Response,
   next: NextFunction
 ): void => {
-  
   const userId = req.user?.id;
   const chatId = req.body?.chatId;
 
@@ -25,6 +21,7 @@ export const messageRateLimiter = (
     return;
   }
 
+  // Track message cadence separately for each user in each chat.
   const key = `${userId}:${chatId}`;
 
   const now = Date.now();
@@ -39,6 +36,7 @@ export const messageRateLimiter = (
 
   rateMap.set(key, now);
 
+  // Drop the oldest tracked key to keep the in-memory map bounded.
   if (rateMap.size > MAX_KEYS) {
     const iterator = rateMap.keys().next();
     if (!iterator.done) {

@@ -1,14 +1,10 @@
-/**
- * Registers typing-related socket handlers.
- *
- * Re-broadcasts typing state to the room excluding the sender.
- */
+/** Typing indicator socket handlers. */
 
 import type { Socket } from "socket.io";
 import { UserModel } from "../../services/user/models/user.model.js";
 
 export const registerTypingHandlers = (socket: Socket): void => {
-  let typingEnabled: boolean | null = null; // cached per socket session
+  let typingEnabled: boolean | null = null;
 
   const getTypingEnabled = async (): Promise<boolean> => {
     if (typingEnabled !== null) return typingEnabled;

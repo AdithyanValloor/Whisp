@@ -1,5 +1,3 @@
-//auth.service.ts
-
 import { UserModel } from "../user/models/user.model.js";
 import bcrypt from "bcrypt";
 import {
@@ -22,11 +20,9 @@ import {
 } from "../../utils/otp/otpStore.js";
 import { sendOtpEmail } from "../../utils/otp/mailer.js";
 
-// ── Constants ────────────────────────────────────────────────────────────────
+/** Authentication service helpers for OTP, registration, login, and refresh flows. */
 
 const HASH_SALT = 10;
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 const generateOtp = () => crypto.randomInt(100_000, 999_999).toString();
 
@@ -44,12 +40,6 @@ const buildSafeUser = (user: any) =>
     },
   });
 
-// ── OTP ──────────────────────────────────────────────────────────────────────
-
-/**
- * @desc  Generate and email an OTP for the given address.
- *        Rejects immediately if the email is already registered.
- */
 export const sendRegistrationOtp = async (email: string): Promise<void> => {
   if (!email) throw BadRequest("Email is required");
 
@@ -59,13 +49,10 @@ export const sendRegistrationOtp = async (email: string): Promise<void> => {
 
   const otp = generateOtp();
   saveOtp(email, otp);
+
   await sendOtpEmail(email, otp);
 };
 
-/**
- * @desc  Validate the OTP and mark the email as verified.
- *        The verified state expires after the store TTL (10 min).
- */
 export const verifyRegistrationOtp = async (
   email: string,
   otp: string
@@ -75,29 +62,28 @@ export const verifyRegistrationOtp = async (
   const valid = verifyOtp(email, otp);
   if (!valid) throw BadRequest("Invalid or expired OTP");
 
+  // Verified emails are temporarily marked in the OTP store before registration completes.
   markVerified(email);
 };
 
-// ── Register ─────────────────────────────────────────────────────────────────
-
-/**
- * @desc  Create a new user account.
- *        The email must have been verified via OTP before calling this.
- */
 export const registerUser = async (
   displayName: string,
   username: string,
   email: string,
   password: string
 ) => {
+  // Registration is only allowed after the OTP flow marks the email as verified.
   if (!isVerified(email)) throw BadRequest("Email not verified");
 
   if (!displayName || !username || !email || !password) {
     throw BadRequest("Missing required fields");
   }
 
-  if (await UserModel.findOne({ email })) throw BadRequest("Email already exists");
-  if (await UserModel.findOne({ username })) throw BadRequest("Username already exists");
+  if (await UserModel.findOne({ email }))
+    throw BadRequest("Email already exists");
+
+  if (await UserModel.findOne({ username }))
+    throw BadRequest("Username already exists");
 
   const hashedPassword = await bcrypt.hash(password, HASH_SALT);
 
@@ -108,6 +94,7 @@ export const registerUser = async (
     password: hashedPassword,
   });
 
+  // Clear the temporary verification marker after successful account creation.
   clearEmail(email);
 
   return {
@@ -117,16 +104,12 @@ export const registerUser = async (
   };
 };
 
-// ── Login ────────────────────────────────────────────────────────────────────
-
-/**
- * @desc  Authenticate a user with email + password.
- *        Uses identical error messages to prevent account enumeration.
- */
 export const loginUser = async (email: string, password: string) => {
   if (!email || !password) throw BadRequest("Email and password required");
 
   const user = await UserModel.findOne({ email });
+
+  // Use the same auth error for missing users and invalid passwords.
   if (!user) throw Unauthorized("Invalid email or password");
 
   const match = await bcrypt.compare(password, user.password);
@@ -139,11 +122,6 @@ export const loginUser = async (email: string, password: string) => {
   };
 };
 
-// ── Refresh Token ────────────────────────────────────────────────────────────
-
-/**
- * @desc  Issue a new access token from a valid refresh token.
- */
 export const refreshTokenFunction = async (token: string) => {
   if (!token) throw Unauthorized("Refresh token missing");
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { Mail, MessageCirclePlus } from "lucide-react";
 import { useState, useEffect, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
@@ -21,6 +20,7 @@ import { clearSearch } from "@/redux/features/globalSearchSlice";
 import { IoMdMail } from "react-icons/io";
 import { BiSolidMessageSquareAdd } from "react-icons/bi";
 import { UnreadCountBadge } from "../Notification/UnreadCountBadge";
+import api from "@/utils/axiosInstance";
 
 type ChatType = "personal" | "group";
 
@@ -32,6 +32,7 @@ export default function InboxSection() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showMessageRequest, setShowMessageRequest] = useState(false);
   const [groupName, setGroupName] = useState("");
+  const [groupAvatar, setGroupAvatar] = useState<string | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
 
   /* ---------- Search state ---------- */
@@ -93,14 +94,21 @@ export default function InboxSection() {
       createGroupChat({
         name: groupName.trim(),
         userIds: Array.from(selectedUsers),
+        avatar: groupAvatar,
       }),
     ).unwrap();
+
+    await api.post("/file/temp-avatar", {
+      groupId: res._id,
+      tempKey: groupAvatar,
+    });
 
     setShowCreateModal(false);
     setGroupName("");
     setSelectedUsers(new Set());
+    setGroupAvatar(null);
     setChatType("group");
-    
+
     router.push(`/chat/${res._id}`);
   };
 
@@ -218,6 +226,8 @@ export default function InboxSection() {
           toggleUserSelection={toggleUserSelection}
           handleCreateGroup={handleCreateGroup}
           actionLoading={accessLoading}
+          groupAvatar={groupAvatar}
+          setGroupAvatar={setGroupAvatar}
         />
       )}
 

@@ -1,9 +1,5 @@
 /**
- * Socket.IO initialization.
- *
- * Attaches the WebSocket layer to the HTTP server and registers
- * connection-level handlers. The IO instance is stored centrally
- * to allow emitting events outside socket handlers.
+ * Attaches Socket.IO to the HTTP server and wires shared socket setup.
  */
 
 import { Server } from "socket.io";
@@ -24,21 +20,24 @@ const ALLOWED_ORIGINS = [
 export const initSocket = (server: HttpServer) => {
   const io = new Server(server, {
     cors: {
-      origin: ALLOWED_ORIGINS, // Move to env in production
+      // Keep explicit dev origins until socket CORS is env-driven.
+      origin: ALLOWED_ORIGINS,
       credentials: true,
     },
   });
 
+  // Store the instance so non-socket modules can emit events.
   setIO(io);
 
   io.on("connection", (socket) => {
     console.log(`Socket connected: ${socket.id}`);
 
+    // Split per-socket behavior into focused handler modules.
     registerConnectionHandlers(socket);
     registerTypingHandlers(socket);
   });
 
-  // Periodic presence cleanup (single-instance strategy)
+  // Periodically clear stale in-memory presence state.
   setInterval(cleanupPresence, 10_000);
 
   return io;

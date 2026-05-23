@@ -2,19 +2,16 @@ import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { AppError } from "../utils/errors/AppError.js";
 
 /**
- * Global error handler.
- *
- * Converts thrown errors into consistent HTTP responses.
- * Must be registered after all routes.
+ * Global Express error handler.
+ * Normalizes known app errors and falls back to a generic 500 response.
  */
-
 export const errorHandler: ErrorRequestHandler = (
   err,
   req: Request,
   res: Response,
   _next: NextFunction
 ) => {
-  // Operational (expected) errors
+  // AppError instances are safe to expose to clients.
   if (err instanceof AppError) {
     res.status(err.statusCode).json({
       message: err.message,
@@ -22,7 +19,7 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  console.error("🔥 UNHANDLED ERROR:", err);
+  console.error("[ErrorMiddleware] Unhandled error:", err);
 
   res.status(500).json({
     message: "Internal server error",

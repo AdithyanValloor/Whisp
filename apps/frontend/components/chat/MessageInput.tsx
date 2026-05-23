@@ -14,6 +14,7 @@ import AttachmentPicker, {
   SelectedFile,
   StagedFilePreview,
 } from "./Attachmentpicker";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 interface MessageInputProps {
   message: string;
@@ -45,7 +46,7 @@ interface MessageInputProps {
     _id: string;
     username: string;
     displayName?: string;
-    profilePicture?: { url: string | null };
+    profilePicture?: { key: string | null };
   }[];
 
   currentUserId?: string;
@@ -260,6 +261,18 @@ export default function MessageInput({
     setStagedFile?.(null);
   };
 
+  function MentionUser({ member }: { member: (typeof otherMembers)[0] }) {
+    const url = useSignedUrl(member.profilePicture?.key);
+
+    return (
+      <ProfilePicture
+        src={url ?? "/default-pfp.png"}
+        size="sm"
+        showStatus={false}
+      />
+    );
+  }
+
   return (
     <div
       className={`flex-col mb-3 mx-3 overflow-hidden shadow flex border-1 min-w-0 border-base-content/10 rounded-2xl transition-all
@@ -403,13 +416,7 @@ export default function MessageInput({
                             className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors
                               ${idx === activeMentionIndex ? "bg-base-content/10" : "hover:bg-base-content/5"}`}
                           >
-                            <ProfilePicture
-                              src={
-                                member.profilePicture?.url ?? "/default-pfp.png"
-                              }
-                              size="sm"
-                              showStatus={false}
-                            />
+                            <MentionUser member={member} />
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-base-content truncate leading-tight">
                                 {member.displayName || member.username}

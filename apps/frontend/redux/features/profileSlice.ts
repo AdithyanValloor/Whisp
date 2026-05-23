@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/utils/axiosInstance";
 import axios from "axios";
 import { updateEmail, updateUsername } from "./authSlice";
+import { getGroupAvatarDownloadUrl, updateAvatar } from "./chatSlice";
 
 /* -------------------- TYPES -------------------- */
 
@@ -18,7 +19,7 @@ export interface Profile {
   status?: string;
   createdAt?: string;
   profilePicture?: {
-    url: string | null;
+    key: string | null;
   };
 }
 
@@ -91,7 +92,7 @@ export const updateProfile = createAsyncThunk<
 });
 
 export const updateProfilePicture = createAsyncThunk<
-  { url: string | null },
+  { key: string | null },
   string,
   { rejectValue: string }
 >("profile/updateProfilePicture", async (key, { rejectWithValue }) => {
@@ -110,6 +111,26 @@ export const updateProfilePicture = createAsyncThunk<
       );
     }
     return rejectWithValue("Failed to update profile picture");
+  }
+});
+
+/**
+ * Get a pre-signed S3 download URL for profile key.
+ */
+export const getProfilePictureDownloadUrl = createAsyncThunk<
+  { key: string; url: string },
+  string,
+  { rejectValue: string }
+>("profile/getProfilePictureDownloadUrl", async (key, { rejectWithValue }) => {
+  try {
+    const res = await api.get("/file/profile-picture", {
+      params: { key },
+      withCredentials: true,
+    });
+
+    return { key, url: res.data.url };
+  } catch {
+    return rejectWithValue("Failed to get download URL");
   }
 });
 
@@ -177,7 +198,30 @@ const profileSlice = createSlice({
       })
       .addCase(updateProfilePicture.fulfilled, (state, action) => {
         if (state.profile) {
+          const oldKey = state.profile.profilePicture?.key;
+
           state.profile.profilePicture = action.payload;
+
+          if (oldKey) {
+            delete state.profilePictureUrls[oldKey];
+          }
+        }
+      })
+      .addCase(getProfilePictureDownloadUrl.fulfilled, (state, action) => {
+        state.profilePictureUrls[action.payload.key] = action.payload.url;
+      })
+      .addCase(getGroupAvatarDownloadUrl.fulfilled, (state, action) => {
+        state.profilePictureUrls[action.payload.key] = action.payload.url;
+      })
+      .addCase(updateAvatar.fulfilled, (state, action) => {
+        if (state.profile) {
+          const oldKey = state.profile.profilePicture?.key;
+
+          state.profile.profilePicture = action.payload;
+
+          if (oldKey) {
+            delete state.profilePictureUrls[oldKey];
+          }
         }
       });
   },

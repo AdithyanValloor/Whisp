@@ -5,7 +5,12 @@ import {
   NotFound,
   Unauthorized,
 } from "../../../utils/errors/httpErrors.js";
-import { deleteFile, generateUploadUrl } from "../s3.service.js";
+import {
+  copyFile,
+  deleteFile,
+  generateDownloadUrl,
+  generateUploadUrl,
+} from "../s3.service.js";
 import { Chat, IChat } from "../../chat/models/chat.model.js";
 
 const MAX_GROUP_SIZE = 2 * 1024 * 1024;
@@ -30,9 +35,9 @@ export const uploadGroupAvatar = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { groupId, fileType, fileSize } = req.body;
+    const { groupId, fileType, fileSize, temp } = req.body;
 
-    if (!groupId || typeof groupId !== "string") {
+    if (!temp && (!groupId || typeof groupId !== "string")) {
       throw BadRequest("GroupId is required");
     }
 
@@ -52,15 +57,16 @@ export const uploadGroupAvatar = async (
       throw BadRequest("Invalid group image type");
     }
 
-    const group = await Chat.findById(groupId);
-    if (!group) throw NotFound("Group not found");
+    if (!temp) {
+      const group = await Chat.findById(groupId);
+      if (!group) throw NotFound("Group not found");
 
-    const isAdmin = isGroupAdmin(group, userId);
-
-    if (!isAdmin) throw Unauthorized();
+      const isAdmin = isGroupAdmin(group, userId);
+      if (!isAdmin) throw Unauthorized();
+    }
 
     const data = await generateUploadUrl(
-      { type: "group", groupId },
+      temp ? { type: "group-temp", userId } : { type: "group", groupId },
       fileType,
       fileSize,
     );
@@ -108,7 +114,7 @@ export const deleteGroupAvatar = async (
     }
 
     if (group.avatar?.key === key) {
-      group.avatar = { key: null, url: null };
+      group.avatar = { key: null };
       await group.save();
     }
 
@@ -116,6 +122,46 @@ export const deleteGroupAvatar = async (
       message: "Group avatar deleted",
       success: true,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const attachGroupAvatarFromTemp = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { groupId, tempKey } = req.body;
+
+    if (!groupId || !tempKey) {
+      throw BadRequest("groupId and tempKey required");
+    }
+
+    if (!tempKey.startsWith(`group-temp/${userId}/`)) {
+      throw Unauthorized();
+    }
+
+    const group = await Chat.findById(groupId);
+    if (!group) throw NotFound("Group not found");
+
+    const isAdmin = isGroupAdmin(group, userId);
+    if (!isAdmin) throw Unauthorized();
+
+    const ext = tempKey.split(".").pop();
+    const newKey = `group/${groupId}/${crypto.randomUUID()}.${ext}`;
+
+    await copyFile(tempKey, newKey);
+    await deleteFile(tempKey);
+
+    group.avatar = { key: newKey };
+    await group.save();
+
+    res.json({ avatar: group.avatar });
   } catch (err) {
     next(err);
   }

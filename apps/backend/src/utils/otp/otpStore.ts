@@ -1,11 +1,11 @@
-//otpStore.ts
-
-// In-memory store: email → { otp, expiresAt }
-// Replace with Redis in production for multi-instance support
+/**
+ * In-memory OTP store.
+ * Replace with Redis or another shared store for multi-instance deployments.
+ */
 
 const store = new Map<string, { otp: string; expiresAt: number }>();
 
-const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const OTP_TTL_MS = 10 * 60 * 1000;
 
 export const saveOtp = (email: string, otp: string) => {
   store.set(email, { otp, expiresAt: Date.now() + OTP_TTL_MS });
@@ -14,9 +14,16 @@ export const saveOtp = (email: string, otp: string) => {
 export const verifyOtp = (email: string, otp: string): boolean => {
   const entry = store.get(email);
   if (!entry) return false;
-  if (Date.now() > entry.expiresAt) { store.delete(email); return false; }
+
+  if (Date.now() > entry.expiresAt) {
+    store.delete(email);
+    return false;
+  }
+
   if (entry.otp !== otp) return false;
-  store.delete(email); // single-use
+
+  // OTPs are single-use once successfully verified.
+  store.delete(email);
   return true;
 };
 

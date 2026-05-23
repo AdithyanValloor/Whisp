@@ -1,10 +1,10 @@
 "use client";
 
-import { Check, Users } from "lucide-react";
+import { Check } from "lucide-react";
 import FriendCard from "../Message/FriendCard";
 import { useAppSelector } from "@/redux/hooks";
-import { MdAddPhotoAlternate } from "react-icons/md";
 import { FaCheck } from "react-icons/fa";
+import GroupAvatarUploader from "./GroupAvatarUploader";
 
 interface CreateGroupProps {
   groupName: string;
@@ -14,14 +14,15 @@ interface CreateGroupProps {
     username: string;
     displayName?: string;
     profilePicture?: {
-      url: string | null;
-      public_id?: string | null;
+      key: string | null;
     };
   }[];
   selectedUsers: Set<string>;
   toggleUserSelection: (id: string) => void;
   handleCreateGroup: () => void;
   actionLoading: boolean;
+  groupAvatar: string | null;
+  setGroupAvatar: (v: string | null) => void;
 }
 
 export default function CreateGroup({
@@ -32,18 +33,14 @@ export default function CreateGroup({
   toggleUserSelection,
   handleCreateGroup,
   actionLoading,
+  groupAvatar,
+  setGroupAvatar,
 }: CreateGroupProps) {
   const onlineUsers = useAppSelector((state) => state.presence.users);
   return (
     <div className="h-full w-full flex flex-col gap-3">
       <div className="flex justify-center">
-        <div className="bg-base-300 w-30 h-30 flex items-center justify-center rounded-full">
-          <Users opacity={0.1} size={60}/>
-          <div className="absolute flex flex-col justify-center items-center w-25 h-20">
-            <MdAddPhotoAlternate size={30}/>
-            <p className="text-center text-[13px]">Add group icon</p>
-          </div>
-        </div>
+        <GroupAvatarUploader value={groupAvatar} onChange={setGroupAvatar} />
       </div>
       <div className="px-2">
         <input
@@ -72,8 +69,7 @@ export default function CreateGroup({
               user={{
                 name: friend.username,
                 displayName: friend.displayName ?? friend.username,
-                profilePic:
-                  friend.profilePicture?.url || "/default-pfp.png",
+                profilePicture: friend.profilePicture,
                 status,
               }}
               rightSlot={

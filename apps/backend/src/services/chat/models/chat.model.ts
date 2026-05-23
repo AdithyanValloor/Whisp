@@ -7,8 +7,7 @@ export interface IChat extends Document {
   isGroup: boolean;
   chatName?: string;
 
-  avatar: {
-    url: string | null;
+  avatar?: {
     key: string | null;
   };
 
@@ -50,10 +49,6 @@ const ChatSchema: Schema<IChat> = new Schema(
     },
 
     avatar: {
-      url: {
-        type: String,
-        default: null,
-      },
       key: {
         type: String,
         default: null,

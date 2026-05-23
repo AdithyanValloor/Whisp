@@ -10,7 +10,7 @@ import { useAppSelector } from "@/redux/hooks";
 import { useIsMobile } from "@/utils/screenSize";
 import FilePreviewCard from "./FilePreviewCard";
 
-interface ChatBubbleProps {
+export interface ChatBubbleProps {
   msg: MessageType;
   isMe: boolean;
   grouped: boolean;

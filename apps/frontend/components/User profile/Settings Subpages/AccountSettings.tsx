@@ -29,6 +29,7 @@ import { unblockUser } from "@/redux/features/blockSlice";
 import Image from "next/image";
 import api from "@/utils/axiosInstance";
 import axios from "axios";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -711,6 +712,27 @@ function BlockedUsersSection() {
     );
   }
 
+  function BlockedUserAvatar({ user }: { user: typeof blockedUsers[number] }) {
+    const url = useSignedUrl(user.profilePicture?.key);
+
+    return (
+      <div className="w-8 h-8 rounded-full bg-base-content/10 overflow-hidden shrink-0 relative">
+        {url ? (
+          <Image
+            src={url}
+            alt={user.displayName ?? user.username}
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-xs text-base-content/40 font-medium">
+            {(user.displayName ?? user.username)?.[0]?.toUpperCase()}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2">
       {blockedUsers.length === 0 && (
@@ -732,13 +754,8 @@ function BlockedUsersSection() {
             <div className="flex items-center gap-3">
               {/* Avatar */}
               <div className="w-8 h-8 rounded-full bg-base-content/10 overflow-hidden shrink-0 relative">
-                {u.profilePicture?.url ? (
-                  <Image
-                    src={u.profilePicture.url}
-                    alt={u.displayName ?? u.username}
-                    fill
-                    className="object-cover"
-                  />
+                {u.profilePicture?.key ? (
+                 <BlockedUserAvatar user={u} />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-xs text-base-content/40 font-medium">
                     {(u.displayName ?? u.username)?.[0]?.toUpperCase()}

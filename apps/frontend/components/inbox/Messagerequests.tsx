@@ -13,6 +13,7 @@ import IconButton from "../GlobalComponents/IconButtons";
 import SearchInput from "../GlobalComponents/SearchInput";
 import { useIsMobile } from "@/utils/screenSize";
 import AppButton from "../GlobalComponents/AppButton";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 /* ------------------------------------------------------------------ */
 /* Request card                                                         */
@@ -33,13 +34,15 @@ function RequestCard({
 }: RequestCardProps) {
   const person = request.from;
   const isBusy = actionLoading === request._id;
+  
+  const url = useSignedUrl(person?.profilePicture?.key)
 
   return (
     <div className="flex items-start gap-3 p-3 rounded-xl bg-base-content/2 hover:bg-base-content/5 cursor-pointer transition-colors duration-150">
       <div className="w-11 h-11 rounded-full overflow-hidden bg-base-300 ring-2 ring-base-100 flex-shrink-0">
-        {person?.profilePicture?.url ? (
+        {person?.profilePicture?.key ? (
           <Image
-            src={person.profilePicture.url}
+            src={url || "/default-pfp.png"}
             alt={person.displayName || person.username}
             width={44}
             height={44}

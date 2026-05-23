@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/redux/hooks";
-import { updateProfile } from "@/redux/features/profileSlice";
+import {
+  getProfilePictureDownloadUrl,
+  updateProfile,
+} from "@/redux/features/profileSlice";
 import { motion, AnimatePresence } from "framer-motion";
 import { LuUserRoundPen, LuAtSign, LuAlignLeft } from "react-icons/lu";
 import ProfilePictureUploader from "../ProfilePictureUploader";
@@ -80,14 +83,28 @@ export default function EditProfileForm({ onBack }: EditProfileFormProps) {
     bio !== initialValues.bio ||
     pronouns !== initialValues.pronouns;
 
+  const key = profile?.profilePicture?.key;
+
+  const url = useAppSelector((state) =>
+    key ? state.profile.profilePictureUrls[key] : undefined,
+  );
+
+  useEffect(() => {
+    if (key && !url) {
+      dispatch(getProfilePictureDownloadUrl(key));
+    }
+  }, [key, url, dispatch]);
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5 p-1">
-
-      <ProfilePictureUploader currentUrl={profile?.profilePicture?.url ?? undefined} />
+      <ProfilePictureUploader currentUrl={url} />
 
       {/* Display Name */}
       <div className="flex items-start gap-3">
-        <LuUserRoundPen size={18} className="text-base-content/40 mt-7 shrink-0" />
+        <LuUserRoundPen
+          size={18}
+          className="text-base-content/40 mt-7 shrink-0"
+        />
         <FieldInput
           id="displayName"
           label="Display Name"

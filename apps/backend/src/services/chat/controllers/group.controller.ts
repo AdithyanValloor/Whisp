@@ -3,6 +3,8 @@ import {
   addMembersFunction,
   createGroupChatFunction,
   deleteGroupFunction,
+  editGroupNameService,
+  getGroupAvatarUrlService,
   getGroupByIdFunction,
   leaveGroupFunction,
   removeMembersFunction,
@@ -12,7 +14,11 @@ import {
 } from "../services/group.service.js";
 import { handleChatError } from "../errors/chatErrors.js";
 import { AuthRequest } from "../../user/types/authRequest.js";
-import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
+import {
+  BadRequest,
+  NotFound,
+  Unauthorized,
+} from "../../../utils/errors/httpErrors.js";
 import {
   emitAdminToggled,
   emitGroupCreated,
@@ -23,7 +29,9 @@ import {
   emitMembersAdded,
   emitOwnershipTransferred,
 } from "../../../socket/emitters/group.emitter.js";
-import { PROFILE_KEY_REGEX } from "../../user/constants/regex.js";
+import { GROUP_KEY_REGEX } from "../../user/constants/regex.js";
+import { generateDownloadUrl } from "../../s3/s3.service.js";
+import { Chat } from "../models/chat.model.js";
 
 /**
  * ------------------------------------------------------------------
@@ -360,13 +368,60 @@ export const updateGroupAvatar = async (
       throw BadRequest("chatId and key required");
     }
 
-    if (!PROFILE_KEY_REGEX.test(key) || !key.startsWith(`profile/${userId}/`)) {
-  throw Unauthorized();
-}
+    if (!GROUP_KEY_REGEX.test(key) || !key.startsWith(`group/${chatId}/`)) {
+      throw Unauthorized();
+    }
 
     const result = await updateGroupAvatarById(userId, chatId, key);
 
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getAvatarDownloadUrl = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    const { chatId } = req.params;
+
+    if (!userId) throw Unauthorized();
+    if (!chatId) throw BadRequest("Chat ID is required");
+
+    const url = await getGroupAvatarUrlService(chatId, userId);
+
+    res.json({ url });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const editName = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
+    const { chatId, newName } = req.body;
+
+    const updatedChat = await editGroupNameService(
+      userId,
+      chatId,
+      newName
+    );
+
+    res.status(200).json({
+      success: true,
+      chat: updatedChat,
+    });
   } catch (err) {
     next(err);
   }

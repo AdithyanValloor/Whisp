@@ -36,13 +36,14 @@ import { MdBlock } from "react-icons/md";
 import AppButton from "../GlobalComponents/AppButton";
 import { accessChat } from "@/redux/features/chatSlice";
 import { useRouter } from "next/navigation";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 interface ProfileViewProps {
   user: {
     _id: string;
     username: string;
     displayName?: string;
-    profilePicture?: { url: string | null };
+    profilePicture?: { key: string | null };
     createdAt?: string;
     bio?: string;
     pronouns?: string;
@@ -78,6 +79,8 @@ export default function ProfileView({
   const isBlockedByMe = useAppSelector((state: RootState) =>
     state.block.blockedUsers.some((u) => u._id === user._id),
   );
+
+  const url = useSignedUrl(user.profilePicture?.key) || "";
 
   const isBlocked = useAppSelector(
     (state: RootState) =>
@@ -345,7 +348,7 @@ export default function ProfileView({
       <motion.div variants={itemVariants} className="relative mt-22 z-10">
         <div className="flex items-center gap-4 bg-base-100 border border-base-content/10 rounded-xl p-4 shadow">
           <ProfilePicture
-            src={user.profilePicture?.url || ""}
+            src={url}
             size="lg"
             status={status ?? "offline"}
           />

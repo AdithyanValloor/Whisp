@@ -5,6 +5,7 @@ import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import { useAppSelector } from "@/redux/hooks";
 import IconButton from "../GlobalComponents/IconButtons";
 import { motion, type Variants } from "framer-motion";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 interface UserProfileProps {
   openSettings: (page?: string) => void;
@@ -30,6 +31,7 @@ const itemVariants: Variants = {
 
 export default function UserProfile({ openSettings }: UserProfileProps) {
   const user = useAppSelector((state) => state.profile.profile);
+  const url = useSignedUrl(user?.profilePicture?.key);
 
   if (!user) {
     return (
@@ -97,7 +99,7 @@ export default function UserProfile({ openSettings }: UserProfileProps) {
             </IconButton>
           </div>
           <ProfilePicture
-            src={user.profilePicture?.url || ""}
+            src={url || ""}
             size="lg"
             status="online"
           />

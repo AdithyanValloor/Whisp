@@ -112,8 +112,8 @@ export default function ProfilePictureUploader({
         {/* Dropdown */}
         {open && (
           <div
-            onClick={(e) => e.stopPropagation()} // ✅ block parent clicks
-            className="absolute right-0 w-35 bg-base-100 shadow-lg rounded-xl border border-base-content/10 p-1 z-50"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute right-0 w-35 text-sm bg-base-100 shadow-lg rounded-xl border border-base-content/10 p-1 z-50"
           >
             <button
               onClick={handleUploadClick}

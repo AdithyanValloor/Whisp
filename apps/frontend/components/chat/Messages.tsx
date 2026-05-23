@@ -18,7 +18,7 @@ import {
 import { ChevronDown, ChevronsDown } from "lucide-react";
 import { useAppSelector, useAppDispatch } from "@/redux/hooks";
 import { selectMessagesByChat } from "@/redux/selectors/messageSelectors";
-import ChatBubble from "./ChatBubble";
+import ChatBubble, { ChatBubbleProps } from "./ChatBubble";
 import ContextMenu from "./ContextMenu";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -26,10 +26,11 @@ import { clearJumpTo, fetchNewerMessages } from "@/redux/features/messageSlice";
 import UniversalEmojiPicker from "../GlobalComponents/UniversalEmojiPicker";
 import ForwardModal from "../GlobalComponents/Forward";
 import { useRouter } from "next/navigation";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 interface MessagesProps {
   chatId: string;
-  currentUser: { _id: string; username: string; profilePic?: string };
+  currentUser: { _id: string; username: string; profilePicture?: { key: string } };
   onEdit: (msg: MessageType | null) => void;
   onDelete: (msg: MessageType) => void;
   setReplyingTo: (msg: MessageType | null) => void;
@@ -43,6 +44,10 @@ interface MessagesProps {
   ref?: React.Ref<MessagesHandle>;
   isBlockedByMe: boolean;
 }
+
+type MessageItemProps = Omit<ChatBubbleProps, "profilePic"> & {
+  currentUser: { _id: string; username: string; profilePicture?: { key: string } };
+};
 
 export interface MessagesHandle {
   scrollToBottom: () => void;
@@ -844,6 +849,17 @@ export default function Messages({
   let groupStart: MessageType | null = null;
   const GROUP_INTERVAL = 300;
 
+  function MessageItem({ msg, isMe, currentUser, ...rest }: MessageItemProps) {
+    const key = isMe ? currentUser.profilePicture?.key : msg.sender.profilePicture?.key;
+    const url = useSignedUrl(key);
+
+    const profilePic = url || "/default-pfp.png";
+
+    return (
+      <ChatBubble {...rest} msg={msg} isMe={isMe} profilePic={profilePic} />
+    );
+  }
+
   return (
     <div className="relative flex-1 scroll-smooth flex flex-col h-full">
       <div
@@ -862,11 +878,12 @@ export default function Messages({
           >
             <div className="flex items-center gap-2 px-4 py-2 bg-base-100/50 border border-base-content/10 rounded-full">
               <span className="loading loading-spinner loading-xs opacity-60 text-base-content" />
-              <span className="text-xs opacity-60 text-base-content">Loading messages...</span>
+              <span className="text-xs opacity-60 text-base-content">
+                Loading messages...
+              </span>
             </div>
           </motion.div>
         )}
-
 
         <AnimatePresence>
           {!isInitialLoading &&
@@ -910,9 +927,6 @@ export default function Messages({
               const senderName = isMe
                 ? "You"
                 : msg.sender.displayName || msg.sender.username;
-              const profilePic = isMe
-                ? currentUser.profilePic || "/default-pfp.png"
-                : msg.sender.profilePicture?.url || "/default-pfp.png";
 
               return (
                 <motion.div
@@ -949,16 +963,16 @@ export default function Messages({
                     </div>
                   )}
 
-                  <ChatBubble
+                  <MessageItem
                     msg={msg}
                     isMe={isMe}
+                    currentUser={currentUser}
                     grouped={grouped}
                     isLastInGroup={isLastInGroup}
                     senderName={senderName}
                     scrollToMessage={safeScrollToMessage}
                     replyingTo={replyingTo}
                     editingMessage={editingMessage}
-                    profilePic={profilePic}
                     handleReaction={handleReaction}
                     contextMenu={contextMenu}
                     isLastMessage={isLastMessage}

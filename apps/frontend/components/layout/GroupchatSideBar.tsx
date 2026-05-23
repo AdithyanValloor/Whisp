@@ -10,8 +10,10 @@ import {
   ShieldOff,
   LogOut,
   Trash2,
+  Edit,
+  Check,
 } from "lucide-react";
-import { useAppSelector } from "@/redux/hooks";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
 import ProfileView from "./profileView";
 import Image from "next/image";
 import FriendCard from "../Message/FriendCard";
@@ -20,6 +22,9 @@ import AddMembersModal from "../chat/AddMembersModal";
 import ConfirmModal from "../GlobalComponents/ConfirmModal";
 import TransferOwnershipModal from "../chat/TransferOwnershipModal";
 import { useIsMobile } from "@/utils/screenSize";
+import GroupAvatarUploader from "../inbox/GroupAvatarUploader";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
+import { editGroupName } from "@/redux/features/chatSlice";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,7 +32,7 @@ interface Member {
   _id: string;
   username: string;
   displayName?: string;
-  profilePicture?: { url: string | null };
+  profilePicture?: { key: string | null };
 }
 
 interface MemberWithRole extends Member {
@@ -47,6 +52,7 @@ interface Group {
   members: Member[];
   admin?: Member[];
   createdBy?: Member;
+  avatar?: { key: string | null };
 }
 
 interface GroupSidebarProps {
@@ -86,7 +92,11 @@ export default function GroupSidebar({
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const isMobile = useIsMobile()
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState(group.chatName);
+
+  const isMobile = useIsMobile();
 
   const [dropdownPos, setDropdownPos] = useState<{
     x: number;
@@ -103,7 +113,7 @@ export default function GroupSidebar({
   const canManageMembers = isOwner || isAdmin;
 
   const membersWithRoles: MemberWithRole[] = group.members.map((m) => {
-    if (m._id === creatorId) {
+    if (creatorId && m._id === creatorId) {
       return { ...m, role: "owner" };
     }
 
@@ -113,6 +123,8 @@ export default function GroupSidebar({
 
     return { ...m, role: "member" };
   });
+
+  const dispatch = useAppDispatch();
 
   const isLastMember = group.members.length === 1;
   const needsTransfer = isOwner && !isLastMember;
@@ -149,6 +161,10 @@ export default function GroupSidebar({
     };
   }, [openDropdownId]);
 
+  useEffect(() => {
+    setTempName(group.chatName);
+  }, [group.chatName]);
+
   const toggleUserSelection = (id: string) => {
     setSelectedUsers((prev) => {
       const next = new Set(prev);
@@ -171,6 +187,21 @@ export default function GroupSidebar({
     setSelectedProfile(null);
   };
 
+  const handleSaveName = () => {
+    const trimmed = tempName.trim();
+
+    if (!trimmed || trimmed === group.chatName) {
+      setIsEditingName(false);
+      setTempName(group.chatName);
+      return;
+    }
+
+    dispatch(editGroupName({ chatId: group._id, newName: trimmed }));
+    setIsEditingName(false);
+  };
+
+  const url = useSignedUrl(group.avatar?.key, group._id);
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -185,13 +216,13 @@ export default function GroupSidebar({
       >
         {/* Scrollable content wrapper */}
         <div className="flex flex-col w-full h-full overflow-y-auto overflow-x-hidden px-3 pb-4">
-                {onBack && (
-                  <div className="absolute top-3 z-51 left-3">
-                    <IconButton ariaLabel="Go back" onClick={onBack}>
-                      <ArrowLeft size={20} />
-                    </IconButton>
-                  </div>
-                )}
+          {onBack && (
+            <div className="absolute top-3 z-51 left-3">
+              <IconButton ariaLabel="Go back" onClick={onBack}>
+                <ArrowLeft size={20} />
+              </IconButton>
+            </div>
+          )}
           {/* Add Members button */}
           {isAdmin && (
             <div className="absolute right-5 top-1 flex justify-end py-3 shrink-0">
@@ -210,25 +241,86 @@ export default function GroupSidebar({
           {/* Group profile card */}
           <div className={`mt-22 shrink-0`}>
             <div className="flex border border-base-content/10 flex-col items-center text-center bg-base-100 rounded-xl p-4 shadow">
-              <div className="w-20 h-20 rounded-full bg-base-200 border border-base-content/10 flex items-center justify-center text-3xl font-semibold select-none">
-                {group.chatName[0]}
+              <GroupAvatarUploader
+                value={url}
+                canEdit={isOwner || isAdmin}
+                temp={false}
+                groupId={group._id}
+              />
+              <div className="mt-3 relative group mb-1 flex items-center justify-center">
+                {isEditingName ? (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-base-100/40 backdrop-blur-sm border border-base-content/10 w-fit mx-auto">
+                    <input
+                      aria-label="input"
+                      autoFocus
+                      value={tempName}
+                      onChange={(e) => setTempName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveName();
+                        if (e.key === "Escape") {
+                          setIsEditingName(false);
+                          setTempName(group.chatName);
+                        }
+                      }}
+                      className="
+                        text-lg font-semibold text-center
+                        bg-transparent
+                        outline-none
+                        min-w-[120px]
+                        max-w-[220px]
+                        truncate
+                      "
+                    />
+
+                    {/* Buttons */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        aria-label="cancel"
+                        onClick={() => {
+                          setIsEditingName(false);
+                          setTempName(group.chatName);
+                        }}
+                        className="p-1.5 rounded-full hover:bg-base-content/10 transition cursor-pointer"
+                      >
+                        <X size={16} />
+                      </button>
+
+                      {tempName.trim() !== group.chatName && (
+                        <button
+                          aria-label="save"
+                          onClick={handleSaveName}
+                          className="p-1.5 rounded-full hover:bg-base-content/10 transition cursor-pointer"
+                        >
+                          <Check size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <h2
+                    onClick={() => {
+                      if (isOwner || isAdmin) setIsEditingName(true);
+                    }}
+                    className={`text-lg font-semibold transition-all
+                      ${isOwner || isAdmin ? "hover:opacity-70 cursor-pointer" : "cursor-default"}
+                    `}
+                  >
+                    {group.chatName}
+                  </h2>
+                )}
+
+                {/* ✏️ hover hint */}
+                {(isOwner || isAdmin) && !isEditingName && (
+                  <span className="absolute -right-5 text-xs opacity-0 group-hover:opacity-60 transition">
+                    <Edit size={14} />
+                  </span>
+                )}
               </div>
-              <h2 className="mt-3 text-lg font-semibold">{group.chatName}</h2>
               <p className="text-sm opacity-70">
                 {group.members.length}{" "}
                 {group.members.length === 1 ? "member" : "members"}
               </p>
             </div>
-          </div>
-
-          {/* About */}
-          <div className="mt-4 bg-base-100 border border-base-content/10 rounded-xl shadow p-4 shrink-0">
-            <p className="text-[11px] uppercase font-medium opacity-60 tracking-wide">
-              About
-            </p>
-            <p className="text-sm mt-1 leading-relaxed">
-              Group description goes here.
-            </p>
           </div>
 
           {/* Members list */}
@@ -239,9 +331,9 @@ export default function GroupSidebar({
             </p>
 
             <ul className="flex flex-col">
-              {membersWithRoles.map((m) => (
+              {membersWithRoles.map((m, index) => (
                 <li
-                  key={m._id}
+                  key={m._id ? `${m._id}-${m.role}` : `member-${index}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleProfileSelect(m);
@@ -405,7 +497,11 @@ export default function GroupSidebar({
       >
         <div className="relative h-full w-full overflow-y-auto">
           {selectedProfile && (
-            <ProfileView onBack={handleProfileBack} onMessage user={selectedProfile} />
+            <ProfileView
+              onBack={handleProfileBack}
+              onMessage
+              user={selectedProfile}
+            />
           )}
         </div>
       </div>

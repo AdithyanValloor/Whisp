@@ -2,11 +2,11 @@ import { UserModel } from "../../services/user/models/user.model.js";
 import { Types } from "mongoose";
 import { BlockModel } from "../../services/user/models/block.model.js";
 import { FriendRequestModel } from "../../services/user/models/friendRequest.model.js";
-// import { NotificationModel } from "../../services/notifications/models/notification.model.js";
 
 export const cleanupUserData = async (ids: Types.ObjectId[]) => {
+  // Run independent cleanup steps together for the deleted users.
   await Promise.all([
-    // Anonymize each user individually to guarantee unique username/email
+    // Keep username and email unique while scrubbing personal profile data.
     ...ids.map((id) =>
       UserModel.findByIdAndUpdate(id, {
         isDeleted: true,
@@ -26,17 +26,16 @@ export const cleanupUserData = async (ids: Types.ObjectId[]) => {
       })
     ),
 
-    // Remove block records — no longer meaningful
+    // Remove relationship records tied to the deleted users.
     BlockModel.deleteMany({
       $or: [{ blocker: { $in: ids } }, { blocked: { $in: ids } }],
     }),
 
-    // Remove pending friend requests
     FriendRequestModel.deleteMany({
       $or: [{ from: { $in: ids } }, { to: { $in: ids } }],
     }),
 
-    // Remove from other users' friend lists
+    // Detach deleted users from active users' friend lists.
     UserModel.updateMany(
       { friendList: { $in: ids } },
       { $pull: { friendList: { $in: ids } } },

@@ -22,6 +22,7 @@ import {
 } from "@/redux/features/notificationSlice";
 
 import AppButton from "@/components/GlobalComponents/AppButton";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 interface NotificationCardProps {
   notification: InboxNotification;
@@ -111,7 +112,7 @@ export default function NotificationCard({
 
   const { Icon, bg, color } = iconConfig[notification.type];
   const { title, subtitle } = buildMessage(notification);
-  const pfpSrc = notification.actor?.profilePicture?.url || defaultPFP;
+  const url = useSignedUrl(notification.actor?.profilePicture?.key) || defaultPFP;
   const isFriendRequest = notification.type === "friend_request_received";
 
   const handleAccept = (e: React.MouseEvent) => {
@@ -158,7 +159,7 @@ export default function NotificationCard({
       {/* Avatar + icon badge */}
       <div className="relative shrink-0">
         <Image
-          src={pfpSrc}
+          src={url}
           alt="avatar"
           width={40}
           height={40}

@@ -46,3 +46,31 @@ export const uploadProfilePictureToS3 = async (file: File) => {
 
   return key;
 };
+
+export const uploadGroupAvatarToS3 = async (
+  file: File,
+  options: { temp?: boolean; groupId?: string }
+) => {
+  const res = await api.post("/file/avatar", {
+    fileType: file.type,
+    fileSize: file.size,
+    temp: options.temp ?? false,
+    groupId: options.groupId,
+  });
+
+  const { uploadUrl, key } = res.data;
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type,
+    },
+    body: file,
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error("Upload failed");
+  }
+
+  return key;
+};

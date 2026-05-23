@@ -159,11 +159,6 @@ export const getProfilePictureDownloadUrlService = async (
     throw BadRequest("Invalid key format");
   }
 
-  // Ensure user owns this file
-  if (!key.startsWith(`profile/${userId}/`)) {
-    throw Unauthorized();
-  }
-
   const url = await generateDownloadUrl(key);
 
   return url;

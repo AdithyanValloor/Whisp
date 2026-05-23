@@ -1,57 +1,25 @@
 /**
- * ------------------------------------------------------------------
- * Whisp Chat Backend - Message Request Socket Emitters
- * ------------------------------------------------------------------
- *
- * Purpose:
- *  Centralized real-time emitters for message request events.
- *
- * Effects:
- *  - Instantly update request lists
- *  - Notify sender / receiver
- *  - Allow UI to react without polling
+ * Message request socket emitters.
+ * Notifies the sender and receiver based on request lifecycle events.
  */
 
 import { IChat } from "../../services/chat/models/chat.model.js";
 import { IMessageRequest } from "../../services/user/models/messageRequest.model.js";
 import { getIO } from "../io.js";
 
-/**
- * ------------------------------------------------------------------
- * Emit when a message request is sent
- * ------------------------------------------------------------------
- *
- * Receiver:
- *   → gets new request in "incoming"
- *
- * Sender:
- *   → gets request added to "outgoing"
- */
-
 export const emitMessageRequestSent = (
   fromUserId: string,
   toUserId: string,
   request: IMessageRequest
 ) => {
-
   const io = getIO();
 
+  // Receiver gets the incoming request.
   io.to(toUserId).emit("message_request_received", request);
 
+  // Sender gets the outgoing request state.
   io.to(fromUserId).emit("message_request_sent", request);
-
 };
-
-
-/**
- * ------------------------------------------------------------------
- * Emit when a message request is accepted
- * ------------------------------------------------------------------
- *
- * Both users:
- *   → remove request
- *   → open new chat
- */
 
 export const emitMessageRequestAccepted = (
   fromUserId: string,
@@ -61,36 +29,23 @@ export const emitMessageRequestAccepted = (
     chat: IChat
   }
 ) => {
-
   const io = getIO();
 
+  // Both sides clear the request and open the created chat.
   io.to(fromUserId).emit("message_request_accepted", payload);
-
   io.to(toUserId).emit("message_request_accepted", payload);
-
 };
-
-
-/**
- * ------------------------------------------------------------------
- * Emit when a message request is rejected
- * ------------------------------------------------------------------
- *
- * Sender:
- *   → request disappears from outgoing
- */
 
 export const emitMessageRequestRejected = (
   fromUserId: string,
   requestId: string,
   chatId: string
 ) => {
-
   const io = getIO();
 
+  // Only the sender needs to remove the rejected outgoing request.
   io.to(fromUserId).emit("message_request_rejected", {
-    requestId, 
+    requestId,
     chatId
   });
-
 };

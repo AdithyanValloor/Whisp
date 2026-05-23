@@ -461,6 +461,7 @@ export const updateGroupAvatarById = async (
 ) => {
   const group = await Chat.findById(chatId);
   if (!group) throw NotFound("Group not found");
+  if (!group.isGroup) throw BadRequest("Not a group chat");
 
   const isAdmin =
     group.admin.some((id) => id.toString() === userId) ||
@@ -476,7 +477,6 @@ export const updateGroupAvatarById = async (
 
   group.avatar = {
     key,
-    url,
   };
 
   await group.save();
@@ -484,4 +484,52 @@ export const updateGroupAvatarById = async (
   return {
     avatar: group.avatar,
   };
+};
+
+export const getGroupAvatarUrlService = async (
+  chatId: string,
+  userId: string,
+) => {
+  const group = await Chat.findById(chatId);
+
+  if (!group) throw NotFound("Group not found");
+  if (!group.isGroup) throw BadRequest("Not a group chat");
+
+  const avatarKey = group.avatar?.key;
+
+  if (!avatarKey) throw NotFound("Avatar not found");
+
+  const url = await generateDownloadUrl(avatarKey);
+
+  return url;
+};
+
+export const editGroupNameService = async (
+  userId: string,
+  chatId: string,
+  newName: string,
+) => {
+  if (!chatId || !newName) {
+    throw BadRequest("Chat ID and new name are required");
+  }
+
+  if (newName.trim().length < 2) {
+    throw BadRequest("Group name too short");
+  }
+
+  const group = await Chat.findById(chatId);
+
+  if (!group) throw NotFound("Group not found");
+  if (!group.isGroup) throw BadRequest("Not a group chat");
+
+  const isAdmin =
+    group.admin.some((id) => id.toString() === userId) ||
+    group.createdBy?.toString() === userId;
+
+  if (!isAdmin) throw Unauthorized();
+
+  group.chatName = newName;
+  await group.save();
+
+  return group;
 };

@@ -1,9 +1,4 @@
-/**
- * Base application error.
- *
- * Distinguishes operational (expected) errors from programming errors
- * and carries an HTTP status code for centralized error handling.
- */
+/** Base application error for operational failures. */
 
 export class AppError extends Error {
   statusCode: number;
@@ -14,6 +9,7 @@ export class AppError extends Error {
     this.statusCode = statusCode;
     this.isOperational = true;
 
+    // Excludes this constructor from the captured stack trace.
     Error.captureStackTrace(this, this.constructor);
   }
 }

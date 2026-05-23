@@ -9,9 +9,8 @@ export interface BlockedUser {
   _id: string;
   username: string;
   displayName?: string;
-  profilePicture?: {
-    url: string | null;
-    public_id: string | null;
+    profilePicture?: {
+    key: string | null;
   };
 }
 

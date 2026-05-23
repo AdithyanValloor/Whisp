@@ -1,5 +1,6 @@
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
 import defaultPFP from "@/public/default-pfp.png";
+import groupDefaultPFP from "@/public/default-group-icon.png";
 import {
   selectChatHasMention,
   selectMessagesByChat,
@@ -34,6 +35,8 @@ import { RootState } from "@/redux/store";
 import { RiPushpinFill } from "react-icons/ri";
 import { FaBellSlash } from "react-icons/fa6";
 import { isChatMuted } from "@/utils/isChatMuted";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
+import { getLastMessagePreview } from "@/utils/lastMessagePreview";
 
 // ---------------------------------------------------------------------------
 // Types (unchanged)
@@ -43,7 +46,7 @@ interface UserType {
   _id?: string;
   name: string;
   displayName?: string;
-  profilePic: string;
+  profilePicture?: { key: string | null };
   lastMessage?: string;
   status?: "online" | "offline";
 }
@@ -59,7 +62,7 @@ interface GroupMemberType {
   _id: string;
   username: string;
   displayName: string;
-  profilePicture?: { url: string | null };
+  profilePicture?: { key: string | null };
   role?: "owner" | "admin" | "member";
 }
 
@@ -153,7 +156,9 @@ export default function FriendCard(props: FriendCardProps) {
   const isPinned = chat?.isPinned ?? false;
 
   const isInbox = props.ifInbox === true;
-  const activeContextMenuChatId = isInbox ? props.activeContextMenuChatId : undefined;
+  const activeContextMenuChatId = isInbox
+    ? props.activeContextMenuChatId
+    : undefined;
   const contextMenuRef = isInbox ? props.contextMenuRef : undefined;
   const onContextMenuOpen = isInbox ? props.onContextMenuOpen : undefined;
   const onContextMenuClose = isInbox ? props.onContextMenuClose : undefined;
@@ -184,14 +189,28 @@ export default function FriendCard(props: FriendCardProps) {
 
   // Normalise user data from either prop shape
   const isGroupMemberCard = !!props.groupMember;
+
+  const defaultPFPToUse = chatType === "group" ? groupDefaultPFP : defaultPFP;
+
+  const key = isGroupMemberCard
+    ? props.groupMember?.profilePicture?.key
+    : props.user?.profilePicture?.key;
+
+  const url = useSignedUrl(key, msgId);
+
   const userData = isGroupMemberCard
     ? {
         _id: props.groupMember!._id,
         name: props.groupMember!.username,
         displayName: props.groupMember!.displayName,
-        profilePic: props.groupMember!.profilePicture?.url ?? defaultPFP,
+        profilePic: url ? url : defaultPFPToUse
       }
-    : { ...props.user!, profilePic: props.user!.profilePic || defaultPFP };
+    : {
+        _id: props.user!._id,
+        name: props.user!.name,
+        displayName: props.user!.displayName,
+        profilePic: url ? url : defaultPFPToUse
+      };
 
   const status = useAppSelector(selectUserStatus(userData._id ?? ""));
 
@@ -208,7 +227,10 @@ export default function FriendCard(props: FriendCardProps) {
     e.preventDefault();
     e.stopPropagation();
 
-    if (isMenuOpen) { onContextMenuClose?.(); return; }
+    if (isMenuOpen) {
+      onContextMenuClose?.();
+      return;
+    }
 
     const menuWidth = 192;
     const menuHeight = 260;
@@ -232,22 +254,27 @@ export default function FriendCard(props: FriendCardProps) {
   };
 
   // Last message + time
-  const messages = useAppSelector((state) => selectMessagesByChat(state, msgId));
+  const messages = useAppSelector((state) =>
+    selectMessagesByChat(state, msgId),
+  );
 
   const { lastMessageText, lastMessageTime } = useMemo(() => {
     const lastMsg = messages.at(-1);
-    if (!lastMsg?.sender) return { lastMessageText: "No messages yet", lastMessageTime: "" };
+    if (!lastMsg?.sender)
+      return { lastMessageText: "No messages yet", lastMessageTime: "" };
 
-    const text = lastMsg.deleted
-      ? "Message deleted"
-      : lastMsg.content || "No content";
+    const text = getLastMessagePreview(lastMsg);
 
     const msgDate = new Date(lastMsg.createdAt);
     const diffH = (Date.now() - msgDate.getTime()) / 36e5;
 
     const timeStr =
       diffH < 24
-        ? msgDate.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true })
+        ? msgDate.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })
         : diffH < 168
           ? msgDate.toLocaleDateString([], { weekday: "short" })
           : msgDate.toLocaleDateString([], { month: "short", day: "numeric" });
@@ -261,11 +288,15 @@ export default function FriendCard(props: FriendCardProps) {
   const ifDelivered = lastMsg?.deliveredTo && lastMsg.deliveredTo.length > 0;
 
   const typingUserIds = Object.keys(typingUsers);
-  const isChatTyping = typingUserIds.filter((id) => id !== currentUserId).length > 0;
-  const isMemberTyping = isGroupMemberCard ? typingUserIds.includes(userData._id ?? "") : false;
+  const isChatTyping =
+    typingUserIds.filter((id) => id !== currentUserId).length > 0;
+  const isMemberTyping = isGroupMemberCard
+    ? typingUserIds.includes(userData._id ?? "")
+    : false;
 
   // Derived active state
-  const isActive = forceActive || msgId === selectedChat || isMenuOpen || openDropdown;
+  const isActive =
+    forceActive || msgId === selectedChat || isMenuOpen || openDropdown;
 
   // ---------------------------------------------------------------------------
   // Render
@@ -300,7 +331,10 @@ export default function FriendCard(props: FriendCardProps) {
           {/* Top row: name + time / badge */}
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold truncate text-base-content/90 flex-1">
-              {userData.displayName || userData.name} {isGroupMemberCard && userData._id === currentUser?._id && "( You )"}
+              {userData.displayName || userData.name}{" "}
+              {isGroupMemberCard &&
+                userData._id === currentUser?._id &&
+                "( You )"}
             </span>
 
             <div className="flex items-center gap-1.5 shrink-0">
@@ -313,15 +347,18 @@ export default function FriendCard(props: FriendCardProps) {
               )}
 
               {/* Timestamp */}
-              {!modal && lastMessageTime && !isBlockedByMe && !hideLastMessage && (
-                <span
-                  className={`text-[11px] font-medium tabular-nums ${
-                    unread ? "text-green-500" : "text-base-content/40"
-                  }`}
-                >
-                  {lastMessageTime}
-                </span>
-              )}
+              {!modal &&
+                lastMessageTime &&
+                !isBlockedByMe &&
+                !hideLastMessage && (
+                  <span
+                    className={`text-[11px] font-medium tabular-nums ${
+                      unread ? "text-green-500" : "text-base-content/40"
+                    }`}
+                  >
+                    {lastMessageTime}
+                  </span>
+                )}
 
               {/* Role badge (group member cards) */}
               {isGroupMemberCard && props.groupMember?.role && (
@@ -341,30 +378,45 @@ export default function FriendCard(props: FriendCardProps) {
                   ) : null
                 ) : isChatTyping ? (
                   <span className="loading loading-dots loading-xs opacity-50" />
-                ) : rightSlot ? null : (
-                  isBlockedByMe ? "Blocked user" : lastMessageText
+                ) : rightSlot ? null : isBlockedByMe ? (
+                  "Blocked user"
+                ) : (
+                  lastMessageText
                 )}
               </span>
 
               {/* Right: delivery / mention / unread */}
               <div className="flex items-center gap-1 shrink-0">
                 {/* Seen / delivered tick */}
-                {!isBlockedByMe && !isGroupMemberCard && !isChatTyping && isMyMessage && (
-                  ifSeen ? (
-                    <CheckCheck size={12} strokeWidth={3} className="text-blue-400" />
+                {!isBlockedByMe &&
+                  !isGroupMemberCard &&
+                  !isChatTyping &&
+                  isMyMessage &&
+                  (ifSeen ? (
+                    <CheckCheck
+                      size={12}
+                      strokeWidth={3}
+                      className="text-blue-400"
+                    />
                   ) : ifDelivered ? (
-                    <Check size={12} strokeWidth={3} className="text-base-content/50" />
-                  ) : null
-                )}
+                    <Check
+                      size={12}
+                      strokeWidth={3}
+                      className="text-base-content/50"
+                    />
+                  ) : null)}
 
                 {/* Mention */}
                 {hasMention && !isGroupMemberCard && (
-                  <AtSign size={13} strokeWidth={3} className="text-green-500" />
+                  <AtSign
+                    size={13}
+                    strokeWidth={3}
+                    className="text-green-500"
+                  />
                 )}
 
                 {/* Unread badge */}
                 {unread > 0 && (
-
                   <span
                     className="bg-green-600 text-base-300 text-[10px] font-extrabold
                       min-w-[18px] h-[18px] px-1 rounded-full
@@ -407,7 +459,9 @@ export default function FriendCard(props: FriendCardProps) {
             chatId={msgId}
             chatType={chatType}
             onRemove={(userId) => setRemoveUserId(userId)}
-            onBlock={(userId, isBlocked) => setBlockTarget({ userId, isBlocked })}
+            onBlock={(userId, isBlocked) =>
+              setBlockTarget({ userId, isBlocked })
+            }
             onExitGroup={(chatId) => {
               setExitChatId(chatId);
               setShowLeaveModal(true);
@@ -458,7 +512,11 @@ export default function FriendCard(props: FriendCardProps) {
                         : `Leave ${ec?.chatName}?`
                   }
                   confirmText={
-                    ecNeedsTransfer ? "Continue" : ecIsLast ? "Delete Group" : "Leave Group"
+                    ecNeedsTransfer
+                      ? "Continue"
+                      : ecIsLast
+                        ? "Delete Group"
+                        : "Leave Group"
                   }
                   cancelText="Cancel"
                   description={
@@ -468,7 +526,10 @@ export default function FriendCard(props: FriendCardProps) {
                         ? "You are the last member. Leaving will permanently delete this group."
                         : "Are you sure you want to leave? You won't be able to rejoin unless invited."
                   }
-                  onCancel={() => { setShowLeaveModal(false); setExitChatId(null); }}
+                  onCancel={() => {
+                    setShowLeaveModal(false);
+                    setExitChatId(null);
+                  }}
                   onConfirm={() => {
                     setShowLeaveModal(false);
                     if (ecNeedsTransfer) {
@@ -486,11 +547,16 @@ export default function FriendCard(props: FriendCardProps) {
               {showTransferModal && (
                 <TransferOwnershipModal
                   show={showTransferModal}
-                  onClose={() => { setShowTransferModal(false); setExitChatId(null); }}
+                  onClose={() => {
+                    setShowTransferModal(false);
+                    setExitChatId(null);
+                  }}
                   members={ec?.members ?? []}
                   currentUserId={currentUserId ?? ""}
                   onTransfer={async (newOwnerId) => {
-                    await dispatch(transferOwnership({ chatId: exitChatId, newOwnerId }));
+                    await dispatch(
+                      transferOwnership({ chatId: exitChatId, newOwnerId }),
+                    );
                     dispatch(leaveGroup({ chatId: exitChatId }));
                     setShowTransferModal(false);
                     setExitChatId(null);
@@ -516,7 +582,11 @@ export default function FriendCard(props: FriendCardProps) {
           confirmText={blockTarget.isBlocked ? "Unblock" : "Block"}
           onCancel={() => setBlockTarget(null)}
           onConfirm={() => {
-            dispatch(blockTarget.isBlocked ? unblockUser(blockTarget.userId) : blockUser(blockTarget.userId));
+            dispatch(
+              blockTarget.isBlocked
+                ? unblockUser(blockTarget.userId)
+                : blockUser(blockTarget.userId),
+            );
             setBlockTarget(null);
           }}
         />

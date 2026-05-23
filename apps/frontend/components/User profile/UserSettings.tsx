@@ -15,6 +15,7 @@ import { BsShieldLock } from "react-icons/bs";
 import AccountSettings from "./Settings Subpages/AccountSettings";
 import PrivacySettings from "./Settings Subpages/PrivacySettings";
 import NotificationSettings from "./Settings Subpages/Notificationsettings";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 interface UserSettingsProps {
   onBack: () => void;
@@ -38,6 +39,8 @@ export default function UserSettings({
   const [showLogout, setShowLogout] = useState(false);
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.profile.profile);
+  const url = useSignedUrl(user?.profilePicture?.key) || defaultPFP;
+
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -111,7 +114,7 @@ export default function UserSettings({
           </h2>
           <div className="bg-base-content/10 hover:bg-base-content/80 transition-colors rounded-full">
             <Image
-              src={user?.profilePicture?.url ?? defaultPFP}
+              src={url}
               alt="profile"
               width={40}
               height={40}

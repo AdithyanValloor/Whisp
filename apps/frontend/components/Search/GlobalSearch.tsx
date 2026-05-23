@@ -13,6 +13,7 @@ import Image from "next/image";
 import defaultPFP from "@/public/default-pfp.png";
 import { accessChat } from "@/redux/features/chatSlice";
 import { setJumpTo } from "@/redux/features/messageSlice";
+import Avatar from "./Avatar";
 
 interface GlobalSearchProps {
   query: string;
@@ -25,7 +26,7 @@ interface PopulatedMessageSender {
   _id: string;
   username: string;
   displayName?: string;
-  profilePicture?: { url: string | null; public_id?: string | null };
+  profilePicture?: { key: string | null };
 }
 
 interface PopulatedMessageChat {
@@ -163,35 +164,35 @@ export default function GlobalSearch({ query, onClose }: GlobalSearchProps) {
     dispatch(globalSearch(query));
   }, [query, dispatch]);
 
-const handleFriendClick = useCallback(
-  async (friendId: string) => {
-    try {
-      const chat = await dispatch(accessChat({ userId: friendId })).unwrap();
+  const handleFriendClick = useCallback(
+    async (friendId: string) => {
+      try {
+        const chat = await dispatch(accessChat({ userId: friendId })).unwrap();
+        onClose();
+        router.push(`/chat/${chat.data._id}`);
+      } catch (err) {
+        console.error("Failed to access chat", err);
+      }
+    },
+    [dispatch, router, onClose],
+  );
+
+  const handleChatClick = useCallback(
+    (chatId: string) => {
       onClose();
-      router.push(`/chat/${chat.data._id}`);
-    } catch (err) {
-      console.error("Failed to access chat", err);
-    }
-  },
-  [dispatch, router, onClose],
-);
+      router.push(`/chat/${chatId}`);
+    },
+    [router, onClose],
+  );
 
-const handleChatClick = useCallback(
-  (chatId: string) => {
-    onClose();
-    router.push(`/chat/${chatId}`);
-  },
-  [router, onClose],
-);
-
-const handleMessageClick = useCallback(
-  (chatId: string, messageId: string) => {
-    onClose();
-    router.push(`/chat/${chatId}?messageId=${messageId}`);
-    dispatch(setJumpTo({ chatId, messageId }));
-  },
-  [dispatch, router, onClose],
-);
+  const handleMessageClick = useCallback(
+    (chatId: string, messageId: string) => {
+      onClose();
+      router.push(`/chat/${chatId}?messageId=${messageId}`);
+      dispatch(setJumpTo({ chatId, messageId }));
+    },
+    [dispatch, router, onClose],
+  );
 
   const isLoading = status === "loading";
   const groupedMessages = groupMessagesByChat(messages);
@@ -221,12 +222,10 @@ const handleMessageClick = useCallback(
                   className="w-full flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-base-content/5 transition-colors duration-150 cursor-pointer"
                 >
                   <div className="relative shrink-0">
-                    <Image
-                      src={friend.profilePicture?.url ?? defaultPFP}
+                    <Avatar
+                      profilePicture={friend.profilePicture}
+                      size={36}
                       alt={friend.displayName || friend.username}
-                      width={36}
-                      height={36}
-                      className="w-9 h-9 rounded-full object-cover"
                     />
                   </div>
                   <div className="flex flex-col items-start min-w-0">
@@ -336,16 +335,14 @@ const handleMessageClick = useCallback(
                         className="w-full flex items-start gap-3 px-2 py-2 rounded-xl hover:bg-base-content/5 transition-colors duration-150 cursor-pointer text-left"
                       >
                         <div className="shrink-0 mt-0.5">
-                          <Image
-                            src={msg.sender?.profilePicture?.url ?? defaultPFP}
+                          <Avatar
+                            profilePicture={msg.sender?.profilePicture}
+                            size={28}
                             alt={
                               msg.sender?.displayName ??
                               msg.sender?.username ??
                               "User"
                             }
-                            width={28}
-                            height={28}
-                            className="w-7 h-7 rounded-full object-cover"
                           />
                         </div>
                         <div className="flex flex-col min-w-0 flex-1">

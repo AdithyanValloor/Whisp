@@ -6,12 +6,85 @@ import FriendCard from "../Message/FriendCard";
 import { fetchChats } from "@/redux/features/chatSlice";
 import SearchInput from "../GlobalComponents/SearchInput";
 import { useParams, useRouter } from "next/navigation";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
+import { Chat } from "@/types/chat.types";
 
 interface ContextMenuState {
   x: number;
   y: number;
   chatId: string;
   position: "top" | "bottom";
+}
+
+interface ChatItemProps {
+  chat: Chat;
+  userId?: string;
+  unreadCount: number;
+  selectedChatId?: string;
+  openChat: (chatId: string) => void;
+  contextMenu: ContextMenuState | null;
+  contextMenuRef: React.RefObject<HTMLDivElement | null>;
+  handleContextMenuOpen: (state: ContextMenuState) => void;
+  handleContextMenuClose: () => void;
+}
+
+function ChatItem({
+  chat,
+  userId,
+  unreadCount,
+  selectedChatId,
+  openChat,
+  contextMenu,
+  contextMenuRef,
+  handleContextMenuOpen,
+  handleContextMenuClose,
+}: ChatItemProps) {
+  const isGroup = chat.isGroup;
+
+  const otherUser = !isGroup
+    ? chat.members.find((m) => m._id !== userId)
+    : null;
+
+  const key = otherUser?.profilePicture?.key;
+  const url = useSignedUrl(key);
+
+  return (
+    <FriendCard
+      ifInbox
+      key={chat._id}
+      chatType={isGroup ? "group" : "personal"}
+      msgId={chat._id}
+      unread={unreadCount}
+      onClick={() => openChat(chat._id)}
+      selectedChat={selectedChatId}
+      user={
+        isGroup
+          ? {
+              name: chat.chatName,
+              profilePic: "", //GROUP PROFILE PIC NOT IMPLEMENTED
+            }
+          : {
+              _id: otherUser?._id,
+              name: otherUser?.username || chat.chatName,
+              displayName: otherUser?.displayName,
+              profilePic: url || "",
+            }
+      }
+      activeContextMenuChatId={contextMenu?.chatId ?? null}
+      contextMenuRef={contextMenuRef}
+      onContextMenuOpen={handleContextMenuOpen}
+      onContextMenuClose={handleContextMenuClose}
+      contextMenuPos={
+        contextMenu?.chatId === chat._id
+          ? {
+              x: contextMenu?.x,
+              y: contextMenu?.y,
+              position: contextMenu?.position,
+            }
+          : null
+      }
+    />
+  );
 }
 
 export default function ArchivedChats() {
@@ -88,47 +161,20 @@ export default function ArchivedChats() {
         ) : (
           <div className="flex flex-col gap-1">
             {filteredChats.map((chat) => {
-              const isGroup = chat.isGroup;
-              const otherUser = !isGroup
-                ? chat.members.find((m) => m._id !== user?._id)
-                : null;
               const unreadCount = perChatUnread[chat._id] || 0;
 
               return (
-                <FriendCard
-                  ifInbox
+                <ChatItem
                   key={chat._id}
-                  chatType={isGroup ? "group" : "personal"}
-                  msgId={chat._id}
-                  unread={unreadCount}
-                  onClick={() => openChat(chat._id)}
-                  selectedChat={selectedChatId}
-                  user={
-                    isGroup
-                      ? {
-                          name: chat.chatName,
-                          profilePic: "",
-                        }
-                      : {
-                          _id: otherUser?._id,
-                          name: otherUser?.username || chat.chatName,
-                          displayName: otherUser?.displayName,
-                          profilePic: otherUser?.profilePicture?.url || "",
-                        }
-                  }
-                  activeContextMenuChatId={contextMenu?.chatId ?? null}
+                  chat={chat}
+                  userId={user?._id}
+                  unreadCount={unreadCount}
+                  selectedChatId={selectedChatId}
+                  openChat={openChat}
+                  contextMenu={contextMenu}
                   contextMenuRef={contextMenuRef}
-                  onContextMenuOpen={handleContextMenuOpen}
-                  onContextMenuClose={handleContextMenuClose}
-                  contextMenuPos={
-                    contextMenu?.chatId === chat._id
-                      ? {
-                          x: contextMenu.x,
-                          y: contextMenu.y,
-                          position: contextMenu.position,
-                        }
-                      : null
-                  }
+                  handleContextMenuOpen={handleContextMenuOpen}
+                  handleContextMenuClose={handleContextMenuClose}
                 />
               );
             })}

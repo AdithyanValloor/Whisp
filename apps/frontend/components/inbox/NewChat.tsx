@@ -17,14 +17,15 @@ interface NewChatPros {
     username: string;
     displayName?: string;
     profilePicture?: {
-      url: string | null;
-      public_id?: string | null;
+      key: string | null;
     };
   }[];
   selectedUsers: Set<string>;
   toggleUserSelection: (id: string) => void;
   handleCreateGroup: () => void;
   actionLoading: boolean;
+  groupAvatar: string | null;
+  setGroupAvatar: (v: string | null) => void;
 }
 
 type CreateChatView = "menu" | "group" | "friend";
@@ -66,7 +67,6 @@ function MenuRow({
   );
 }
 
-
 export default function NewChat({
   onClose,
   groupName,
@@ -76,16 +76,18 @@ export default function NewChat({
   toggleUserSelection,
   handleCreateGroup,
   actionLoading,
+  groupAvatar,
+  setGroupAvatar,
 }: NewChatPros) {
   const [view, setView] = useState<CreateChatView>("menu");
 
-    const isMobile = useIsMobile();
-
+  const isMobile = useIsMobile();
 
   return (
     <div className="fixed inset-0 flex pb-3 items-center justify-center z-50 overflow-hidden">
-      <div className={`bg-base-200 p-3 overflow-visible ${!isMobile && "rounded-2xl"}  flex flex-col border border-base-content/10 gap-3 w-full h-full`}>
-        
+      <div
+        className={`bg-base-200 p-3 overflow-visible ${!isMobile && "rounded-2xl"}  flex flex-col border border-base-content/10 gap-3 w-full h-full`}
+      >
         {/* Header */}
         <div className="flex items-center gap-2">
           <IconButton
@@ -101,8 +103,8 @@ export default function NewChat({
             {view === "menu"
               ? "New Chat"
               : view === "friend"
-              ? "Add friend"
-              : "New Group"}
+                ? "Add friend"
+                : "New Group"}
           </h1>
         </div>
 
@@ -139,12 +141,14 @@ export default function NewChat({
               toggleUserSelection={toggleUserSelection}
               handleCreateGroup={handleCreateGroup}
               actionLoading={actionLoading}
+              groupAvatar={groupAvatar}
+              setGroupAvatar={setGroupAvatar}
             />
           )}
 
           {view === "friend" && (
             <div>
-              <AddFriendInput/>
+              <AddFriendInput />
             </div>
           )}
         </div>

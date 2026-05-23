@@ -13,6 +13,7 @@ import { fetchBlockedByUsers, fetchBlockedUsers } from "./blockSlice";
 import { fetchNotifications, InboxNotification } from "./notificationSlice";
 import { Chat } from "@/types/chat.types";
 import { fetchMessageRequests, MessageRequest } from "./requestSlice";
+import { fetchProfile, Profile } from "./profileSlice";
 
 /**
  * Result returned after successful application bootstrap.
@@ -20,6 +21,7 @@ import { fetchMessageRequests, MessageRequest } from "./requestSlice";
  */
 interface BootstrapResult {
   currentUser: AuthUser;
+  profile: Profile;
   friends: FriendUser[];
   requests: {
     incoming: FriendRequest[];
@@ -56,6 +58,7 @@ export const bootstrapApp = createAsyncThunk<
       console.log("⏭ Skipping bootstrap: no authenticated user");
 
       return {
+        profile: null as unknown as Profile,
         currentUser: null as unknown as AuthUser,
         friends: [],
         requests: { incoming: [], outgoing: [] },
@@ -69,6 +72,7 @@ export const bootstrapApp = createAsyncThunk<
     console.log("🚀 Bootstrapping app for user:", currentUser.username);
 
     const [
+      profile,
       friends,
       requests,
       chats,
@@ -78,6 +82,7 @@ export const bootstrapApp = createAsyncThunk<
       notificationResult,
       messageRequests,
     ] = await Promise.all([
+      dispatch(fetchProfile()).unwrap(),
       dispatch(fetchFriends()).unwrap(),
       dispatch(fetchRequests()).unwrap(),
       dispatch(fetchChats()).unwrap(),
@@ -115,6 +120,7 @@ export const bootstrapApp = createAsyncThunk<
     console.log("✅ Bootstrap complete");
 
     return {
+      profile,
       currentUser,
       friends,
       requests,

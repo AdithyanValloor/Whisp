@@ -56,10 +56,14 @@ export default function GroupChat({
     return <p className="p-3 text-center opacity-70">No groups yet</p>;
   }
 
+  
+
   return (
     <div className="h-full w-full flex flex-col gap-1">
       {groupChats.map((chat) => {
         const unreadCount = perChatUnread[chat._id] || 0;
+
+        console.log("CHAT AVATAR:", chat.avatar);
 
         return (
           <FriendCard
@@ -67,7 +71,9 @@ export default function GroupChat({
             ifInbox
             user={{
               name: chat.chatName,
-              profilePic: chat.members[0]?.profilePicture?.url || "",
+              profilePicture: chat.avatar?.key
+                ? { key: chat.avatar.key }
+                : undefined,
               lastMessage: chat.lastMessage?.content || "",
             }}
             msgId={chat._id}

@@ -8,11 +8,7 @@ import {
 import { Chat } from "../../services/chat/models/chat.model.js";
 
 export const registerConnectionHandlers = (socket: Socket): void => {
-  /**
-   * ---------------------------------------------------
-   * Join Private User Room
-   * ---------------------------------------------------
-   */
+  // Join the user's personal room for direct events and presence updates.
   socket.on("join", async (userId: string) => {
     if (!userId) return;
 
@@ -24,11 +20,7 @@ export const registerConnectionHandlers = (socket: Socket): void => {
     socket.emit("online_users", getOnlineUsers());
   });
 
-  /**
-   * ---------------------------------------------------
-   * Join Chat Room
-   * ---------------------------------------------------
-   */
+  // Only join group chats the user currently belongs to.
   socket.on("joinGroup", async ({ chatId, userId }) => {
     if (!chatId || !userId) return;
 
@@ -43,32 +35,19 @@ export const registerConnectionHandlers = (socket: Socket): void => {
     socket.join(chatId);
   });
 
-  /**
-   * ---------------------------------------------------
-   * Leave Chat Room
-   * ---------------------------------------------------
-   */
+  // Leave a previously joined group room.
   socket.on("leaveGroup", (chatId: string) => {
     if (!chatId) return;
     socket.leave(chatId);
   });
 
-  /**
-   * ---------------------------------------------------
-   * Heartbeat
-   * ---------------------------------------------------
-   */
+  // Refresh the user's last-seen timestamp while the socket stays active.
   socket.on("heartbeat", ({ userId }: { userId: string }) => {
     if (!userId) return;
     heartbeat(userId);
   });
 
-  /**
-   * ---------------------------------------------------
-   * Heartbeat
-   * ---------------------------------------------------
-   */
-
+  // Clear presence state when the socket disconnects.
   socket.on("disconnect", () => {
     const userId = socket.data.userId;
     if (!userId) return;

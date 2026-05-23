@@ -1,9 +1,6 @@
 /**
- * Application entry point.
- *
- * Separates process execution from server initialization logic.
- * This allows the server to be imported in tests without
- * automatically starting the HTTP listener.
+ * Process entry point.
+ * Starts the server without coupling startup to imports.
  */
 
 import { startServer } from "./server.js";

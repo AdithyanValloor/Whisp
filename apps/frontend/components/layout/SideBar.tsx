@@ -18,6 +18,7 @@ import { useAppSelector } from "@/redux/hooks";
 import { selectActiveUnreadTotal } from "@/redux/selectors/unreadSelectors";
 import { useIsMobile } from "@/utils/screenSize";
 import { UnreadCountBadge } from "../Notification/UnreadCountBadge";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
 
 interface SideBarProps {
   activeTab: string;
@@ -43,6 +44,8 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
     (state) => state.notifications.unreadCount,
   );
   const user = useAppSelector((state) => state.profile.profile);
+
+  const url = useSignedUrl(user?.profilePicture?.key);
 
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -89,7 +92,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
       title: "User profile",
       icon: (
         <Image
-          src={user?.profilePicture?.url ?? defaultPFP}
+          src={url ?? defaultPFP}
           alt="profile"
           width={35}
           height={35}
@@ -120,7 +123,7 @@ export default function SideBar({ activeTab, setActiveTab }: SideBarProps) {
       title: "User profile",
       icon: (
         <Image
-          src={user?.profilePicture?.url ?? defaultPFP}
+          src={url ?? defaultPFP}
           alt="profile"
           width={35}
           height={35}

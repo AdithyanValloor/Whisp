@@ -1,4 +1,4 @@
-import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, CopyObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuid } from "uuid";
 import { s3, BUCKET_NAME } from "../../config/s3.js";
@@ -15,7 +15,8 @@ const DOWNLOAD_URL_EXPIRY = 300;
 type UploadContext =
   | { type: "chat"; chatId: string }
   | { type: "profile"; userId: string }
-  | { type: "group"; groupId: string };
+  | { type: "group"; groupId: string }
+  | { type: "group-temp"; userId: string };
 
 export const generateUploadUrl = async (
   context: UploadContext,
@@ -36,6 +37,9 @@ export const generateUploadUrl = async (
       break;
     case "group":
       key = `group/${context.groupId}/${uuid()}${ext}`;
+      break;
+    case "group-temp":
+      key = `group-temp/${context.userId}/${uuid()}${ext}`;
       break;
   }
 
@@ -74,4 +78,14 @@ export const deleteFile = async (key: string) => {
   await s3.send(command);
 
   return true;
+};
+
+export const copyFile = async (fromKey: string, toKey: string) => {
+  await s3.send(
+    new CopyObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME!,
+      CopySource: `${process.env.AWS_BUCKET_NAME}/${fromKey}`,
+      Key: toKey,
+    })
+  );
 };

@@ -3,6 +3,7 @@ import api from "@/utils/axiosInstance";
 import { sendMessage } from "./messageSlice";
 import { acceptMessageRequestThunk } from "./requestSlice";
 import { Chat, ChatMessage } from "@/types/chat.types";
+import axios from "axios";
 
 /* -------------------- TYPES -------------------- */
 
@@ -124,7 +125,7 @@ export const deleteChat = createAsyncThunk<{ chatId: string }, string>(
 
 export const createGroupChat = createAsyncThunk<
   Chat,
-  { name: string; userIds: string[] },
+  { name: string; userIds: string[]; avatar: string | null },
   { rejectValue: string }
 >("group/createGroupChat", async (data, { rejectWithValue }) => {
   try {
@@ -211,6 +212,51 @@ export const transferOwnership = createAsyncThunk<
   } catch {
     return rejectWithValue("Failed to transfer ownership");
   }
+});
+
+export const editGroupName = createAsyncThunk<
+  Chat,
+  { chatId: string; newName: string },
+  { rejectValue: string }
+>("group/editGroupName", async (data, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<ChatResponse>("/group/edit-name", data);
+    return res.data.chat;
+  } catch {
+    return rejectWithValue("Failed to update group name");
+  }
+});
+
+export const updateAvatar = createAsyncThunk<
+  { key: string | null },
+  { chatId: string; key: string },
+  { rejectValue: string }
+>("profile/updateAvatar", async ({ chatId, key }, { rejectWithValue }) => {
+  try {
+    const res = await api.put(
+      "/file/avatar",
+      { chatId, key },
+      { withCredentials: true },
+    );
+
+    return res.data.profilePicture;
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      return rejectWithValue(
+        err.response?.data?.message ?? "Failed to update avatar",
+      );
+    }
+    return rejectWithValue("Failed to update avatar");
+  }
+});
+
+export const getGroupAvatarDownloadUrl = createAsyncThunk<
+  { key: string; url: string },
+  { chatId: string; key: string }
+>("profile/getGroupAvatarDownloadUrl", async ({ chatId, key }) => {
+  const res = await api.get(`/file/avatar/${chatId}`);
+
+  return { key, url: res.data.url };
 });
 
 /* -------------------- CHAT SORT HELPER -------------------- */
@@ -388,6 +434,15 @@ const chatSlice = createSlice({
     deleteChatLocal: (state, action: PayloadAction<string>) => {
       state.chats = state.chats.filter((c) => c._id !== action.payload);
     },
+    updateGroupAvatarLocal: (
+      state,
+      action: PayloadAction<{ chatId: string; key: string }>,
+    ) => {
+      const chat = state.chats.find((c) => c._id === action.payload.chatId);
+      if (!chat) return;
+
+      chat.avatar = { key: action.payload.key };
+    },
   },
 
   extraReducers: (builder) => {
@@ -526,7 +581,7 @@ const chatSlice = createSlice({
               _id: id,
               username: "Loading...",
               displayName: "Loading...",
-              profilePicture: { url: null, public_id: null },
+              profilePicture: { key: null },
             });
           }
         });
@@ -589,6 +644,21 @@ const chatSlice = createSlice({
         }
       })
 
+      /* -------- EDIT GROUP NAME -------- */
+      .addCase(editGroupName.pending, (state, action) => {
+        const { chatId, newName } = action.meta.arg;
+        const chat = state.chats.find((c) => c._id === chatId);
+        if (!chat) return;
+
+        chat.chatName = newName;
+      })
+      .addCase(editGroupName.fulfilled, (state, action) => {
+        const idx = state.chats.findIndex((c) => c._id === action.payload._id);
+        if (idx !== -1) {
+          state.chats[idx] = action.payload;
+        }
+      })
+
       /* -------- SEND MESSAGE (update last message preview) -------- */
       .addCase(sendMessage.fulfilled, (state, action) => {
         const msg = action.payload;
@@ -629,6 +699,7 @@ export const {
   muteChatLocal,
   clearChatLocal,
   deleteChatLocal,
+  updateGroupAvatarLocal,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

@@ -1,12 +1,16 @@
-
 export interface ChatUser {
   _id: string;
   username: string;
   displayName?: string;
   profilePicture?: {
-    url: string | null;
-    public_id: string | null;
+    key: string | null;
   };
+}
+
+export interface MessageFile {
+  key: string;
+  mimeType: string;
+  size: number;
 }
 
 export interface Chat {
@@ -25,6 +29,7 @@ export interface Chat {
   createdAt: string;
   updatedAt: string;
   clearedAt?: string | null;
+  avatar?: { key: string } | null;
 }
 
 export interface ChatMessage {
@@ -38,6 +43,7 @@ export interface ChatMessage {
   seenBy: string[];
   replyTo: string | null;
   reactions: MessageReaction[];
+  file?: MessageFile | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -47,4 +53,3 @@ export interface MessageReaction {
   emoji: string;
   user: string;
 }
-

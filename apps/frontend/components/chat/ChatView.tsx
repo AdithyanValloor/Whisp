@@ -47,6 +47,8 @@ import {
 import { useIsMobile } from "@/utils/screenSize";
 import { SelectedFile } from "./Attachmentpicker";
 import { uploadFileToS3 } from "@/utils/uploadToS3";
+import { useSignedUrl } from "@/hooks/useSignedUrl";
+import { Chat } from "@/types/chat.types";
 
 interface ChatViewProps {
   chat: {
@@ -57,7 +59,8 @@ interface ChatViewProps {
       _id: string;
       username: string;
       displayName?: string;
-      profilePicture?: { url: string | null };
+      profilePicture?: { key: string | null };
+      avatar?: {key: string | null}
       status?: "online" | "offline";
     }[];
   };
@@ -146,7 +149,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         _id: chat._id,
         username: chat.chatName,
         displayName: chat.chatName,
-        profilePicture: { url: null },
+        avatar: { key: null },
       };
     }
     return (
@@ -154,7 +157,7 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
         _id: "unknown",
         username: "Unknown",
         displayName: "Unknown",
-        profilePicture: { url: currentUser.profilePic ?? null },
+        profilePicture: { key: currentUser.profilePic ?? null },
       }
     );
   }, [
@@ -173,7 +176,15 @@ export default function ChatView({ chat, currentUser, socket }: ChatViewProps) {
 
   const displayName = displayUser.displayName;
   const name = displayUser.username;
-  const displayPic = displayUser.profilePicture?.url || "/default-pfp.png";
+
+const groupAvatarKey = (chat as Chat)?.avatar?.key;
+
+const userAvatarKey = displayUser?.profilePicture?.key;
+
+const signedUrl = useSignedUrl(groupAvatarKey || userAvatarKey);
+
+
+const displayPic = signedUrl ? signedUrl : chat.isGroup ? "/default-group-icon.png" : "/default-pfp.png";
 
   // ─── Scroll helper — delegates into Messages via imperative handle ─────────
   const scrollToBottom = useCallback(() => {

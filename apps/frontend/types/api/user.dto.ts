@@ -5,14 +5,8 @@ export interface BackendUserDTO {
 
   displayName: string;
 
-  profilePicture: {
-    url: string | null;
-    public_id: string | null;
-  };
-
-  coverPicture: {
-    url: string | null;
-    public_id: string | null;
+  profilePicture?: {
+    key: string | null;
   };
 
   bio: string | null;

@@ -1,6 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import ProfilePicture from "../ProfilePicture/ProfilePicture";
-import { IoCall, IoSearch, IoVideocam } from "react-icons/io5";
+import { IoSearch } from "react-icons/io5";
 import IconButton from "../GlobalComponents/IconButtons";
 
 type SidebarMode = "profile" | "search" | null;

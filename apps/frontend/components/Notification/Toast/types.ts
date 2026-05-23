@@ -17,8 +17,7 @@ export interface Toast {
   description?: string;
 
   profilePicture?: {
-    url: string | null;
-    public_id?: string | null;
+    key: string | null;
   };
 
   chatId?: string;
