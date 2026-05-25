@@ -1,8 +1,10 @@
 import { MessageSocketPayload } from "../types/message.socket.js";
 
+/** Normalizes populated message documents into the socket payload shape. */
 export const toMessageSocketPayload = (doc: any): MessageSocketPayload => {
   return {
     _id: doc._id.toString(),
+    // Handles both populated chat documents and raw ObjectId values.
     chat: doc.chat._id?.toString?.() ?? doc.chat.toString(),
 
     sender: {

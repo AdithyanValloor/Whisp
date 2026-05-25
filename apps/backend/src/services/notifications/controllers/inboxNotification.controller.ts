@@ -1,4 +1,5 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
+import { Unauthorized } from "../../../utils/errors/httpErrors.js";
 import {
   getInboxNotifications,
   markNotificationRead,
@@ -9,92 +10,142 @@ import {
   markMentionsReadForChat,
 } from "../services/inboxNotification.service.js";
 
+/** Inbox notification controller handlers for authenticated notification actions. */
+
+/** Returns paginated inbox notifications for the current user. */
 export const fetchInboxNotificationsController = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ) => {
-  const userId = req.user?.id;
-  const page = Number(req.query.page) || 1;
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-  const result = await getInboxNotifications(userId, page);
+    const page = Number(req.query.page) || 1;
+    const result = await getInboxNotifications(userId, page);
 
-  res.json(result);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
+/** Marks a single inbox notification as read for the current user. */
 export const markNotificationReadController = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ) => {
-  const userId = req.user.id;
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-  const notification = await markNotificationRead(req.params.id, userId);
+    const notification = await markNotificationRead(req.params.id, userId);
 
-  res.json(notification);
+    res.json(notification);
+  } catch (err) {
+    next(err);
+  }
 };
 
+/** Returns the unread inbox notification count for the current user. */
 export const getUnreadNotificationCountController = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ) => {
-  const userId = req.user.id;
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-  const result = await getUnreadNotificationCount(userId);
+    const result = await getUnreadNotificationCount(userId);
 
-  res.json(result);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
+/** Marks all inbox notifications as read for the current user. */
 export const markAllNotificationsReadController = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ) => {
-  const userId = req.user.id;
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-  const result = await markAllNotificationsRead(userId);
+    const result = await markAllNotificationsRead(userId);
 
-  res.json(result);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
+/** Deletes a single inbox notification owned by the current user. */
 export const deleteNotificationController = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
-  const userId = req.user.id;
-  const notificationId = req.params.id;
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-  const result = await deleteNotification(notificationId, userId);
+    const notificationId = req.params.id;
+    const result = await deleteNotification(notificationId, userId);
 
-  res.json(result);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
+/** Deletes the inbox notification associated with a friend request. */
 export const deleteNotificationByFriendRequestController = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ): Promise<void> => {
-  const { friendRequestId } = req.params;
+  try {
+    const { friendRequestId } = req.params;
+    const result = await deleteNotificationByFriendRequest(friendRequestId);
 
-  const result = await deleteNotificationByFriendRequest(friendRequestId);
+    if (!result) {
+      res.status(404).json({
+        message: "Notification not found",
+      });
+      return;
+    }
 
-  if (!result) {
-    res.status(404).json({
-      message: "Notification not found",
+    res.json({
+      success: true,
+      notificationId: result.notificationId,
     });
-    return;
+  } catch (err) {
+    next(err);
   }
-
-  res.json({
-    success: true,
-    notificationId: result.notificationId,
-  });
 };
 
+/** Marks mention notifications as read for a specific chat. */
 export const markMentionsReadController = async (
   req: Request,
   res: Response,
+  next: NextFunction,
 ) => {
-  const userId = req.user.id;
-  const { chatId } = req.params;
+  try {
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
-  await markMentionsReadForChat(userId, chatId);
+    const { chatId } = req.params;
 
-  res.json({ success: true });
+    await markMentionsReadForChat(userId, chatId);
+
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
 };

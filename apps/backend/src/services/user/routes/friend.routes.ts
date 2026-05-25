@@ -1,4 +1,4 @@
-import express from "express";
+import { Router } from "express";
 import { protect } from "../../auth/auth.middleware.js";
 import {
   acceptReq,
@@ -10,19 +10,21 @@ import {
   removeFriend,
 } from "../controllers/friends.controller.js";
 
-const router = express.Router();
+const router = Router();
+
+/** Friend routes for authenticated friendship actions. */
 
 // Friend list and request management for authenticated users.
 router.get("/", protect, getAllFriends);
 
-// Request lifecycle endpoints: create, review, and cancel requests.
+// Friend request lifecycle routes.
 router.post("/", protect, addFriend);
 router.get("/requests", protect, getAllRequests);
 router.post("/accept", protect, acceptReq);
 router.post("/reject", protect, rejectReq);
 router.post("/cancel", protect, cancelReq);
 
-// Removes an existing friend connection.
+// Friend removal route.
 router.post("/remove", protect, removeFriend);
 
 export { router as friendRouter };

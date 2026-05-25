@@ -4,12 +4,15 @@ import { URL } from "url";
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
+/** Link preview helpers for URL extraction and safe metadata fetching. */
+
 export function extractFirstUrl(text: string): string | null {
   const match = text.match(urlRegex);
+
   return match ? match[0] : null;
 }
 
-// Prevent SSRF attacks
+/** Rejects local or private network targets before fetching preview metadata. */
 async function isSafeUrl(targetUrl: string) {
   const parsed = new URL(targetUrl);
 
@@ -17,7 +20,7 @@ async function isSafeUrl(targetUrl: string) {
 
   const { address } = await dns.lookup(parsed.hostname);
 
-  // Block private IP ranges
+  // Block common private and loopback ranges to reduce SSRF risk.
   if (
     address.startsWith("10.") ||
     address.startsWith("192.168.") ||
@@ -30,6 +33,7 @@ async function isSafeUrl(targetUrl: string) {
   return true;
 }
 
+/** Fetches normalized Open Graph metadata for a URL when the target is safe. */
 export async function fetchLinkPreview(originalUrl: string) {
   try {
     const safe = await isSafeUrl(originalUrl);

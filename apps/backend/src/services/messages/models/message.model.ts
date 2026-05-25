@@ -4,6 +4,7 @@ export interface IMessage extends Document {
   _id: Types.ObjectId;
   chat: Types.ObjectId;
   sender: Types.ObjectId;
+
   content?: string;
 
   edited: boolean;
@@ -29,8 +30,9 @@ export interface IMessage extends Document {
     description?: string;
     image?: string;
     siteName?: string;
-    isLargeImage?: Boolean;
+    isLargeImage?: boolean;
   };
+
   file?: {
     key: string;
     mimeType: string;
@@ -41,6 +43,7 @@ export interface IMessage extends Document {
   updatedAt: Date;
 }
 
+/** Message schema for chat content, delivery state, reactions, and attachments. */
 const messageSchema: Schema<IMessage> = new Schema(
   {
     chat: {
@@ -57,26 +60,31 @@ const messageSchema: Schema<IMessage> = new Schema(
       type: String,
       default: "",
     },
+
     edited: {
       type: Boolean,
       default: false,
     },
+
     deleted: {
       type: Boolean,
       default: false,
     },
+
     deliveredTo: [
       {
         type: Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
     seenBy: [
       {
         type: Schema.Types.ObjectId,
         ref: "User",
       },
     ],
+
     mentions: [
       {
         type: Schema.Types.ObjectId,
@@ -84,15 +92,18 @@ const messageSchema: Schema<IMessage> = new Schema(
         default: [],
       },
     ],
+
     replyTo: {
       type: Schema.Types.ObjectId,
       ref: "Message",
       default: null,
     },
+
     forwarded: {
       type: Boolean,
       default: false,
     },
+
     forwardedFrom: {
       type: Schema.Types.ObjectId,
       ref: "Message",
@@ -111,6 +122,7 @@ const messageSchema: Schema<IMessage> = new Schema(
         },
       },
     ],
+
     linkPreview: {
       type: {
         url: String,
@@ -122,21 +134,23 @@ const messageSchema: Schema<IMessage> = new Schema(
       },
       default: undefined,
     },
+
     file: {
       key: String,
       mimeType: String,
       size: Number,
     },
   },
-
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-// For chat pagination
+// Supports chat pagination and recent message loading.
 messageSchema.index({ chat: 1, createdAt: -1 });
-
+// Supports in-chat text search.
 messageSchema.index({ chat: 1, content: "text" });
-
+// Supports mention lookups and mention-based notifications.
 messageSchema.index({ chat: 1, mentions: 1 });
 
 export const Message = model<IMessage>("Message", messageSchema);

@@ -13,6 +13,7 @@ const MAX_PROFILE_SIZE = 2 * 1024 * 1024;
 
 const ALLOWED_PROFILE_TYPES = new Set(["image/png", "image/jpeg"]);
 
+/** Returns a signed upload URL for a user's profile picture. */
 export const uploadProfilePicture = async (
   req: AuthRequest,
   res: Response,
@@ -52,6 +53,7 @@ export const uploadProfilePicture = async (
   }
 };
 
+/** Deletes the current user's stored profile picture after key validation. */
 export const deleteProfilePicture = async (
   req: AuthRequest,
   res: Response,
@@ -67,7 +69,10 @@ export const deleteProfilePicture = async (
       throw BadRequest("Invalid key");
     }
 
-    if (!PROFILE_KEY_REGEX.test(key) || !key.startsWith(`profile/${userId}/`)) {
+    if (
+      !PROFILE_KEY_REGEX.test(key) ||
+      !key.startsWith(`profile/${userId}/`)
+    ) {
       throw Unauthorized();
     }
 

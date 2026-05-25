@@ -7,9 +7,10 @@ import { protect } from "../../auth/auth.middleware.js";
 
 const router = Router();
 
-// Notification preferences for the authenticated user.
-router.get("/", protect, getNotificationSettingsController);
+/** Notification settings routes for authenticated users. */
 
+// Notification preference read and update routes.
+router.get("/", protect, getNotificationSettingsController);
 router.patch("/", protect, updateNotificationSettingsController);
 
 export { router as notificationSettingsRouter };

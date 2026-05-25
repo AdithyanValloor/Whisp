@@ -9,22 +9,10 @@ import { ChatUserStateModel } from "../models/chatUserState.model.js";
 import { BlockModel } from "../../user/models/block.model.js";
 import { Message } from "../../messages/models/message.model.js";
 import { areFriends } from "../../user/utils/friend.utils.js";
-import { sendMessageRequest } from "../../messages/services/messageRequest.service.js";
-import { emitMessageRequestSent } from "../../../socket/emitters/messageRequest.emitters.js";
 
-/**
- * ------------------------------------------------------------------
- * Fetch Chats for User
- * ------------------------------------------------------------------
- * @desc    Retrieves all chats (private + group) that the user is part of
- *
- * @param   userId - Authenticated user's ID
- * @returns Array of chat documents sorted by last activity
- *
- * Notes:
- * - Population ensures frontend receives full member/admin info
- * - Sorting by `updatedAt` keeps most recent chats on top
- */
+/** Chat service helpers for chat access, user state, and mute/archive actions. */
+
+/** Returns chats for a user with their per-chat UI state merged in. */
 export const fetchChatsFunction = async (userId: string) => {
   if (!userId) {
     throw BadRequest("User ID is required");
@@ -57,6 +45,7 @@ export const fetchChatsFunction = async (userId: string) => {
     };
   });
 
+  // Pinned chats stay on top, with the rest ordered by recent activity.
   enriched.sort((a, b) => {
     if (a.isPinned !== b.isPinned) {
       return a.isPinned ? -1 : 1;
@@ -67,21 +56,7 @@ export const fetchChatsFunction = async (userId: string) => {
   return enriched;
 };
 
-/**
- * ------------------------------------------------------------------
- * Access or Create One-to-One Chat
- * ------------------------------------------------------------------
- * @desc    Fetches an existing private chat or creates one if missing
- *
- * @param   userId         - ID of the target user
- * @param   currentUserId - ID of the authenticated user
- * @returns Chat document
- *
- * Notes:
- * - Enforces strict 1-to-1 chat uniqueness
- * - Group chats are excluded explicitly
- * - Chat creation is idempotent
- */
+/** Returns an existing direct chat or creates a new direct or pending chat. */
 export const accessChatFunction = async (
   userId: string,
   currentUserId: string,
@@ -106,10 +81,7 @@ export const accessChatFunction = async (
     throw Forbidden("Cannot access chat with this user");
   }
 
-  /**
-   * FIRST: check existing chat
-   */
-
+  // Reuse the existing direct chat, including pending request chats.
   const existingChat = await Chat.findOne({
     isGroup: false,
     members: { $all: [userId, currentUserId], $size: 2 },
@@ -126,10 +98,6 @@ export const accessChatFunction = async (
       data: existingChat,
     };
   }
-
-  /**
-   * SECOND: check friendship
-   */
 
   const friends = await areFriends(currentUserId, userId);
 
@@ -148,9 +116,6 @@ export const accessChatFunction = async (
 
     return { type: "pending_chat", data: populatedChat };
   }
-  /**
-   * Create new DM chat
-   */
 
   const newChat = await Chat.create({
     chatName: "sender",
@@ -173,6 +138,7 @@ export const accessChatFunction = async (
   };
 };
 
+/** Toggles the pinned state for a user's chat. */
 export const togglePinChatFunction = async (userId: string, chatId: string) => {
   if (!userId) throw Unauthorized();
 
@@ -189,6 +155,7 @@ export const togglePinChatFunction = async (userId: string, chatId: string) => {
   return { isPinned: newValue };
 };
 
+/** Toggles the archived state for a user's chat. */
 export const toggleArchiveChatFunction = async (
   userId: string,
   chatId: string,
@@ -208,6 +175,7 @@ export const toggleArchiveChatFunction = async (
   return { isArchived: newValue };
 };
 
+/** Moves the read boundary back to preserve a single unread message. */
 export const markChatAsUnreadFunction = async (
   userId: string,
   chatId: string,
@@ -226,6 +194,7 @@ export const markChatAsUnreadFunction = async (
     return { chatId, count: 0 };
   }
 
+  // Move lastReadAt just before the latest incoming message to keep one unread.
   const newLastReadAt = new Date(latestIncomingMessage.createdAt.getTime() - 1);
 
   await ChatUserStateModel.findOneAndUpdate(
@@ -237,6 +206,7 @@ export const markChatAsUnreadFunction = async (
   return { chatId, count: 1 };
 };
 
+/** Advances the read boundary to the latest message in the chat. */
 export const markChatAsReadFunction = async (
   userId: string,
   chatId: string,
@@ -259,6 +229,7 @@ export const markChatAsReadFunction = async (
   return { chatId };
 };
 
+/** Clears chat history for a user without deleting the shared chat itself. */
 export const clearChatForUser = async (userId: string, chatId: string) => {
   const chat = await Chat.findOne({
     _id: chatId,
@@ -284,6 +255,7 @@ export const clearChatForUser = async (userId: string, chatId: string) => {
   return true;
 };
 
+/** Removes a chat from one user's membership and resets their local chat state. */
 export const deleteChatForUser = async (userId: string, chatId: string) => {
   const chat = await Chat.findOne({ _id: chatId, members: userId });
   if (!chat) throw Forbidden("Not allowed");
@@ -303,6 +275,7 @@ export const deleteChatForUser = async (userId: string, chatId: string) => {
   return { chatId };
 };
 
+// Represents an indefinite mute without special-case null handling.
 const MUTED_FOREVER_SENTINEL = new Date("9999-12-31T23:59:59.999Z");
 
 export type MuteDuration = "1h" | "8h" | "24h" | "1w" | "forever";
@@ -314,6 +287,7 @@ const MUTE_DURATIONS_MS: Record<Exclude<MuteDuration, "forever">, number> = {
   "1w": 7 * 24 * 60 * 60 * 1000,
 };
 
+/** Applies a chat mute until the requested duration expires. */
 export const muteChatFunction = async (
   userId: string,
   chatId: string,
@@ -338,6 +312,7 @@ export const muteChatFunction = async (
   return { chatId, mutedUntil };
 };
 
+/** Removes any active mute for a user's chat. */
 export const unmuteChatFunction = async (userId: string, chatId: string) => {
   if (!userId) throw Unauthorized();
 

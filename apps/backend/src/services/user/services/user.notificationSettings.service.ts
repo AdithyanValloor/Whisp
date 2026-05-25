@@ -6,17 +6,14 @@ export interface NotificationSettings {
   newMessages: boolean;
   mentions: boolean;
   replies: boolean;
-
   friendRequests: boolean;
   friendRequestAccepted: boolean;
   groupAdded: boolean;
 }
 
-/**
- * ------------------------------------------------------------------
- * Get Notification Settings
- * ------------------------------------------------------------------
- */
+/** Notification settings service helpers for user preferences. */
+
+/** Returns the current user's notification settings. */
 export const getNotificationSettings = async (userId: string) => {
   const user = await UserModel.findById(userId).select("notificationSettings");
 
@@ -25,12 +22,7 @@ export const getNotificationSettings = async (userId: string) => {
   return user.notificationSettings;
 };
 
-/**
- * ------------------------------------------------------------------
- * Update Notification Settings
- * ------------------------------------------------------------------
- * @desc Partial update — only provided fields are changed
- */
+/** Applies a partial update to the current user's notification settings. */
 export const updateNotificationSettings = async (
   userId: string,
   updates: Partial<NotificationSettings>,
@@ -39,12 +31,9 @@ export const updateNotificationSettings = async (
 
   if (!user) throw NotFound("User not found");
 
-  // ── All notifications ─────────────────────────
-
   if (updates.allNotifications !== undefined)
     user.notificationSettings.allNotifications = updates.allNotifications;
 
-  // ── Messages ─────────────────────────
   if (updates.newMessages !== undefined)
     user.notificationSettings.newMessages = updates.newMessages;
 
@@ -54,7 +43,6 @@ export const updateNotificationSettings = async (
   if (updates.replies !== undefined)
     user.notificationSettings.replies = updates.replies;
 
-  // ── Social ───────────────────────────
   if (updates.friendRequests !== undefined)
     user.notificationSettings.friendRequests = updates.friendRequests;
 

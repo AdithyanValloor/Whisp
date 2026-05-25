@@ -9,25 +9,20 @@ import {
 import {
   Unauthorized,
   BadRequest,
-  NotFound,
 } from "../../../utils/errors/httpErrors.js";
-import { UserModel } from "../models/user.model.js";
-import { deleteFile } from "../../s3/s3.service.js";
 import { PROFILE_KEY_REGEX } from "../constants/regex.js";
 
-/**
- * ------------------------------------------------------------------
- * View Current User Profile
- * ------------------------------------------------------------------
- * @desc    Fetches the authenticated user's profile
- * @route   GET /api/profile
- * @access  Private (Requires valid access token)
- *
- * Notes:
- * - Relies on `protect` middleware to attach `req.user`
- * - Does NOT expose sensitive fields (password excluded at service level)
- * - Errors are forwarded to global error handler
- */
+/** Profile controller handlers for authenticated profile actions. */
+
+interface EditProfileBody {
+  displayName?: string;
+  username?: string;
+  pronouns?: string;
+  bio?: string;
+  status?: string;
+}
+
+/** Returns the authenticated user's profile. */
 export const viewProfile = async (
   req: AuthRequest,
   res: Response,
@@ -35,8 +30,6 @@ export const viewProfile = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-
-    // Safety check in case auth middleware is bypassed/misconfigured
     if (!userId) throw Unauthorized();
 
     const profile = await getProfileByUserId(userId);
@@ -47,32 +40,7 @@ export const viewProfile = async (
   }
 };
 
-/**
- * Shape of allowed profile update fields
- * - All fields are optional to allow partial updates
- * - Validation is kept minimal here; business rules live in services
- */
-interface EditProfileBody {
-  displayName?: string;
-  username?: string;
-  pronouns?: string;
-  bio?: string;
-  status?: string;
-}
-
-/**
- * ------------------------------------------------------------------
- * Edit Current User Profile
- * ------------------------------------------------------------------
- * @desc    Updates editable fields of the authenticated user's profile
- * @route   PATCH /api/profile
- * @access  Private (Requires valid access token)
- *
- * Notes:
- * - Only provided fields are updated (PATCH semantics)
- * - Empty body is rejected to prevent no-op updates
- * - Business logic is delegated to service layer
- */
+/** Updates editable profile fields for the authenticated user. */
 export const editProfile = async (
   req: AuthRequest<{}, {}, EditProfileBody>,
   res: Response,
@@ -80,10 +48,8 @@ export const editProfile = async (
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-
     if (!userId) throw Unauthorized();
 
-    // Prevent accidental empty PATCH requests
     if (!Object.keys(req.body).length) {
       throw BadRequest("No fields provided to update");
     }
@@ -96,6 +62,7 @@ export const editProfile = async (
   }
 };
 
+/** Attaches a validated profile picture key to the authenticated user. */
 export const updateProfilePicture = async (
   req: AuthRequest<{}, {}, { key: string }>,
   res: Response,
@@ -114,6 +81,7 @@ export const updateProfilePicture = async (
     if (!PROFILE_KEY_REGEX.test(key) || !key.startsWith(`profile/${userId}/`)) {
       throw Unauthorized();
     }
+
     const updated = await updateProfilePictureByUserId(userId, key);
 
     res.json(updated);
@@ -122,7 +90,7 @@ export const updateProfilePicture = async (
   }
 };
 
-
+/** Returns a signed download URL for the authenticated user's profile picture. */
 export const getProfilePictureDownloadUrl = async (
   req: AuthRequest,
   res: Response,

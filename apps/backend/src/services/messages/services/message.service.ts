@@ -17,11 +17,9 @@ import { UserModel } from "../../user/models/user.model.js";
 import { MessageFile } from "../types/message.types.js";
 import { deleteFile } from "../../s3/s3.service.js";
 
-/**
- * Parses @mention user IDs from content and validates they are group members.
- * Returns only valid memberIds. Silently drops invalid ones.
- * Throws BadRequest if mentions are used in a DM.
- */
+/** Message service helpers for message delivery, search, reactions, and read state. */
+
+/** Resolves valid group mention IDs and rejects mentions in direct chats. */
 const resolveMentions = (
   rawMentionIds: string[] | undefined,
   chat: { isGroup: boolean; members: Types.ObjectId[] },
@@ -32,25 +30,19 @@ const resolveMentions = (
     throw BadRequest("Mentions are only allowed in group chats");
   }
 
-  const memberIdSet = new Set(chat.members.map((m) => m.toString()));
+  const memberIdSet = new Set(chat.members.map((member) => member.toString()));
 
   return rawMentionIds
     .filter((id) => memberIdSet.has(id))
     .map((id) => new mongoose.Types.ObjectId(id));
 };
 
-/** Returns the chat user state for a given user/chat pair, or null if none exists. */
+/** Returns the stored chat state for a user, if one exists. */
 export const getChatUserState = async (userId: string, chatId: string) => {
   return ChatUserStateModel.findOne({ userId, chatId });
 };
 
-/**
- * Returns paginated messages for a chat, sorted newest-first.
- * Respects `clearedAt` — messages before that timestamp are excluded.
- *
- * @throws {Forbidden} If user is not a member of the chat.
- */
-
+/** Returns paginated messages for a chat, respecting per-user clear history. */
 export const getAllMessagesFunction = async (
   chatId: string,
   userId: string,
@@ -69,7 +61,6 @@ export const getAllMessagesFunction = async (
   }
 
   const state = await getChatUserState(userId, chatId);
-
   const skip = (page - 1) * limit;
 
   const filter: FilterQuery<IMessage> = { chat: chatId };
@@ -103,29 +94,23 @@ export const getAllMessagesFunction = async (
   };
 };
 
-/**
- * Returns unread message counts for all chats the user belongs to.
- * Keyed by chatId. Used on app bootstrap and socket reconnect.
- *
- * @throws {Unauthorized} If userId is missing.
- */
-
+/** Returns unread message counts for all chats the user belongs to. */
 export const getUnreadCountsFunction = async (userId: string) => {
   if (!userId) throw Unauthorized();
 
-  // Get all chats the user belongs to
+  // Collect every chat first so unread counts can be keyed by chat ID.
   const userChats = await Chat.find({ members: userId }).select("_id");
-  const chatIds = userChats.map((c) => c._id.toString());
+  const chatIds = userChats.map((chat) => chat._id.toString());
 
   if (chatIds.length === 0) return {};
 
-  // Get existing states (may not exist for new accounts)
+  // New accounts may not have chat state rows yet.
   const states = await ChatUserStateModel.find({
     userId,
     chatId: { $in: chatIds },
   });
 
-  const stateMap = new Map(states.map((s) => [s.chatId.toString(), s]));
+  const stateMap = new Map(states.map((state) => [state.chatId.toString(), state]));
 
   const unreadData: Record<string, number> = {};
 
@@ -148,13 +133,7 @@ export const getUnreadCountsFunction = async (userId: string) => {
   return unreadData;
 };
 
-/**
- * Creates a message in a chat and increments unread counts for all other members.
- * Block checks are enforced for DMs. Socket emissions handled by the controller.
- *
- * @returns Populated message, raw members list, updated unread counts, and extracted URL if any.
- * @throws {Forbidden} If sender is not a member, or a block exists in a DM.
- */
+/** Creates a message, updates unread state, and queues reply or mention notifications. */
 export const sendMessageFunction = async (
   chatId: string,
   content: string,
@@ -178,7 +157,7 @@ export const sendMessageFunction = async (
 
   if (!chat.isGroup) {
     const otherMember = chat.members
-      .map((m) => m.toString())
+      .map((member) => member.toString())
       .find((id) => id !== senderId);
 
     if (otherMember) {
@@ -196,9 +175,7 @@ export const sendMessageFunction = async (
   }
 
   const deliveredTo = chat.members.filter((id) => id.toString() !== senderId);
-
   const firstUrl = content ? extractFirstUrl(content) : null;
-
   const resolvedMentions = resolveMentions(mentionIds, chat);
 
   const message = await Message.create({
@@ -244,7 +221,7 @@ export const sendMessageFunction = async (
     },
   ]);
 
-  // Update unread counts
+  // Persist the latest message pointer before unread counts are recalculated.
   chat.lastMessage = message._id;
   await chat.save();
 
@@ -254,7 +231,7 @@ export const sendMessageFunction = async (
     chat.requestInitiator?.toString() === senderId
   ) {
     const toUserId = chat.members
-      .map((m) => m.toString())
+      .map((member) => member.toString())
       .find((id) => id !== senderId);
 
     if (toUserId) {
@@ -281,7 +258,7 @@ export const sendMessageFunction = async (
     }
   }
 
-  const memberIds = chat.members.map((m) => m.toString());
+  const memberIds = chat.members.map((member) => member.toString());
 
   await Promise.all(
     [...uniqueMentions]
@@ -302,8 +279,7 @@ export const sendMessageFunction = async (
     userId: { $in: memberIds },
   });
 
-  const stateMap = new Map(states.map((s) => [s.userId.toString(), s]));
-
+  const stateMap = new Map(states.map((state) => [state.userId.toString(), state]));
   const unreadCounts: Record<string, number> = {};
 
   for (const member of memberIds) {
@@ -326,21 +302,13 @@ export const sendMessageFunction = async (
     populated,
     messageId: message._id.toString(),
     firstUrl,
-    chatMembers: chat.members.map((m) => m.toString()),
+    chatMembers: chat.members.map((member) => member.toString()),
     unreadCounts,
     mentionedUserIds: resolvedMentions.map((id) => id.toString()),
   };
 };
 
-/**
- * Duplicates a message into one or more target chats.
- * Silently skips chats where the sender is not a member or a block exists.
- * Socket emissions handled by the controller.
- *
- * @returns Array of results per chat — populated message, members, and unread counts.
- * @throws {Forbidden} If sender is not a member of the origin chat.
- */
-
+/** Forwards a message into target chats the sender can still access. */
 export const forwardMessageFunction = async (
   messageId: string,
   targetChatIds: string[],
@@ -348,11 +316,11 @@ export const forwardMessageFunction = async (
 ) => {
   if (!senderId) throw Unauthorized();
   if (!messageId) throw BadRequest("MessageId is required");
-  if (!targetChatIds || targetChatIds.length === 0)
+  if (!targetChatIds || targetChatIds.length === 0) {
     throw BadRequest("At least one target chat is required");
+  }
 
   const original = await Message.findById(messageId);
-
   if (!original) throw NotFound("Original message not found");
 
   const originChat = await Chat.findOne({
@@ -371,7 +339,7 @@ export const forwardMessageFunction = async (
     if (!chat) continue;
 
     if (!chat.isGroup) {
-      const otherMember = chat.members.find((m) => m.toString() !== senderId);
+      const otherMember = chat.members.find((member) => member.toString() !== senderId);
 
       if (otherMember) {
         const blockExists = await BlockModel.findOne({
@@ -400,7 +368,6 @@ export const forwardMessageFunction = async (
     });
 
     chat.lastMessage = forwardedMessage._id;
-
     await chat.save();
 
     const populated = await forwardedMessage.populate([
@@ -415,15 +382,14 @@ export const forwardMessageFunction = async (
       },
     ]);
 
-    const memberIds = chat.members.map((m) => m.toString());
+    const memberIds = chat.members.map((member) => member.toString());
 
     const states = await ChatUserStateModel.find({
       chatId,
       userId: { $in: memberIds },
     });
 
-    const stateMap = new Map(states.map((s) => [s.userId.toString(), s]));
-
+    const stateMap = new Map(states.map((state) => [state.userId.toString(), state]));
     const unreadCounts: Record<string, number> = {};
 
     for (const member of memberIds) {
@@ -445,7 +411,7 @@ export const forwardMessageFunction = async (
     results.push({
       chatId,
       message: populated,
-      chatMembers: chat.members.map((m) => m.toString()),
+      chatMembers: chat.members.map((member) => member.toString()),
       unreadCounts,
     });
   }
@@ -453,13 +419,7 @@ export const forwardMessageFunction = async (
   return results;
 };
 
-/**
- * Toggles a reaction on a message. Same emoji removes it; different emoji replaces it.
- * Block checks are enforced for DMs. Socket emissions handled by the controller.
- *
- * @returns Populated message with updated reactions and the chatId.
- * @throws {Forbidden} If a block exists in a DM.
- */
+/** Toggles a user's reaction on a message and returns the updated payload. */
 export const toggleReactionFunction = async (
   messageId: string,
   userId: string,
@@ -474,9 +434,9 @@ export const toggleReactionFunction = async (
   const chat = await Chat.findById(message.chat);
   if (!chat) throw Forbidden("Chat does not exist");
 
-  if (!chat?.isGroup) {
+  if (!chat.isGroup) {
     const otherMember = chat.members
-      .map((m) => m.toString())
+      .map((member) => member.toString())
       .find((id) => id !== userId);
 
     if (otherMember) {
@@ -494,7 +454,7 @@ export const toggleReactionFunction = async (
   }
 
   const existingReactionIndex = message.reactions.findIndex(
-    (r) => r.user.toString() === userId,
+    (reaction) => reaction.user.toString() === userId,
   );
 
   if (existingReactionIndex !== -1) {
@@ -525,12 +485,7 @@ export const toggleReactionFunction = async (
   };
 };
 
-/**
- * Resets the unread count for a user in a given chat.
- * Socket emissions handled by the controller.
- *
- * @throws {NotFound} If the chat does not exist.
- */
+/** Marks a chat as read for a user by advancing their read boundary. */
 export const markChatAsReadFunction = async (
   userId: string,
   chatId: string,
@@ -561,13 +516,7 @@ export const markChatAsReadFunction = async (
   return { unreadCount: 0 };
 };
 
-/**
- * Marks all unread messages in a chat as seen by the user and resets their unread count.
- * Also removes the user from `deliveredTo` on those messages.
- * Socket emissions handled by the controller.
- *
- * @returns `{ success: true, modifiedCount }`.
- */
+/** Marks incoming messages as seen, honoring the user's read receipt preference. */
 export const markMessagesAsSeenFunction = async (
   userId: string,
   chatId: string,
@@ -578,7 +527,7 @@ export const markMessagesAsSeenFunction = async (
   const chat = await Chat.findOne({ _id: chatId, members: userId });
   if (!chat) throw Forbidden("Not allowed");
 
-  // Check the user's read receipt privacy setting
+  // Read receipt privacy only affects outward seen status, not unread tracking.
   const user = await UserModel.findById(userId).select("privacy");
   const readReceiptsEnabled = user?.privacy?.readReceipts ?? true;
 
@@ -590,7 +539,7 @@ export const markMessagesAsSeenFunction = async (
     .sort({ createdAt: -1 })
     .select("createdAt");
 
-  // Always update lastReadAt for unread count tracking — this is internal
+  // Always advance lastReadAt so unread counts clear consistently.
   if (latestIncomingMessage) {
     await ChatUserStateModel.findOneAndUpdate(
       { userId, chatId },
@@ -599,8 +548,7 @@ export const markMessagesAsSeenFunction = async (
     );
   }
 
-  // Only write seenBy and pull deliveredTo if read receipts are on
-  // If off — others won't see the "seen" status, but unread counts still clear
+  // When read receipts are off, keep seen state private but still clear unread counts.
   if (readReceiptsEnabled) {
     await Message.updateMany(
       { chat: chatId, sender: { $ne: userId }, seenBy: { $ne: userId } },
@@ -619,22 +567,14 @@ export const markMessagesAsSeenFunction = async (
     seenBy: { $ne: userId },
   });
 
-  // Return whether receipts are enabled so the controller
-  // knows whether to emit the seen socket event to others
   return {
     success: true,
     modifiedCount: updated,
-    emitSeen: readReceiptsEnabled, // ← controller uses this
+    emitSeen: readReceiptsEnabled,
   };
 };
 
-/**
- * Updates message content in-place and sets `edited = true`.
- * Only the original sender may edit. Socket emissions handled by the controller.
- *
- * @returns Populated message and chatId.
- * @throws {Forbidden} If the requester is not the sender.
- */
+/** Updates a message in place and marks it as edited. */
 export const editMessageFunction = async (
   messageId: string,
   newContent: string,
@@ -662,13 +602,7 @@ export const editMessageFunction = async (
   };
 };
 
-/**
- * Soft-deletes a message: replaces content with a placeholder and clears all metadata.
- * The document is retained for audit purposes. Socket emissions handled by the controller.
- *
- * @returns Populated message and chatId.
- * @throws {Forbidden} If the requester is not the sender.
- */
+/** Soft-deletes a message while keeping the document for history and audit needs. */
 export const deleteMessageFunction = async (
   messageId: string,
   userId: string,
@@ -708,14 +642,7 @@ export const deleteMessageFunction = async (
   };
 };
 
-/**
- * Searches messages in a chat by text and/or date.
- * Text search is scored via MongoDB `$text`; date filters to a full calendar day.
- * Respects `clearedAt`. Results are paginated.
- *
- * @returns Paginated messages with `hasMore` flag.
- * @throws {Forbidden} If user is not a member of the chat.
- */
+/** Searches messages within a chat using text and optional day-based filtering. */
 export const searchMessagesFunction = async (
   chatId: string,
   userId: string,
@@ -794,14 +721,7 @@ export const searchMessagesFunction = async (
   };
 };
 
-/**
- * Fetches a target message plus up to `limit` messages before and after it.
- * Used for jump-to-message from search results, reply clicks, and deep links.
- * Respects `clearedAt` — throws if the target itself is before that boundary.
- *
- * @returns `{ target, before, after }` — `before` is in ascending order.
- * @throws {Forbidden} If user is not a member or the message is before `clearedAt`.
- */
+/** Returns a target message with surrounding context for jumps and deep links. */
 export const getMessageContextFunction = async (
   messageId: string,
   userId: string,
@@ -865,15 +785,7 @@ export const getMessageContextFunction = async (
   return { target, before: before.reverse(), after };
 };
 
-/**
- * Fetches messages created after a given timestamp in a chat.
- * Used for incremental loading when the user scrolls to recent messages.
- * Respects `clearedAt`.
- *
- * @param after - ISO timestamp string acting as the lower bound (exclusive).
- * @returns Messages in ascending order and a `hasMore` flag.
- * @throws {Forbidden} If user is not a member of the chat.
- */
+/** Returns messages newer than a given timestamp for incremental chat loading. */
 export const getNewerMessagesFunction = async (
   chatId: string,
   after: string,
@@ -918,10 +830,7 @@ export const getNewerMessagesFunction = async (
   return { messages, hasMore };
 };
 
-/**
- * Searches messages across all chats the user is a member of.
- * Respects clearedAt per chat. Returns top results grouped by chat.
- */
+/** Searches messages across all chats the user can still access. */
 export const globalSearchMessagesFunction = async (
   userId: string,
   query: string,
@@ -930,24 +839,24 @@ export const globalSearchMessagesFunction = async (
   if (!userId) throw Unauthorized();
   if (!query?.trim()) throw BadRequest("Query is required");
 
-  // Get all chats user belongs to
+  // Build per-chat visibility rules so cleared history stays excluded.
   const userChats = await Chat.find({ members: userId }).select("_id");
-  const chatIds = userChats.map((c) => c._id);
+  const chatIds = userChats.map((chat) => chat._id);
 
-  // Get all user states to respect clearedAt per chat
   const states = await ChatUserStateModel.find({
     userId,
     chatId: { $in: chatIds },
   });
-  const stateMap = new Map(states.map((s) => [s.chatId.toString(), s]));
+  const stateMap = new Map(states.map((state) => [state.chatId.toString(), state]));
 
-  // Build per-chat clearedAt exclusion conditions
   const chatConditions = chatIds.map((chatId) => {
     const state = stateMap.get(chatId.toString());
     const condition: FilterQuery<IMessage> = { chat: chatId };
+
     if (state?.clearedAt) {
       condition.createdAt = { $gt: state.clearedAt };
     }
+
     return condition;
   });
 

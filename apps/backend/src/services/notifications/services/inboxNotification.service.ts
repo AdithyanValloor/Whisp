@@ -6,6 +6,9 @@ import {
   InboxNotificationSocketPayload,
 } from "../types/notification.socket.js";
 
+/** Inbox notification helpers for creation, read state, and inbox retrieval. */
+
+/** Creates an inbox notification, emits it over sockets, and returns its DTO. */
 export const createInboxNotification = async ({
   userId,
   actorId,
@@ -37,7 +40,7 @@ export const createInboxNotification = async ({
     { path: "actor", select: "username displayName profilePicture" },
     { path: "chat", select: "chatName isGroup" },
     { path: "message", select: "content chat" },
-    { path: "group", select: "chatName isGroup" }
+    { path: "group", select: "chatName isGroup" },
   ]);
 
   const obj = populated.toObject() as unknown as InboxNotificationDTO;
@@ -52,7 +55,9 @@ export const createInboxNotification = async ({
     message: obj.message
       ? { ...obj.message, _id: obj.message._id.toString() }
       : undefined,
-      group: obj.group ? { ...obj.group, _id: obj.group._id.toString() } : undefined,
+    group: obj.group
+      ? { ...obj.group, _id: obj.group._id.toString() }
+      : undefined,
   };
 
   const payload: InboxNotificationSocketPayload = {
@@ -65,6 +70,7 @@ export const createInboxNotification = async ({
   return dto;
 };
 
+/** Returns the unread inbox notification count for a user. */
 export const getUnreadNotificationCount = async (userId: string) => {
   const count = await InboxNotificationModel.countDocuments({
     user: userId,
@@ -74,6 +80,7 @@ export const getUnreadNotificationCount = async (userId: string) => {
   return { unreadCount: count };
 };
 
+/** Marks every unread inbox notification as read for a user. */
 export const markAllNotificationsRead = async (userId: string) => {
   await InboxNotificationModel.updateMany(
     { user: userId, read: false },
@@ -83,6 +90,7 @@ export const markAllNotificationsRead = async (userId: string) => {
   return { success: true };
 };
 
+/** Returns paginated inbox notifications along with unread counts. */
 export const getInboxNotifications = async (
   userId: string,
   page: number = 1,
@@ -99,7 +107,7 @@ export const getInboxNotifications = async (
     .populate("actor", "username displayName profilePicture")
     .populate("chat", "chatName isGroup")
     .populate("group", "chatName isGroup")
-    .populate("message", "content chat",);
+    .populate("message", "content chat");
 
   const total = await InboxNotificationModel.countDocuments({
     user: userId,
@@ -118,6 +126,7 @@ export const getInboxNotifications = async (
   };
 };
 
+/** Marks a single notification as read for its owner. */
 export const markNotificationRead = async (
   notificationId: string,
   userId: string,
@@ -133,8 +142,9 @@ export const markNotificationRead = async (
   return notification;
 };
 
+/** Deletes the notification associated with a friend request, if present. */
 export const deleteNotificationByFriendRequest = async (
-  friendRequestId: string
+  friendRequestId: string,
 ) => {
   const notification = await InboxNotificationModel.findOneAndDelete({
     friendRequest: friendRequestId,
@@ -148,6 +158,7 @@ export const deleteNotificationByFriendRequest = async (
   };
 };
 
+/** Deletes a single notification belonging to a user. */
 export const deleteNotification = async (
   notificationId: string,
   userId: string,
@@ -165,9 +176,10 @@ export const deleteNotification = async (
   };
 };
 
+/** Marks unread mention notifications as read for a specific chat. */
 export const markMentionsReadForChat = async (
   userId: string,
-  chatId: string
+  chatId: string,
 ) => {
   await InboxNotificationModel.updateMany(
     {
@@ -178,7 +190,7 @@ export const markMentionsReadForChat = async (
     },
     {
       $set: { read: true },
-    }
+    },
   );
 
   return { success: true };

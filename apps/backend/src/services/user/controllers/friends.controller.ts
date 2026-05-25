@@ -22,18 +22,13 @@ import {
   emitFriendRequestSent,
 } from "../../../socket/emitters/friend.emitter.js";
 
-/**
- * ------------------------------------------------------------------
- * Fetch Friend List
- * ------------------------------------------------------------------
- * @desc    Retrieves the authenticated user's friend list
- * @route   GET /api/friends
- * @access  Private
- */
+/** Friend controller handlers for authenticated friendship actions. */
+
+/** Returns the current user's friend list. */
 export const getAllFriends = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -50,22 +45,11 @@ export const getAllFriends = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Send Friend Request
- * ------------------------------------------------------------------
- * @desc    Sends a friend request to another user by username
- * @route   POST /api/friends
- * @access  Private
- *
- * Emits:
- * - `friend_request_received` to recipient
- * - `friend_request_sent` to sender
- */
+/** Sends a friend request by username and emits request events to both users. */
 export const addFriend = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { username }: { username?: string } = req.body;
@@ -76,7 +60,7 @@ export const addFriend = async (
 
     const { request, payload, toUserId } = await sendFriendRequest(
       userId,
-      username
+      username,
     );
 
     emitFriendRequestReceived(toUserId, payload);
@@ -91,18 +75,11 @@ export const addFriend = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Fetch Incoming & Outgoing Friend Requests
- * ------------------------------------------------------------------
- * @desc    Retrieves all pending friend requests
- * @route   GET /api/friends/requests
- * @access  Private
- */
+/** Returns incoming and outgoing pending friend requests. */
 export const getAllRequests = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -120,21 +97,11 @@ export const getAllRequests = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Accept Friend Request
- * ------------------------------------------------------------------
- * @desc    Accepts a pending friend request
- * @route   POST /api/friends/accept
- * @access  Private
- *
- * Emits:
- * - `friend_request_accepted` to both sender and recipient
- */
+/** Accepts a friend request and emits the accepted state to both users. */
 export const acceptReq = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { id }: { id?: string } = req.body;
@@ -158,21 +125,11 @@ export const acceptReq = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Reject Friend Request
- * ------------------------------------------------------------------
- * @desc    Rejects a pending friend request
- * @route   POST /api/friends/reject
- * @access  Private
- *
- * Emits:
- * - `friend_request_rejected` to sender
- */
+/** Rejects a friend request and notifies the original sender. */
 export const rejectReq = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { id }: { id?: string } = req.body;
@@ -183,7 +140,7 @@ export const rejectReq = async (
 
     const { request, fromUserId, requestId } = await rejectFriendRequest(
       id,
-      userId
+      userId,
     );
 
     emitFriendRequestRejected(fromUserId, requestId);
@@ -197,21 +154,11 @@ export const rejectReq = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Remove Friend
- * ------------------------------------------------------------------
- * @desc    Removes an existing friend relationship
- * @route   DELETE /api/friends
- * @access  Private
- *
- * Emits:
- * - `friend_removed` to both users
- */
+/** Removes a friend relationship and emits the removal to both users. */
 export const removeFriend = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { id }: { id?: string } = req.body;
@@ -233,21 +180,11 @@ export const removeFriend = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Cancel Sent Friend Request
- * ------------------------------------------------------------------
- * @desc    Cancels a previously sent friend request
- * @route   POST /api/friends/cancel
- * @access  Private
- *
- * Emits:
- * - `friend_request_cancelled` to recipient
- */
+/** Cancels a sent friend request and notifies the original recipient. */
 export const cancelReq = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { id }: { id?: string } = req.body;

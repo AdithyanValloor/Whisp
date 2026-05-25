@@ -16,7 +16,6 @@ import { handleChatError } from "../errors/chatErrors.js";
 import { AuthRequest } from "../../user/types/authRequest.js";
 import {
   BadRequest,
-  NotFound,
   Unauthorized,
 } from "../../../utils/errors/httpErrors.js";
 import {
@@ -30,20 +29,10 @@ import {
   emitOwnershipTransferred,
 } from "../../../socket/emitters/group.emitter.js";
 import { GROUP_KEY_REGEX } from "../../user/constants/regex.js";
-import { generateDownloadUrl } from "../../s3/s3.service.js";
-import { Chat } from "../models/chat.model.js";
 
-/**
- * ------------------------------------------------------------------
- * Create Group Chat
- * ------------------------------------------------------------------
- * @desc    Creates a new group chat with the provided members
- * @route   POST /api/group
- * @access  Private (Authenticated users only)
- *
- * Emits:
- * - `group_created` to each member individually
- */
+/** Group chat controller handlers for authenticated group actions. */
+
+/** Creates a new group chat and emits it to all initial members. */
 export const createGroupChat = async (
   req: AuthRequest,
   res: Response,
@@ -53,6 +42,7 @@ export const createGroupChat = async (
     const currentUserId = req.user?.id;
 
     if (!currentUserId) throw Unauthorized();
+
     if (!name || !Array.isArray(userIds) || userIds.length === 0) {
       throw BadRequest("Group name and member list are required");
     }
@@ -74,14 +64,7 @@ export const createGroupChat = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Get Group By ID
- * ------------------------------------------------------------------
- * @desc    Fetch a single group chat by ID
- * @route   GET /api/group/:id
- * @access  Private (Group members only)
- */
+/** Returns a single group chat visible to the current user. */
 export const getGroupById = async (
   req: AuthRequest,
   res: Response,
@@ -101,18 +84,7 @@ export const getGroupById = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Add Members to Group
- * ------------------------------------------------------------------
- * @desc    Adds new members to an existing group chat
- * @route   POST /api/group/members
- * @access  Private (Admins only)
- *
- * Emits:
- * - `members_added` to the group room
- * - `added_to_group` to each newly added member individually
- */
+/** Adds new members to a group chat and emits membership updates. */
 export const addMembers = async (
   req: AuthRequest,
   res: Response,
@@ -123,6 +95,7 @@ export const addMembers = async (
     const userId = req.user?.id;
 
     if (!userId) throw Unauthorized();
+
     if (!chatId || !Array.isArray(members) || members.length === 0) {
       throw BadRequest("Chat ID and members array are required");
     }
@@ -144,18 +117,7 @@ export const addMembers = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Remove Member from Group
- * ------------------------------------------------------------------
- * @desc    Removes a member from a group chat
- * @route   DELETE /api/group/members
- * @access  Private (Admins only)
- *
- * Emits:
- * - `member_removed` to the group room
- * - `removed_from_group` to the removed user
- */
+/** Removes a member from a group chat and broadcasts the updated group state. */
 export const removeMembers = async (
   req: AuthRequest,
   res: Response,
@@ -165,6 +127,7 @@ export const removeMembers = async (
     const userId = req.user?.id;
 
     if (!userId) throw Unauthorized();
+
     if (!chatId || !member) {
       throw BadRequest("Chat ID and member ID are required");
     }
@@ -177,7 +140,7 @@ export const removeMembers = async (
 
     emitMemberRemoved(chatId, removedMemberId);
 
-    // Broadcast updated group data to remaining members
+    // Remaining members still need the updated group payload.
     emitGroupUpdated(chatId, group);
 
     res.status(200).json({
@@ -189,17 +152,7 @@ export const removeMembers = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Toggle Admin Role
- * ------------------------------------------------------------------
- * @desc    Promotes or demotes a member as group admin
- * @route   PATCH /api/group/admin
- * @access  Private (Group creator only)
- *
- * Emits:
- * - `admin_toggled` to the group room
- */
+/** Promotes or demotes a group member's admin role. */
 export const toggleAdmin = async (
   req: AuthRequest,
   res: Response,
@@ -214,6 +167,7 @@ export const toggleAdmin = async (
     const userId = req.user?.id;
 
     if (!userId) throw Unauthorized();
+
     if (!chatId || !member || typeof makeAdmin !== "boolean") {
       throw BadRequest("Invalid admin toggle payload");
     }
@@ -236,18 +190,7 @@ export const toggleAdmin = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Leave Group
- * ------------------------------------------------------------------
- * @desc    Allows a user to leave a group chat
- * @route   POST /api/group/leave
- * @access  Private (Group members only)
- *
- * Emits:
- * - `group_deleted` to all members individually  (if group was deleted)
- * - `member_left` to group room + leaver         (if normal leave)
- */
+/** Removes the current user from a group or deletes it if they are the last owner. */
 export const leaveGroup = async (
   req: AuthRequest,
   res: Response,
@@ -276,17 +219,7 @@ export const leaveGroup = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Delete Group
- * ------------------------------------------------------------------
- * @desc    Allows creator to delete a group chat
- * @route   POST /api/group/delete
- * @access  Private (Owner only)
- *
- * Emits:
- * - `group_deleted` to all members individually
- */
+/** Deletes a group chat and emits removal to all affected members. */
 export const deleteGroup = async (
   req: AuthRequest,
   res: Response,
@@ -313,17 +246,7 @@ export const deleteGroup = async (
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Transfer Ownership
- * ------------------------------------------------------------------
- * @desc    Allows group creator to transfer ownership to another member
- * @route   PATCH /api/group/transfer-ownership
- * @access  Private (Owner only)
- *
- * Emits:
- * - `ownership_transferred` to the group room
- */
+/** Transfers group ownership to another eligible member. */
 export const transferOwnership = async (
   req: AuthRequest,
   res: Response,
@@ -331,10 +254,10 @@ export const transferOwnership = async (
   try {
     const { chatId, newOwnerId }: { chatId?: string; newOwnerId?: string } =
       req.body;
-
     const userId = req.user?.id;
 
     if (!userId) throw Unauthorized();
+
     if (!chatId || !newOwnerId) {
       throw BadRequest("Chat ID and new owner ID are required");
     }
@@ -353,6 +276,7 @@ export const transferOwnership = async (
   }
 };
 
+/** Updates a group's avatar after validating the uploaded storage key. */
 export const updateGroupAvatar = async (
   req: AuthRequest<{}, {}, { chatId: string; key: string }>,
   res: Response,
@@ -368,6 +292,7 @@ export const updateGroupAvatar = async (
       throw BadRequest("chatId and key required");
     }
 
+    // Enforce the expected group avatar key pattern before touching storage.
     if (!GROUP_KEY_REGEX.test(key) || !key.startsWith(`group/${chatId}/`)) {
       throw Unauthorized();
     }
@@ -380,6 +305,7 @@ export const updateGroupAvatar = async (
   }
 };
 
+/** Returns a temporary download URL for the current group's avatar. */
 export const getAvatarDownloadUrl = async (
   req: AuthRequest,
   res: Response,
@@ -400,11 +326,11 @@ export const getAvatarDownloadUrl = async (
   }
 };
 
-
+/** Renames a group chat for members who can manage it. */
 export const editName = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -412,11 +338,7 @@ export const editName = async (
 
     const { chatId, newName } = req.body;
 
-    const updatedChat = await editGroupNameService(
-      userId,
-      chatId,
-      newName
-    );
+    const updatedChat = await editGroupNameService(userId, chatId, newName);
 
     res.status(200).json({
       success: true,

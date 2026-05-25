@@ -1,5 +1,3 @@
-// user/controllers/user.controller.ts
-
 import { Request, Response, NextFunction } from "express";
 import { BadRequest, Unauthorized } from "../../../utils/errors/httpErrors.js";
 import { UserModel } from "../models/user.model.js";
@@ -13,7 +11,7 @@ import {
   refreshTokenFunction,
 } from "../../auth/auth.service.js";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+/** Auth and account bootstrap controller handlers for user onboarding and sessions. */
 
 interface RegisterBody {
   displayName?: string;
@@ -27,54 +25,45 @@ interface LoginBody {
   password?: string;
 }
 
-// ── OTP ───────────────────────────────────────────────────────────────────────
-
-/**
- * @route  POST /api/user/send-otp
- * @access Public
- */
+/** Sends a registration OTP to the provided email address. */
 export const sendOtp = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { email } = req.body;
+
     await sendRegistrationOtp(email);
-    res.status(200).json({ message: "OTP sent to " + email });
+
+    res.status(200).json({ message: `OTP sent to ${email}` });
   } catch (err) {
     next(err);
   }
 };
 
-/**
- * @route  POST /api/user/verify-otp
- * @access Public
- */
+/** Verifies a registration OTP for the provided email address. */
 export const verifyOtp = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { email, otp } = req.body;
+
     await verifyRegistrationOtp(email, otp);
+
     res.status(200).json({ message: "Email verified" });
   } catch (err) {
     next(err);
   }
 };
 
-// ── Register ──────────────────────────────────────────────────────────────────
-
-/**
- * @route  POST /api/user/register
- * @access Public
- */
+/** Registers a new user and sets access and refresh cookies. */
 export const register = async (
   req: Request<{}, {}, RegisterBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { displayName, username, email, password } = req.body;
@@ -87,7 +76,7 @@ export const register = async (
       displayName,
       username,
       email,
-      password
+      password,
     );
 
     res.cookie("accessToken", accessToken, {
@@ -105,16 +94,11 @@ export const register = async (
   }
 };
 
-// ── Login ─────────────────────────────────────────────────────────────────────
-
-/**
- * @route  POST /api/user/login
- * @access Public
- */
+/** Logs a user in and refreshes their auth cookies. */
 export const login = async (
   req: Request<{}, {}, LoginBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { email, password } = req.body;
@@ -125,7 +109,7 @@ export const login = async (
 
     const { accessToken, refreshToken, safeUser } = await loginUser(
       email,
-      password
+      password,
     );
 
     res.cookie("accessToken", accessToken, {
@@ -143,28 +127,18 @@ export const login = async (
   }
 };
 
-// ── Logout ────────────────────────────────────────────────────────────────────
-
-/**
- * @route  POST /api/user/logout
- * @access Public
- */
+/** Clears the active auth cookies for the current session. */
 export const logout = (_req: Request, res: Response) => {
   res.clearCookie("refreshToken", authCookieOptions);
   res.clearCookie("accessToken", authCookieOptions);
   res.status(200).json({ message: "Logged out successfully" });
 };
 
-// ── Refresh Token ─────────────────────────────────────────────────────────────
-
-/**
- * @route  POST /api/user/refresh
- * @access Public (cookie-authenticated)
- */
+/** Exchanges a refresh token cookie for a new access token. */
 export const refreshToken = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const token = req.cookies?.refreshToken;
@@ -181,16 +155,11 @@ export const refreshToken = async (
   }
 };
 
-// ── Current User ──────────────────────────────────────────────────────────────
-
-/**
- * @route  GET /api/user/me
- * @access Protected
- */
+/** Returns the currently authenticated user. */
 export const currentUser = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user?.id;
@@ -200,27 +169,26 @@ export const currentUser = async (
     const user = await UserModel.findById(userId).select("-password");
     if (!user) throw Unauthorized("User no longer exists");
 
-    res.status(200).json({ message: "Current user fetched successfully", user });
+    res.status(200).json({
+      message: "Current user fetched successfully",
+      user,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-// ── Check Password ────────────────────────────────────────────────────────────
-
-/**
- * @route  POST /api/user/account/check-password
- * @access Protected
- */
+/** Checks whether the provided password matches the current user's password. */
 export const checkPasswordController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
-    const { password } = req.body;
+    if (!userId) throw Unauthorized();
 
+    const { password } = req.body;
     const { isMatch } = await checkPassword(userId, password);
 
     res.status(200).json({ success: true, isMatch });

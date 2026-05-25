@@ -8,11 +8,7 @@ import bcrypt from "bcrypt";
 import { deleteFile, generateDownloadUrl } from "../../s3/s3.service.js";
 import { PROFILE_KEY_REGEX } from "../constants/regex.js";
 
-/**
- * Input type for profile updates
- * - Explicit typing prevents accidental mass assignment
- * - Keeps update logic controlled and auditable
- */
+/** Input shape for allowed profile field updates. */
 interface UpdateProfileInput {
   displayName?: string;
   username?: string;
@@ -21,19 +17,9 @@ interface UpdateProfileInput {
   status?: string;
 }
 
-/**
- * ------------------------------------------------------------------
- * Get Profile By User ID
- * ------------------------------------------------------------------
- * @desc    Fetches a user's profile by their userId
- *
- * @param   userId - Authenticated user's ID
- *
- * @throws  Unauthorized - If userId is missing
- * @throws  NotFound     - If user does not exist
- *
- * @returns User profile document (password excluded)
- */
+/** User profile service helpers for account-facing profile operations. */
+
+/** Returns the authenticated user's profile without the password field. */
 export const getProfileByUserId = async (userId: string) => {
   if (!userId) {
     throw Unauthorized("No user info found");
@@ -48,26 +34,10 @@ export const getProfileByUserId = async (userId: string) => {
   return profile;
 };
 
-/**
- * ------------------------------------------------------------------
- * Update Profile By User ID
- * ------------------------------------------------------------------
- * @desc    Updates editable profile fields for a user
- *
- * @param   userId  - Authenticated user's ID
- * @param   updates - Partial profile fields to update
- *
- * @throws  NotFound - If user does not exist
- *
- * @returns Updated user profile
- *
- * Notes:
- * - Explicit field assignment avoids accidental overwrites
- * - Validation rules (length, uniqueness, etc.) can be added here later
- */
+/** Updates only the editable profile fields provided by the caller. */
 export const updateProfileByUserId = async (
   userId: string,
-  updates: UpdateProfileInput
+  updates: UpdateProfileInput,
 ) => {
   const profile = await UserModel.findById(userId);
 
@@ -75,7 +45,7 @@ export const updateProfileByUserId = async (
     throw NotFound("User not found");
   }
 
-  // Apply only provided fields (safe partial update)
+  // Apply only provided fields to avoid accidental overwrites.
   if (updates.displayName !== undefined)
     profile.displayName = updates.displayName;
 
@@ -96,21 +66,7 @@ export const updateProfileByUserId = async (
   return profile;
 };
 
-/**
- * ------------------------------------------------------------------
- * Check Password
- * ------------------------------------------------------------------
- * @desc    Verifies the user's current password without making any changes.
- *          Used for sensitive action gates (e.g. account deletion confirm).
- *
- * @param   userId   - Authenticated user's ID
- * @param   password - Plaintext password to verify
- *
- * @throws  Unauthorized - If password is wrong
- * @throws  NotFound     - If user does not exist
- *
- * @returns void
- */
+/** Verifies whether a provided password matches the stored hash. */
 export const checkPassword = async (userId: string, password: string) => {
   const user = await UserModel.findById(userId).select("+password");
 
@@ -121,9 +77,10 @@ export const checkPassword = async (userId: string, password: string) => {
   return { isMatch };
 };
 
+/** Replaces the current profile picture and returns its download metadata. */
 export const updateProfilePictureByUserId = async (
   userId: string,
-  key: string
+  key: string,
 ) => {
   const user = await UserModel.findById(userId);
 
@@ -147,6 +104,7 @@ export const updateProfilePictureByUserId = async (
   };
 };
 
+/** Returns a temporary download URL for a validated profile picture key. */
 export const getProfilePictureDownloadUrlService = async (
   userId: string,
   key: string,

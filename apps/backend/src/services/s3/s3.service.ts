@@ -1,7 +1,14 @@
-import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, CopyObjectCommand } from "@aws-sdk/client-s3";
+import {
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  CopyObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { v4 as uuid } from "uuid";
 import { s3, BUCKET_NAME } from "../../config/s3.js";
+
+/** S3 helpers for generating signed URLs and moving stored assets. */
 
 const MIME_TO_EXT: Record<string, string> = {
   "image/png": ".png",
@@ -18,6 +25,7 @@ type UploadContext =
   | { type: "group"; groupId: string }
   | { type: "group-temp"; userId: string };
 
+/** Returns a signed upload URL and storage key for the requested asset context. */
 export const generateUploadUrl = async (
   context: UploadContext,
   fileType: string,
@@ -27,7 +35,7 @@ export const generateUploadUrl = async (
   if (!ext) throw new Error(`Unsupported file type: ${fileType}`);
 
   let key: string;
-  
+
   switch (context.type) {
     case "chat":
       key = `chat/${context.chatId}/${uuid()}${ext}`;
@@ -56,6 +64,7 @@ export const generateUploadUrl = async (
   return { uploadUrl, key };
 };
 
+/** Returns a signed download URL for an existing object key. */
 export const generateDownloadUrl = async (key: string) => {
   const command = new GetObjectCommand({
     Bucket: BUCKET_NAME,
@@ -69,6 +78,7 @@ export const generateDownloadUrl = async (key: string) => {
   return url;
 };
 
+/** Deletes an object from the configured S3 bucket. */
 export const deleteFile = async (key: string) => {
   const command = new DeleteObjectCommand({
     Bucket: BUCKET_NAME,
@@ -80,12 +90,13 @@ export const deleteFile = async (key: string) => {
   return true;
 };
 
+/** Copies an object within the configured bucket to a new key. */
 export const copyFile = async (fromKey: string, toKey: string) => {
   await s3.send(
     new CopyObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME!,
       CopySource: `${process.env.AWS_BUCKET_NAME}/${fromKey}`,
       Key: toKey,
-    })
+    }),
   );
 };

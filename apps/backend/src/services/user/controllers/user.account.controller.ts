@@ -1,9 +1,8 @@
-//user.account.controller.ts
-
-import { Request, Response, NextFunction } from "express";
+import { Response, NextFunction } from "express";
+import { AuthRequest } from "../types/authRequest.js";
+import { Unauthorized } from "../../../utils/errors/httpErrors.js";
 import {
   updateUsername,
-  updateEmail,
   changePassword,
   deactivateAccount,
   scheduleAccountDeletion,
@@ -12,23 +11,19 @@ import {
   verifyAndUpdateEmail,
 } from "../services/user.account.service.js";
 
-/**
- * ------------------------------------------------------------------
- * Update Username
- * ------------------------------------------------------------------
- * PATCH /api/users/me/username
- *
- * Body: { username: string }
- */
+/** User account controller handlers for authenticated account management actions. */
+
+/** Updates the authenticated user's username. */
 export const updateUsernameController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = req.user!.id;
-    const { username } = req.body;
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
+    const { username } = req.body;
     const updatedUser = await updateUsername(userId, username);
 
     res.status(200).json({
@@ -36,26 +31,21 @@ export const updateUsernameController = async (
       message: "Username updated successfully",
       data: updatedUser,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Change Password
- * ------------------------------------------------------------------
- * PATCH /api/users/me/password
- *
- * Body: { currentPassword: string; newPassword: string }
- */
+/** Changes the authenticated user's password. */
 export const changePasswordController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
     const { currentPassword, newPassword } = req.body;
 
     await changePassword(userId, currentPassword, newPassword);
@@ -64,26 +54,20 @@ export const changePasswordController = async (
       success: true,
       message: "Password changed successfully",
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Deactivate Account
- * ------------------------------------------------------------------
- * PATCH /api/users/me/deactivate
- *
- * Body: none
- */
+/** Deactivates the authenticated user's account until they log in again. */
 export const deactivateAccountController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
     await deactivateAccount(userId);
 
@@ -91,28 +75,22 @@ export const deactivateAccountController = async (
       success: true,
       message: "Account deactivated. You can reactivate by logging in again.",
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Schedule Account Deletion
- * ------------------------------------------------------------------
- * POST /api/users/me/deletion/schedule
- *
- * Body: { password: string }
- */
+/** Schedules account deletion after confirming the user's password. */
 export const scheduleAccountDeletionController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = req.user!.id;
-    const { password } = req.body;
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
+    const { password } = req.body;
     const { scheduledDeletionAt } = await scheduleAccountDeletion(
       userId,
       password,
@@ -124,26 +102,20 @@ export const scheduleAccountDeletionController = async (
         "Account deletion scheduled. You may cancel before the grace period expires.",
       data: { scheduledDeletionAt },
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * ------------------------------------------------------------------
- * Cancel Scheduled Deletion
- * ------------------------------------------------------------------
- * POST /api/users/me/deletion/cancel
- *
- * Body: none
- */
+/** Cancels a previously scheduled account deletion. */
 export const cancelScheduledDeletionController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
     await cancelScheduledDeletion(userId);
 
@@ -151,23 +123,21 @@ export const cancelScheduledDeletionController = async (
       success: true,
       message: "Account deletion cancelled. Your account has been restored.",
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 
-/**
- * POST /api/user/account/email/send-otp
- * Step 1 — send OTP to the new email address
- * Body: { email: string }
- */
+/** Sends an OTP to confirm an email change for the authenticated user. */
 export const sendEmailChangeOtpController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = req.user!.id;
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
+
     const { email } = req.body;
 
     await sendEmailChangeOtp(userId, email);
@@ -176,25 +146,22 @@ export const sendEmailChangeOtpController = async (
       success: true,
       message: "OTP sent",
     });
-  } catch (error) {
-    next(error);
-  } 
+  } catch (err) {
+    next(err);
+  }
 };
 
-/**
- * PATCH /api/user/account/email
- * Step 2 — verify OTP then save new email
- * Body: { email: string; otp: string }
- */
+/** Verifies an email-change OTP and saves the new email address. */
 export const updateEmailController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    const userId = req.user!.id;
-    const { email, otp } = req.body;
+    const userId = req.user?.id;
+    if (!userId) throw Unauthorized();
 
+    const { email, otp } = req.body;
     const updatedUser = await verifyAndUpdateEmail(userId, email, otp);
 
     res.status(200).json({
@@ -202,7 +169,7 @@ export const updateEmailController = async (
       message: "Email updated successfully.",
       data: updatedUser,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };

@@ -1,4 +1,4 @@
-
+/** Normalized message payload emitted over sockets to connected clients. */
 export interface MessageSocketPayload {
   _id: string;
   chat: string;
@@ -46,7 +46,6 @@ export interface MessageSocketPayload {
     siteName?: string;
     isLargeImage?: boolean;
   } | null;
-
 
   createdAt: string;
   updatedAt: string;

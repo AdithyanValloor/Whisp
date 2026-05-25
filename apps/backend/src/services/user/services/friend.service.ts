@@ -19,12 +19,9 @@ import {
 } from "../../../socket/emitters/notification.emitters.js";
 import { InboxNotificationModel } from "../../notifications/models/inboxNotification.model.js";
 
-/**
- * ------------------------------------------------------------------
- * Get Friend List
- * ------------------------------------------------------------------
- * @desc    Fetches the authenticated user's friend list
- */
+/** Friend service helpers for friendship and request workflows. */
+
+/** Returns the authenticated user's populated friend list. */
 export const getFriendList = async (userId: string) => {
   if (!userId) throw Unauthorized();
 
@@ -38,12 +35,7 @@ export const getFriendList = async (userId: string) => {
   return user.friendList;
 };
 
-/**
- * ------------------------------------------------------------------
- * Fetch Incoming & Outgoing Friend Requests
- * ------------------------------------------------------------------
- * @desc    Retrieves all pending friend requests for a user
- */
+/** Returns the current user's incoming and outgoing pending requests. */
 export const fetchRequests = async (userId: string) => {
   if (!userId) throw Unauthorized();
 
@@ -60,24 +52,7 @@ export const fetchRequests = async (userId: string) => {
   return { incoming, outgoing };
 };
 
-/**
- * ------------------------------------------------------------------
- * Send Friend Request
- * ------------------------------------------------------------------
- * @desc    Sends a friend request to another user by username
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   request:  created request document,
- *   payload:  normalized socket payload,
- *   toUserId: recipient user ID string
- * }
- *
- * Validation Rules:
- * - Cannot send request to yourself
- * - Cannot send request to existing friend
- * - Cannot send duplicate pending request
- */
+/** Creates a new friend request and the related inbox notification. */
 export const sendFriendRequest = async (
   fromUserId: string,
   toUsername: string,
@@ -92,16 +67,16 @@ export const sendFriendRequest = async (
   const toUser = await UserModel.findOne({ username: toUsername });
   if (!toUser) throw NotFound("User not found");
 
-  // Self-check first — most obvious validation
+  // Self-check first, since it is the most obvious validation failure.
   if (fromUser.id === toUser.id) {
     throw BadRequest("Cannot send friend request to yourself");
   }
 
-  // Already friends
+  // Existing friends cannot create another request.
   if (fromUser.friendList.some((id) => id.toString() === toUser.id)) {
     throw BadRequest("Already friends");
   }
-  // Block check
+
   const blockExists = await BlockModel.findOne({
     $or: [
       { blocker: fromUserId, blocked: toUser.id },
@@ -113,13 +88,11 @@ export const sendFriendRequest = async (
     throw BadRequest("Cannot send friend request to this user");
   }
 
-  // Privacy check — only reached by legitimate new requests
   if (toUser.privacy?.friendRequests === "nobody") {
     throw BadRequest("This user is not accepting friend requests");
   }
 
   if (toUser.privacy?.friendRequests === "friends") {
-    // fromUser is already fetched, reuse its friendList
     const senderFriendSet = new Set(
       fromUser.friendList.map((id) => id.toString()),
     );
@@ -135,7 +108,6 @@ export const sendFriendRequest = async (
     }
   }
 
-  // Duplicate request check
   const existingRequest = await FriendRequestModel.findOne({
     from: fromUserId,
     to: toUser.id,
@@ -170,24 +142,8 @@ export const sendFriendRequest = async (
     toUserId: toUser.id.toString(),
   };
 };
-/**
- * ------------------------------------------------------------------
- * Accept Friend Request
- * ------------------------------------------------------------------
- * @desc    Accepts a pending friend request.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   request:    updated request document,
- *   payload:    normalized socket payload,
- *   fromUserId: sender ID string,
- *   toUserId:   recipient ID string
- * }
- *
- * Rules:
- * - Only recipient can accept
- * - Friendship is added bidirectionally
- */
+
+/** Accepts a pending friend request and creates the friendship. */
 export const acceptFriendRequest = async (
   requestId: string,
   userId: string,
@@ -232,19 +188,7 @@ export const acceptFriendRequest = async (
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Reject Friend Request
- * ------------------------------------------------------------------
- * @desc    Rejects a pending friend request.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   request:    updated request document,
- *   fromUserId: sender ID string (for emitting rejection)
- *   requestId:  request ID string
- * }
- */
+/** Rejects a pending friend request owned by the current user. */
 export const rejectFriendRequest = async (
   requestId: string,
   userId: string,
@@ -262,17 +206,11 @@ export const rejectFriendRequest = async (
   return {
     request,
     fromUserId: request.from.toString(),
-    requestId: request._id.toString(),
+    requestId: request._id,
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Remove Friend
- * ------------------------------------------------------------------
- * @desc    Removes an existing friendship (bidirectional).
- *          Socket emissions are handled by the controller.
- */
+/** Removes an existing friendship from both users. */
 export const removeFriend = async (userId: string, friendId: string) => {
   const user = await UserModel.findById(userId);
   if (!user) throw Unauthorized();
@@ -295,18 +233,7 @@ export const removeFriend = async (userId: string, friendId: string) => {
   return true;
 };
 
-/**
- * ------------------------------------------------------------------
- * Cancel Sent Friend Request
- * ------------------------------------------------------------------
- * @desc    Cancels a pending friend request sent by the user.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   toUserId:  recipient ID string (for emitting cancellation),
- *   requestId: request ID string
- * }
- */
+/** Cancels a pending friend request sent by the current user. */
 export const cancelFriendRequest = async (
   requestId: string,
   userId: string,
@@ -336,6 +263,7 @@ export const cancelFriendRequest = async (
     });
     emitUnreadNotificationCount(deleted.userId, freshCount);
   }
+
   await request.deleteOne();
 
   return { toUserId, requestId: reqId };

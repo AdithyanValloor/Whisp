@@ -7,23 +7,16 @@ export interface PrivacySettings {
   typingIndicators: boolean;
 }
 
-/**
- * ------------------------------------------------------------------
- * Get Privacy Settings
- * ------------------------------------------------------------------
- */
+/** Privacy settings service helpers for user visibility preferences. */
+
+/** Returns the current user's privacy settings. */
 export const getPrivacySettings = async (userId: string) => {
   const user = await UserModel.findById(userId).select("privacy");
   if (!user) throw NotFound("User not found");
   return user.privacy;
 };
 
-/**
- * ------------------------------------------------------------------
- * Update Privacy Settings
- * ------------------------------------------------------------------
- * @desc  Partial update — only provided fields are changed.
- */
+/** Applies a partial update to the current user's privacy settings. */
 export const updatePrivacySettings = async (
   userId: string,
   updates: Partial<PrivacySettings>,

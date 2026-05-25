@@ -1,41 +1,17 @@
-import { Types } from "mongoose";
+/** Shared message route params and request body types. */
 
-/**
- * ------------------------------------------------------
- * Route Params
- * ------------------------------------------------------
- */
-
-/**
- * Used in routes like:
- * - GET    /api/message/:chatId
- * - PUT    /api/message/:messageId
- * - DELETE /api/message/:messageId
- */
 export interface MessageParams {
   chatId?: string;
   messageId?: string;
 }
 
-// types/message.types.ts
 export interface MessageFile {
   key: string;
   mimeType: string;
   size: number;
 }
 
-/**
- * ------------------------------------------------------
- * Request Body
- * ------------------------------------------------------
- */
-
-/**
- * Used in routes like:
- * - POST   /api/message
- * - PUT    /api/message/:messageId
- * - POST   /api/message/react/:messageId
- */
+/** Payload used when creating a new message. */
 export interface SendMessageBody {
   chatId: string;
   content?: string;
@@ -67,4 +43,3 @@ export interface MessageBody {
   mentionIds?: string[];
   file?: MessageFile;
 }
-

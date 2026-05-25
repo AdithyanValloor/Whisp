@@ -13,10 +13,10 @@ import { checkPasswordController } from "../controllers/user.controller.js";
 
 const router = Router();
 
-// Account settings routes for authenticated users.
-router.patch("/username", protect, updateUsernameController);
+/** Account management routes for authenticated users. */
 
-// Email change flow: send OTP first, then update the address.
+// Username and email management routes.
+router.patch("/username", protect, updateUsernameController);
 router.post("/email/send-otp", protect, sendEmailChangeOtpController);
 router.patch("/email", protect, updateEmailController);
 
@@ -24,11 +24,11 @@ router.patch("/email", protect, updateEmailController);
 router.patch("/password", protect, changePasswordController);
 router.patch("/deactivate", protect, deactivateAccountController);
 
-// Deferred deletion endpoints allow users to schedule or cancel removal.
+// Account deletion scheduling routes.
 router.post("/deletion/schedule", protect, scheduleAccountDeletionController);
 router.post("/deletion/cancel", protect, cancelScheduledDeletionController);
 
-// Used to confirm the current password before sensitive actions.
+// Sensitive-action password verification route.
 router.post("/check-password", protect, checkPasswordController);
 
 export { router as accountRouter };

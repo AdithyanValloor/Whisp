@@ -28,6 +28,7 @@ export interface IChat extends Document {
   requestInitiator: Types.ObjectId;
 }
 
+/** Chat schema for direct chats, groups, and pending message-request chats. */
 const ChatSchema: Schema<IChat> = new Schema(
   {
     members: [
@@ -99,6 +100,7 @@ const ChatSchema: Schema<IChat> = new Schema(
   },
 );
 
+// Supports lookups for existing member combinations and pending request chats.
 ChatSchema.index({ members: 1, requestPending: 1 });
 ChatSchema.index({ requestInitiator: 1 });
 

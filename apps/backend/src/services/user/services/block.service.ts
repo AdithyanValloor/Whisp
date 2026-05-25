@@ -7,6 +7,9 @@ import {
   Unauthorized,
 } from "../../../utils/errors/httpErrors.js";
 
+/** Block service helpers for managing user block relationships. */
+
+/** Returns the users blocked by the current user. */
 export const getBlockedUsers = async (userId: string) => {
   if (!userId) throw Unauthorized();
 
@@ -17,6 +20,7 @@ export const getBlockedUsers = async (userId: string) => {
   return blocks.map((b) => b.blocked);
 };
 
+/** Returns the user IDs of people who have blocked the current user. */
 export const getBlockedByUsers = async (userId: string) => {
   if (!userId) throw Unauthorized();
 
@@ -25,6 +29,7 @@ export const getBlockedByUsers = async (userId: string) => {
   return blocks.map((b) => b.blocker.toString());
 };
 
+/** Blocks a target user and removes any friendship or pending requests. */
 export const blockUser = async (userId: string, targetUserId: string) => {
   if (!userId) throw Unauthorized();
 
@@ -68,6 +73,7 @@ export const blockUser = async (userId: string, targetUserId: string) => {
   return { success: true, blockedUser: targetUser };
 };
 
+/** Removes an existing block created by the current user. */
 export const unblockUser = async (userId: string, targetUserId: string) => {
   if (!userId) throw Unauthorized();
 
@@ -83,6 +89,7 @@ export const unblockUser = async (userId: string, targetUserId: string) => {
   return { success: true };
 };
 
+/** Checks whether either user has blocked the other. */
 export const isBlockedEitherWay = async (userA: string, userB: string) => {
   return BlockModel.exists({
     $or: [

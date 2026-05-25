@@ -10,9 +10,9 @@ import { BlockModel } from "../../user/models/block.model.js";
 import { createInboxNotification } from "../../notifications/services/inboxNotification.service.js";
 import { deleteFile, generateDownloadUrl } from "../../s3/s3.service.js";
 
-/**
- * Populates a group chat with all required related fields.
- */
+/** Group chat service helpers for membership, ownership, and avatar management. */
+
+/** Populates the standard group chat relations used across controller responses. */
 const populateGroup = (chatId: string) => {
   return Chat.findById(chatId)
     .populate("members", "-password")
@@ -27,9 +27,7 @@ const populateGroup = (chatId: string) => {
     });
 };
 
-/**
- * Soft deletion helper
- */
+/** Soft-deletes a group while preserving the record for downstream handling. */
 const softDeleteGroup = async (
   chat: any,
   userId: string,
@@ -48,18 +46,7 @@ const softDeleteGroup = async (
   return { message, deleted: true };
 };
 
-/**
- * ------------------------------------------------------------------
- * Create Group Chat
- * ------------------------------------------------------------------
- * @desc    Creates a new group chat and assigns creator as admin.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   group:     populated group document,
- *   memberIds: all member ID strings (for emitGroupCreated)
- * }
- */
+/** Creates a group chat after filtering blocked users from the initial member list. */
 export const createGroupChatFunction = async (
   name: string,
   userIds: string[],
@@ -113,12 +100,7 @@ export const createGroupChatFunction = async (
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Get Group By ID
- * ------------------------------------------------------------------
- * @desc    Fetch a group chat only if requester is a member
- */
+/** Returns a populated group chat the current user belongs to. */
 export const getGroupByIdFunction = async (userId: string, chatId: string) => {
   if (!userId) throw Unauthorized();
   if (!chatId) throw BadRequest("Group ID is required");
@@ -134,22 +116,7 @@ export const getGroupByIdFunction = async (userId: string, chatId: string) => {
   return populateGroup(group._id.toString());
 };
 
-/**
- * ------------------------------------------------------------------
- * Add Members to Group
- * ------------------------------------------------------------------
- * @desc    Adds new members to a group chat.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   group:        populated group document,
- *   newMemberIds: IDs of members that were actually added (for emitMembersAdded)
- * }
- *
- * Rules:
- * - Only admins or creator can add members
- * - Existing members are ignored (deduplicated)
- */
+/** Adds eligible members to a group chat and returns the updated group. */
 export const addMembersFunction = async (
   chatId: string,
   members: string[],
@@ -205,22 +172,7 @@ export const addMembersFunction = async (
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Remove Member from Group
- * ------------------------------------------------------------------
- * @desc    Removes a member from a group chat.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   group:           populated group document,
- *   removedMemberId: ID of the removed member (for emitMemberRemoved)
- * }
- *
- * Rules:
- * - Only admins or creator can remove members
- * - Group creator cannot be removed
- */
+/** Removes a member from a group chat when the acting user has admin rights. */
 export const removeMembersFunction = async (
   userId: string,
   chatId: string,
@@ -252,22 +204,7 @@ export const removeMembersFunction = async (
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Toggle Admin Role
- * ------------------------------------------------------------------
- * @desc    Promotes or demotes a group member as admin.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   group:     populated group document,
- *   memberId:  ID of the affected member (for emitAdminToggled),
- *   isAdmin:   resulting admin state
- * }
- *
- * Rules:
- * - Only the group creator can manage admins
- */
+/** Grants or revokes admin status for a group member. */
 export const toggleAdminFunction = async (
   userId: string,
   chatId: string,
@@ -300,29 +237,11 @@ export const toggleAdminFunction = async (
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Leave Group
- * ------------------------------------------------------------------
- * @desc    Allows a user to leave a group chat.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   message:    status message,
- *   deleted:    whether the group was soft-deleted,
- *   memberIds?: all member ID strings before leaving (only if deleted, for emitGroupDeleted),
- *   chatId:     group ID string (for emitMemberLeft / emitGroupDeleted)
- * }
- *
- * Behavior:
- * - Owner is only member → soft deletes the group
- * - Owner with others present → blocked (must transfer first)
- * - Normal member → removed from members & admins
- */
 type LeaveGroupResult =
   | { message: string; deleted: true; chatId: string; memberIds: string[] }
   | { message: string; deleted: false; chatId: string };
 
+/** Removes a user from a group or deletes the group when the last owner leaves. */
 export const leaveGroupFunction = async (
   userId: string,
   chatId: string,
@@ -335,7 +254,7 @@ export const leaveGroupFunction = async (
   const isOwner = chat.createdBy?.toString() === userId;
   const memberCount = chat.members.length;
 
-  // Owner is only member → soft delete
+  // A sole remaining owner leaving converts the group into a soft-deleted chat.
   if (isOwner && memberCount === 1) {
     const memberIds = chat.members.map((m) => m.toString());
     const result = await softDeleteGroup(
@@ -343,15 +262,15 @@ export const leaveGroupFunction = async (
       userId,
       "Group deleted (last member left)",
     );
+
     return { ...result, chatId, memberIds };
   }
 
-  // Owner with others → block
+  // Owners must hand the group off before leaving when other members remain.
   if (isOwner && memberCount > 1) {
     throw Forbidden("Transfer ownership before leaving the group");
   }
 
-  // Normal member leaves
   chat.members = chat.members.filter((id) => id.toString() !== userId);
   chat.admin = chat.admin.filter((id) => id.toString() !== userId);
 
@@ -364,23 +283,7 @@ export const leaveGroupFunction = async (
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Delete Group
- * ------------------------------------------------------------------
- * @desc    Soft deletes a group chat.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   message:   status message,
- *   deleted:   true,
- *   chatId:    group ID string,
- *   memberIds: all member ID strings before deletion (for emitGroupDeleted)
- * }
- *
- * Rules:
- * - Only the group owner (createdBy) can delete
- */
+/** Soft-deletes a group chat owned by the requesting user. */
 export const deleteGroupFunction = async (userId: string, chatId: string) => {
   const chat = await Chat.findById(chatId);
   if (!chat) throw NotFound("Chat not found");
@@ -391,7 +294,7 @@ export const deleteGroupFunction = async (userId: string, chatId: string) => {
     throw Forbidden("Only creator can delete this group");
   }
 
-  // Capture member IDs before deletion
+  // Capture the current members before deletion for follow-up notifications.
   const memberIds = chat.members.map((m) => m.toString());
 
   const result = await softDeleteGroup(chat, userId);
@@ -403,22 +306,7 @@ export const deleteGroupFunction = async (userId: string, chatId: string) => {
   };
 };
 
-/**
- * ------------------------------------------------------------------
- * Transfer Ownership
- * ------------------------------------------------------------------
- * @desc    Transfers group ownership to another member.
- *          Socket emissions are handled by the controller.
- *
- * @returns {
- *   group:      populated group document,
- *   newOwnerId: new owner ID string (for emitOwnershipTransferred)
- * }
- *
- * Rules:
- * - Only current owner can transfer
- * - New owner must be an existing member
- */
+/** Transfers group ownership to another current member. */
 export const transferOwnershipFunction = async (
   userId: string,
   chatId: string,
@@ -454,6 +342,7 @@ export const transferOwnershipFunction = async (
   };
 };
 
+/** Replaces the stored avatar key for a group after permission checks. */
 export const updateGroupAvatarById = async (
   userId: string,
   chatId: string,
@@ -473,7 +362,7 @@ export const updateGroupAvatarById = async (
     await deleteFile(group.avatar.key);
   }
 
-  const url = await generateDownloadUrl(key);
+  await generateDownloadUrl(key);
 
   group.avatar = {
     key,
@@ -486,6 +375,7 @@ export const updateGroupAvatarById = async (
   };
 };
 
+/** Returns a download URL for a group's stored avatar. */
 export const getGroupAvatarUrlService = async (
   chatId: string,
   userId: string,
@@ -504,6 +394,7 @@ export const getGroupAvatarUrlService = async (
   return url;
 };
 
+/** Updates the group name when the requesting user can manage the group. */
 export const editGroupNameService = async (
   userId: string,
   chatId: string,

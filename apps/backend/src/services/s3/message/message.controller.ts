@@ -7,7 +7,6 @@ import {
   generateUploadUrl,
 } from "../s3.service.js";
 import { Chat } from "../../chat/models/chat.model.js";
-import { Message } from "../../messages/models/message.model.js";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -15,6 +14,7 @@ const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "application/pdf"]);
 
 const VALID_KEY_REGEX = /^chat\/[^/]+\/[a-f0-9-]+\.(png|jpg|pdf)$/;
 
+/** Returns a signed upload URL for chat attachments after membership checks. */
 export const getChatUploadUrl = async (
   req: AuthRequest,
   res: Response,
@@ -62,6 +62,7 @@ export const getChatUploadUrl = async (
   }
 };
 
+/** Returns a signed download URL for a chat attachment visible to the user. */
 export const getChatDownloadUrl = async (
   req: AuthRequest,
   res: Response,
@@ -88,7 +89,7 @@ export const getChatDownloadUrl = async (
 
     const chat = await Chat.findById(chatId);
 
-    if (!chat || !chat.members.some(id => id.toString() === userId)) {
+    if (!chat || !chat.members.some((id) => id.toString() === userId)) {
       throw Unauthorized("Not allowed to access this file");
     }
 
@@ -100,6 +101,7 @@ export const getChatDownloadUrl = async (
   }
 };
 
+/** Deletes a chat attachment key after validating ownership of the upload path. */
 export const deleteChatFile = async (
   req: AuthRequest,
   res: Response,

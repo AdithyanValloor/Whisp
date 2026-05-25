@@ -37,10 +37,8 @@ import { Chat } from "../../chat/models/chat.model.js";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-/**
- * GET /api/message/:chatId?page&limit
- * Returns paginated messages for a chat, newest-first.
- */
+/** Message controller handlers for authenticated message actions. */
+
 export const getAllMessages = async (
   req: Request,
   res: Response,
@@ -55,21 +53,14 @@ export const getAllMessages = async (
     if (!chatId) throw BadRequest("ChatId is required");
 
     const data = await getAllMessagesFunction(chatId, userId, page, limit);
+
     res.status(200).json(data);
   } catch (err) {
     next(err);
   }
 };
 
-/**
- * POST /api/message
- * Creates a message, emits it to the chat room, and updates unread counts.
- * After responding, asynchronously fetches a link preview if a URL is present
- * and emits an edit event to push the enriched message to clients.
- *
- * Body: { chatId, content, replyTo? }
- * Emits: new_message, unread_update, edit_message (async, link preview only)
- */
+/** Sends a message, emits socket updates, and backfills link previews asynchronously. */
 export const sendMessage = async (
   req: Request<{}, {}, SendMessageBody>,
   res: Response,
@@ -94,13 +85,14 @@ export const sendMessage = async (
     ]);
 
     if (file) {
+      // Validate uploaded file metadata and confirm it belongs to this chat.
       const parts = file.key.split("/");
       const chatIdFromKey = parts[1];
 
       if (!chatIdFromKey) {
         throw BadRequest("Invalid file key");
       }
-      
+
       const chat = await Chat.findById(chatIdFromKey);
 
       if (!chat || !chat.members.some((id) => id.toString() === senderId)) {
@@ -160,10 +152,10 @@ export const sendMessage = async (
       }
     });
 
-    // Respond immediately — link preview runs in the background
     res.status(201).json(populated);
 
     if (firstUrl) {
+      // Keep the initial send fast and enrich the message asynchronously.
       fetchLinkPreview(firstUrl)
         .then(async (preview) => {
           if (!preview) return;
@@ -183,7 +175,6 @@ export const sendMessage = async (
             },
           ]);
 
-          // Re-emit the message so clients receive the enriched version
           emitEditMessage(chatId, toMessageSocketPayload(updated));
         })
         .catch(() => {});
@@ -193,14 +184,7 @@ export const sendMessage = async (
   }
 };
 
-/**
- * POST /api/message/forward
- * Duplicates a message into one or more target chats.
- * Silently skips chats where the sender is blocked or not a member.
- *
- * Body: { messageId, targetChatIds: string[] }
- * Emits: new_message, unread_update — once per successful target chat
- */
+/** Forwards a message to one or more chats the sender can access. */
 export const forwardMessage = async (
   req: Request<{}, {}, ForwardMessageBody>,
   res: Response,
@@ -216,8 +200,9 @@ export const forwardMessage = async (
       !messageId ||
       !Array.isArray(targetChatIds) ||
       targetChatIds.length === 0
-    )
+    ) {
       throw BadRequest("MessageId and targeted chatIds are required");
+    }
 
     const results = await forwardMessageFunction(
       messageId,
@@ -235,19 +220,13 @@ export const forwardMessage = async (
       });
     });
 
-    res.status(201).json(results.map((r) => r.message));
+    res.status(201).json(results.map((result) => result.message));
   } catch (err) {
     next(err);
   }
 };
 
-/**
- * POST /api/message/react/:messageId
- * Toggles a reaction on a message. Same emoji removes it; different emoji replaces it.
- *
- * Body: { emoji }
- * Emits: message_reaction
- */
+/** Toggles a reaction on a message and emits the updated payload. */
 export const toggleReaction = async (
   req: Request,
   res: Response,
@@ -271,10 +250,7 @@ export const toggleReaction = async (
   }
 };
 
-/**
- * GET /api/message/unread
- * Returns unread message counts keyed by chatId. Used on bootstrap and reconnect.
- */
+/** Returns unread counts keyed by chat ID for the current user. */
 export const getUnreadCounts = async (
   req: Request,
   res: Response,
@@ -285,18 +261,14 @@ export const getUnreadCounts = async (
     if (!userId) throw Unauthorized();
 
     const unread = await getUnreadCountsFunction(userId);
+
     res.status(200).json({ unread });
   } catch (err) {
     next(err);
   }
 };
 
-/**
- * POST /api/message/mark-read/:chatId
- * Resets the unread count to 0 for the requesting user in a chat.
- *
- * Emits: unread_update
- */
+/** Marks a chat as read and resets its unread counter for the current user. */
 export const markChatAsRead = async (
   req: Request,
   res: Response,
@@ -319,12 +291,7 @@ export const markChatAsRead = async (
   }
 };
 
-/**
- * POST /api/message/mark-seen/:chatId
- * Marks all unread messages as seen and resets the unread count.
- *
- * Emits: messages_seen
- */
+/** Marks incoming messages as seen and emits receipt updates when allowed. */
 export const markMessagesAsSeen = async (
   req: Request,
   res: Response,
@@ -349,13 +316,7 @@ export const markMessagesAsSeen = async (
   }
 };
 
-/**
- * PUT /api/message/:messageId
- * Updates message content in-place. Sender only.
- *
- * Body: { content }
- * Emits: edit_message
- */
+/** Edits a message owned by the current user and broadcasts the change. */
 export const editMessage = async (
   req: Request<MessageParams, {}, EditMessageBody>,
   res: Response,
@@ -385,13 +346,7 @@ export const editMessage = async (
   }
 };
 
-/**
- * DELETE /api/message/:messageId
- * Soft-deletes a message — content is replaced, metadata cleared, document retained.
- * Sender only.
- *
- * Emits: delete_message
- */
+/** Soft-deletes a message owned by the current user and emits the update. */
 export const deleteMessage = async (
   req: Request<MessageParams>,
   res: Response,
@@ -417,10 +372,7 @@ export const deleteMessage = async (
   }
 };
 
-/**
- * GET /api/message/search?chatId&query?&date?&page?&limit?
- * Searches messages by text and/or calendar date. Results are paginated.
- */
+/** Searches messages within a chat using optional text and date filters. */
 export const searchMessages = async (
   req: Request,
   res: Response,
@@ -451,11 +403,7 @@ export const searchMessages = async (
   }
 };
 
-/**
- * GET /api/message/context/:messageId?limit?
- * Returns a target message plus `limit` messages before and after it.
- * Used for jump-to-message from search results, reply clicks, and deep links.
- */
+/** Returns the target message with surrounding context for jump navigation. */
 export const getMessageContext = async (
   req: Request,
   res: Response,
@@ -478,13 +426,7 @@ export const getMessageContext = async (
   }
 };
 
-/**
- * GET /api/message/newer/:chatId?after&limit?
- * Returns messages created after the given timestamp, sorted ascending.
- * Used for incremental loading when scrolling toward recent messages.
- *
- * @param after - ISO timestamp (exclusive lower bound)
- */
+/** Returns newer messages after a given timestamp for incremental loading. */
 export const getNewerMessages = async (
   req: Request,
   res: Response,
@@ -501,21 +443,33 @@ export const getNewerMessages = async (
     if (!after) throw BadRequest("'after' timestamp is required");
 
     const result = await getNewerMessagesFunction(chatId, after, userId, limit);
+
     res.status(200).json(result);
   } catch (err) {
     next(err);
   }
 };
 
-export const globalSearchMessages = async (req: Request, res: Response) => {
-  const userId = req.user?.id;
-  const { query, limit } = req.query;
+/** Searches messages across all chats the current user can access. */
+export const globalSearchMessages = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?.id;
+    const { query, limit } = req.query;
 
-  const result = await globalSearchMessagesFunction(
-    userId,
-    query as string,
-    limit ? parseInt(limit as string) : 20,
-  );
+    if (!userId) throw Unauthorized();
 
-  res.status(200).json(result);
+    const result = await globalSearchMessagesFunction(
+      userId,
+      query as string,
+      limit ? parseInt(limit as string, 10) : 20,
+    );
+
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
 };

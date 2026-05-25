@@ -12,11 +12,13 @@ import { protect } from "../../auth/auth.middleware.js";
 
 const router = Router();
 
-// Inbox notification retrieval and unread counters.
+/** Inbox notification routes for authenticated users. */
+
+// Notification inbox retrieval and unread counters.
 router.get("/", protect, fetchInboxNotificationsController);
 router.get("/unread-count", protect, getUnreadNotificationCountController);
 
-// Read-state updates for notifications and mentions.
+// Notification and mention read-state updates.
 router.patch(
   "/chat/:chatId/read-mentions",
   protect,
@@ -25,7 +27,7 @@ router.patch(
 router.patch("/:id/read", protect, markNotificationReadController);
 router.patch("/read-all", protect, markAllNotificationsReadController);
 
-// Remove notifications directly or by related friend request.
+// Notification deletion routes.
 router.delete(
   "/friend-request/:friendRequestId",
   protect,

@@ -4,15 +4,14 @@ import {
   acceptMessageRequestController,
   rejectMessageRequestController,
 } from "../controllers/messageRequest.controller.js";
-
 import { protect } from "../../auth/auth.middleware.js";
 
 const router = Router();
 
-// Message request inbox for the authenticated user.
-router.get("/", protect, getMessageRequestsController);
+/** Message request routes for authenticated users. */
 
-// Review actions for individual message requests.
+// Inbox and review actions for pending message requests.
+router.get("/", protect, getMessageRequestsController);
 router.post("/:requestId/accept", protect, acceptMessageRequestController);
 router.post("/:requestId/reject", protect, rejectMessageRequestController);
 

@@ -1,4 +1,4 @@
-import mongoose, { Schema, Types, model } from "mongoose";
+import mongoose, { Document, Schema, Types, model } from "mongoose";
 
 export interface IUser extends Document {
   username: string;
@@ -42,6 +42,7 @@ export interface IUser extends Document {
   };
 }
 
+/** User schema for identity, profile data, account state, and preferences. */
 const userSchema: Schema<IUser> = new Schema(
   {
     username: {
@@ -108,7 +109,7 @@ const userSchema: Schema<IUser> = new Schema(
     },
     dateOfBirth: {
       type: Date,
-      // required: true
+      // Optional for now while profile completion stays flexible.
     },
     isBanned: {
       type: Boolean,

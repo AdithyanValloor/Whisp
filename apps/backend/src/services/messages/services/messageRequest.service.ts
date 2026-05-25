@@ -10,6 +10,9 @@ import {
 } from "../../../utils/errors/httpErrors.js";
 import { MessageRequestModel } from "../../user/models/messageRequest.model.js";
 
+/** Message request helpers for inbox retrieval and request review actions. */
+
+/** Returns pending incoming message requests for the recipient. */
 export const getMessageRequests = async (userId: string) => {
   const incoming = await MessageRequestModel.find({
     status: "pending",
@@ -19,6 +22,7 @@ export const getMessageRequests = async (userId: string) => {
   return { incoming };
 };
 
+/** Creates a new message request for a non-friend when messaging is allowed. */
 export const sendMessageRequest = async (
   fromUserId: string,
   toUserId: string,
@@ -46,6 +50,7 @@ export const sendMessageRequest = async (
 
   if (friends) throw BadRequest("Users are already friends");
 
+  // Rate-limit new requests per sender on a calendar-day basis.
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -79,6 +84,7 @@ export const sendMessageRequest = async (
   return populated;
 };
 
+/** Accepts a pending request and converts its placeholder chat into a normal direct chat. */
 export const acceptMessageRequest = async (
   requestId: string,
   userId: string,
@@ -111,6 +117,7 @@ export const acceptMessageRequest = async (
   return { chat: populated };
 };
 
+/** Rejects a pending request and removes its temporary chat history. */
 export const rejectMessageRequest = async (
   requestId: string,
   userId: string,
@@ -129,6 +136,7 @@ export const rejectMessageRequest = async (
   });
 
   if (!chat) throw NotFound("Chat not found");
+
   await Message.deleteMany({ chat: chat._id });
 
   request.status = "rejected";

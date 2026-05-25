@@ -1,6 +1,11 @@
 import { FriendRequestSocketPayload } from "../types/friend.socket.js";
 
-export const toFriendRequestSocketPayload = (doc: any): FriendRequestSocketPayload => {
+/** Friend request utility helpers for socket payload normalization. */
+
+/** Converts a populated friend request document into a socket-safe payload. */
+export const toFriendRequestSocketPayload = (
+  doc: any,
+): FriendRequestSocketPayload => {
   return {
     _id: doc._id.toString(),
     status: doc.status,

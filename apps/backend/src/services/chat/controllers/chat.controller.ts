@@ -22,6 +22,7 @@ import { Chat } from "../models/chat.model.js";
 
 /** Chat controller handlers for authenticated chat actions. */
 
+/** Returns chats visible to the current user. */
 export const fetchChats = async (
   req: AuthRequest,
   res: Response,
@@ -30,7 +31,6 @@ export const fetchChats = async (
   try {
     const userId = req.user?.id;
 
-    // Protect against missing or misconfigured auth middleware.
     if (!userId) {
       throw Unauthorized();
     }
@@ -43,6 +43,7 @@ export const fetchChats = async (
   }
 };
 
+/** Returns an existing direct chat or creates one when allowed. */
 export const accessChat = async (
   req: AuthRequest,
   res: Response,
@@ -68,6 +69,7 @@ export const accessChat = async (
   }
 };
 
+/** Toggles the pinned state for a chat owned by the current user. */
 export const togglePinChat = async (
   req: AuthRequest,
   res: Response,
@@ -96,6 +98,7 @@ export const togglePinChat = async (
   }
 };
 
+/** Toggles the archived state for a chat owned by the current user. */
 export const toggleArchiveChat = async (
   req: AuthRequest,
   res: Response,
@@ -124,6 +127,7 @@ export const toggleArchiveChat = async (
   }
 };
 
+/** Marks a chat as unread for the current user. */
 export const markChatAsUnread = async (
   req: AuthRequest,
   res: Response,
@@ -144,6 +148,7 @@ export const markChatAsUnread = async (
   }
 };
 
+/** Marks a chat as read for the current user. */
 export const markChatAsRead = async (
   req: AuthRequest,
   res: Response,
@@ -164,6 +169,7 @@ export const markChatAsRead = async (
   }
 };
 
+/** Clears chat history from the current user's perspective. */
 export const clearChat = async (
   req: AuthRequest,
   res: Response,
@@ -184,6 +190,7 @@ export const clearChat = async (
   }
 };
 
+/** Removes a chat from the current user's chat list. */
 export const deleteChat = async (
   req: AuthRequest,
   res: Response,
@@ -206,6 +213,7 @@ export const deleteChat = async (
 
 const VALID_DURATIONS: MuteDuration[] = ["1h", "8h", "24h", "1w", "forever"];
 
+/** Mutes a chat for a supported duration. */
 export const muteChat = async (
   req: AuthRequest,
   res: Response,
@@ -233,6 +241,7 @@ export const muteChat = async (
   }
 };
 
+/** Removes any active mute for a chat. */
 export const unmuteChat = async (
   req: AuthRequest,
   res: Response,

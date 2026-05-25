@@ -23,6 +23,7 @@ export interface IInboxNotification extends Document {
   createdAt: Date;
 }
 
+/** Inbox notification schema for mentions, replies, and social activity updates. */
 const inboxNotificationSchema = new Schema<IInboxNotification>(
   {
     user: {
@@ -74,9 +75,15 @@ const inboxNotificationSchema = new Schema<IInboxNotification>(
       default: false,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
+// Supports notification inbox ordering by newest first per user.
 inboxNotificationSchema.index({ user: 1, createdAt: -1 });
 
-export const InboxNotificationModel = mongoose.model<IInboxNotification>("InboxNotification", inboxNotificationSchema,);
+export const InboxNotificationModel = mongoose.model<IInboxNotification>(
+  "InboxNotification",
+  inboxNotificationSchema,
+);

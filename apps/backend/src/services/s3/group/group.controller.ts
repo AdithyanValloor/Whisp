@@ -19,6 +19,7 @@ const ALLOWED_GROUP_TYPES = new Set(["image/png", "image/jpeg"]);
 
 const GROUP_KEY_REGEX = /^group\/[^/]+\/[a-f0-9-]+\.(png|jpg)$/;
 
+/** Returns whether the user can manage the target group's avatar. */
 export const isGroupAdmin = (group: IChat, userId: string) => {
   return (
     group.admin.some((id) => id.toString() === userId) ||
@@ -26,6 +27,7 @@ export const isGroupAdmin = (group: IChat, userId: string) => {
   );
 };
 
+/** Returns a signed upload URL for a group avatar or temporary group avatar asset. */
 export const uploadGroupAvatar = async (
   req: AuthRequest,
   res: Response,
@@ -61,8 +63,7 @@ export const uploadGroupAvatar = async (
       const group = await Chat.findById(groupId);
       if (!group) throw NotFound("Group not found");
 
-      const isAdmin = isGroupAdmin(group, userId);
-      if (!isAdmin) throw Unauthorized();
+      if (!isGroupAdmin(group, userId)) throw Unauthorized();
     }
 
     const data = await generateUploadUrl(
@@ -77,6 +78,7 @@ export const uploadGroupAvatar = async (
   }
 };
 
+/** Deletes a stored group avatar after ownership and key validation checks. */
 export const deleteGroupAvatar = async (
   req: AuthRequest,
   res: Response,
@@ -103,9 +105,7 @@ export const deleteGroupAvatar = async (
     const group = await Chat.findById(groupId);
     if (!group) throw NotFound("Group not found");
 
-    const isAdmin = isGroupAdmin(group, userId);
-
-    if (!isAdmin) throw Unauthorized();
+    if (!isGroupAdmin(group, userId)) throw Unauthorized();
 
     try {
       await deleteFile(key);
@@ -127,6 +127,7 @@ export const deleteGroupAvatar = async (
   }
 };
 
+/** Promotes a temporary uploaded avatar into the group's permanent storage path. */
 export const attachGroupAvatarFromTemp = async (
   req: AuthRequest,
   res: Response,
@@ -149,8 +150,7 @@ export const attachGroupAvatarFromTemp = async (
     const group = await Chat.findById(groupId);
     if (!group) throw NotFound("Group not found");
 
-    const isAdmin = isGroupAdmin(group, userId);
-    if (!isAdmin) throw Unauthorized();
+    if (!isGroupAdmin(group, userId)) throw Unauthorized();
 
     const ext = tempKey.split(".").pop();
     const newKey = `group/${groupId}/${crypto.randomUUID()}.${ext}`;

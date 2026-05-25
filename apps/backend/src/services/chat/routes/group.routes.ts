@@ -14,19 +14,20 @@ import { protect } from "../../auth/auth.middleware.js";
 
 const router = Router();
 
-// Group creation and lookup routes.
+/** Group chat routes for authenticated users. */
+
 router.post("/", protect, createGroupChat);
 router.get("/:id", protect, getGroupById);
 
-// Group name edit.
+// Group metadata updates.
 router.patch("/edit-name", protect, editName);
 
-// Membership and role management within a group.
+// Membership and role management.
 router.post("/members", protect, addMembers);
 router.delete("/members", protect, removeMembers);
 router.patch("/admin", protect, toggleAdmin);
 
-// Group lifecycle actions for members and owners.
+// Group lifecycle actions.
 router.post("/leave", protect, leaveGroup);
 router.delete("/delete", protect, deleteGroup);
 router.patch("/transfer-ownership", protect, transferOwnership);

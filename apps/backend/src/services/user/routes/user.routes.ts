@@ -1,4 +1,4 @@
-import express from "express";
+import { Router } from "express";
 import {
   sendOtp,
   verifyOtp,
@@ -13,9 +13,11 @@ import { accountRouter } from "./user.account.routes.js";
 import { privacyRouter } from "./user.privacy.routes.js";
 import { notificationSettingsRouter } from "./user.notificationSettings.routes.js";
 
-const router = express.Router();
+const router = Router();
 
-// OTP verification routes should remain before registration.
+/** User auth and settings routes for public onboarding and authenticated account access. */
+
+// Registration OTP routes.
 router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 
@@ -28,7 +30,7 @@ router.post("/refresh", refreshToken);
 // Authenticated user context.
 router.get("/me", protect, currentUser);
 
-// Mount user settings sub-routers.
+// User settings sub-routes.
 router.use("/account", accountRouter);
 router.use("/privacy", privacyRouter);
 router.use("/notification-settings", notificationSettingsRouter);
