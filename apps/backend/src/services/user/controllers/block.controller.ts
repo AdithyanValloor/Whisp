@@ -59,7 +59,7 @@ export const blockUserController = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { targetUserId } = req.params;
+    const { targetUserId } = req.params as Record<string, string>;
     const result = await blockUser(userId, targetUserId);
 
     if (!result?.alreadyBlocked) {
@@ -86,7 +86,7 @@ export const unblockUserController = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { targetUserId } = req.params;
+    const { targetUserId } = req.params as Record<string, string>;
     const result = await unblockUser(userId, targetUserId);
 
     if (!result?.notBlocked) {

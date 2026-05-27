@@ -46,7 +46,7 @@ export const getAllMessages = async (
 ) => {
   try {
     const userId = req.user?.id;
-    const { chatId } = req.params;
+    const { chatId } = req.params as Record<string, string>;;
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 20;
 
@@ -237,7 +237,7 @@ export const toggleReaction = async (
     if (!userId) throw Unauthorized();
 
     const { populated, chatId } = await toggleReactionFunction(
-      req.params.messageId,
+      req.params.messageId as string,
       userId,
       req.body.emoji,
     );
@@ -280,10 +280,10 @@ export const markChatAsRead = async (
 
     const { unreadCount } = await markChatAsReadFunction(
       userId,
-      req.params.chatId,
+      req.params.chatId as string,
     );
 
-    emitUnreadUpdate(userId, req.params.chatId, unreadCount);
+    emitUnreadUpdate(userId, req.params.chatId as string, unreadCount);
 
     res.status(200).json({ success: true });
   } catch (err) {
@@ -302,13 +302,13 @@ export const markMessagesAsSeen = async (
     if (!userId) throw Unauthorized();
 
     const { success, modifiedCount, emitSeen } =
-      await markMessagesAsSeenFunction(userId, req.params.chatId);
+      await markMessagesAsSeenFunction(userId, req.params.chatId as string);
 
     if (emitSeen) {
-      emitMessagesSeen(req.params.chatId, userId, modifiedCount);
+      emitMessagesSeen(req.params.chatId as string, userId, modifiedCount);
     }
 
-    emitUnreadUpdate(userId, req.params.chatId, 0);
+    emitUnreadUpdate(userId, req.params.chatId as string, 0);
 
     res.status(200).json({ success });
   } catch (err) {
@@ -405,7 +405,7 @@ export const searchMessages = async (
 
 /** Returns the target message with surrounding context for jump navigation. */
 export const getMessageContext = async (
-  req: Request,
+  req: Request<MessageParams>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -436,7 +436,7 @@ export const getNewerMessages = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { chatId } = req.params;
+    const { chatId } = req.params as Record<string, string>;
     const after = req.query.after as string;
     const limit = Number(req.query.limit) || 20;
 

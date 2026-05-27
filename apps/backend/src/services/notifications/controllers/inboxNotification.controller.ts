@@ -41,7 +41,10 @@ export const markNotificationReadController = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const notification = await markNotificationRead(req.params.id, userId);
+    const notification = await markNotificationRead(
+      req.params.id as string,
+      userId,
+    );
 
     res.json(notification);
   } catch (err) {
@@ -95,7 +98,8 @@ export const deleteNotificationController = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const notificationId = req.params.id;
+    const notificationId = req.params.id as string;
+    if (!notificationId) throw new Error("Notification ID is required");
     const result = await deleteNotification(notificationId, userId);
 
     res.json(result);
@@ -111,7 +115,7 @@ export const deleteNotificationByFriendRequestController = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { friendRequestId } = req.params;
+    const { friendRequestId } = req.params as Record<string, string>;
     const result = await deleteNotificationByFriendRequest(friendRequestId);
 
     if (!result) {
@@ -140,7 +144,8 @@ export const markMentionsReadController = async (
     const userId = req.user?.id;
     if (!userId) throw Unauthorized();
 
-    const { chatId } = req.params;
+    const { chatId } = req.params as Record<string, string>;
+    if (!chatId) throw new Error("Chat ID is required");
 
     await markMentionsReadForChat(userId, chatId);
 

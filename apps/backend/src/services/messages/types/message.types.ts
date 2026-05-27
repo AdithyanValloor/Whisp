@@ -5,6 +5,10 @@ export interface MessageParams {
   messageId?: string;
 }
 
+export interface MessageReqParams {
+  requestId?: string;
+}
+
 export interface MessageFile {
   key: string;
   mimeType: string;

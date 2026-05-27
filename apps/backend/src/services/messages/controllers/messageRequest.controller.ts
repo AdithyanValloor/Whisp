@@ -5,6 +5,7 @@ import {
   emitMessageRequestAccepted,
   emitMessageRequestRejected,
 } from "../../../socket/emitters/messageRequest.emitters.js";
+import { MessageReqParams } from "../types/message.types.js";
 
 /** Message request controller handlers for authenticated request actions. */
 
@@ -30,7 +31,7 @@ export const getMessageRequestsController = async (
 
 /** Accepts a pending message request and emits the resulting chat to both users. */
 export const acceptMessageRequestController = async (
-  req: Request,
+  req: Request<MessageReqParams>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -39,6 +40,7 @@ export const acceptMessageRequestController = async (
     if (!userId) throw Unauthorized();
 
     const { requestId } = req.params;
+    if(!requestId) throw Unauthorized();
 
     const result = await service.acceptMessageRequest(requestId, userId);
 
@@ -60,7 +62,7 @@ export const acceptMessageRequestController = async (
 
 /** Rejects a pending message request and notifies the original sender. */
 export const rejectMessageRequestController = async (
-  req: Request,
+  req: Request<MessageReqParams>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -69,6 +71,7 @@ export const rejectMessageRequestController = async (
     if (!userId) throw Unauthorized();
 
     const { requestId } = req.params;
+    if(!requestId) throw Unauthorized();
 
     const result = await service.rejectMessageRequest(requestId, userId);
 
