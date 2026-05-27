@@ -60,7 +60,7 @@ import { Chat } from "@/types/chat.types";
 let socket: Socket | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
-const socketURL = process.env.NEXT_SOCKET_URL;
+const socketURL = process.env.NEXT_PUBLIC_SOCKET_URL;
 
 /* -------------------- HELPERS -------------------- */
 
