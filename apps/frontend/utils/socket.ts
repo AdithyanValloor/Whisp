@@ -95,7 +95,7 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
   if (socket && socket.connected) return socket;
 
   if (!socket) {
-    socket = io(socketURL || "http://localhost:9000", {
+    socket = io(socketURL , {
       transports: ["websocket", "polling"],
       autoConnect: true,
       reconnection: true,

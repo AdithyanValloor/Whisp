@@ -10,18 +10,22 @@ import { cleanupPresence } from "./presence.js";
 import { registerConnectionHandlers } from "./handlers/connection.js";
 import { registerTypingHandlers } from "./handlers/typing.js";
 
-const ALLOWED_ORIGINS = [
-  "http://localhost:3000",
-  "http://192.168.20.3:3000",
-  "http://192.168.20.4:3000",
-  "http://192.168.20.50:3000",
-];
+const clientOrigins =
+  process.env.CLIENT_URLS?.split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean) || [];
+
+if (clientOrigins.length === 0) {
+  console.warn(
+    "CLIENT_URLS not set in environment variables. CORS may be misconfigured.",
+  );
+}
 
 export const initSocket = (server: HttpServer) => {
   const io = new Server(server, {
     cors: {
       // Keep explicit dev origins until socket CORS is env-driven.
-      origin: ALLOWED_ORIGINS,
+      origin: clientOrigins,
       credentials: true,
     },
   });
