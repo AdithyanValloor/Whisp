@@ -2,8 +2,7 @@
  * Profile picture object
  */
 export interface ProfilePicture {
-  url: string | null;
-  public_id: string | null;
+  key: string | null;
 }
 
 /**

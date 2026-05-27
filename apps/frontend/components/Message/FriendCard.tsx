@@ -46,7 +46,7 @@ interface UserType {
   _id?: string;
   name: string;
   displayName?: string;
-  profilePicture?: { key: string | null };
+  profilePicture?: { key: string | null } | null;
   lastMessage?: string;
   status?: "online" | "offline";
 }

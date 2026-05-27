@@ -119,7 +119,7 @@ export default function ChatLayout({
     <SocketContext.Provider value={socketRef.current}>
       <div className="relative  flex flex-col bg-base-300 h-screen transition-all ease-in-out duration-300 bg-gradient-to-br from-base-300 via-base-200 to-base-100 overflow-y-hidden">
         {/* <Glows/> */}
-        <MinimalGlow />
+        {/* <MinimalGlow /> */}
 
         {/* Desktop top bar */}
     

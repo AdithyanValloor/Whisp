@@ -8,7 +8,7 @@ export type ToastEvent = {
   duration?: number;
   persistent?: boolean;
   actionLabel?: string;
-  profilePicture?: { url: string | null };
+  profilePicture?: { key: string | null };
   chatId?: string;
   onAction?: () => void;
 };

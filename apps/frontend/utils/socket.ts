@@ -158,7 +158,7 @@ export const getSocket = (userId?: string, allChats: string[] = []): Socket => {
           type: "message",
           title,
           description: msg.content,
-          profilePicture: msg.sender.profilePicture,
+          profilePicture:{ key: msg.sender.profilePicture?.key ?? null},
           chatId: msg.chat,
         });
       }

@@ -206,7 +206,7 @@ export const rejectFriendRequest = async (
   return {
     request,
     fromUserId: request.from.toString(),
-    requestId: request._id,
+    requestId: request._id.toString(),
   };
 };
 

@@ -14,8 +14,7 @@ export const mapAuthUser = (user: BackendUserDTO): AuthUser => ({
   username: user.username,
 
   // Normalize optional media fields
-  profilePicture: user.profilePicture ?? null,
-  coverPicture: user.coverPicture ?? null,
+  profilePicture: user.profilePicture,
 
   // Normalize optional text fields
   bio: user.bio ?? undefined,

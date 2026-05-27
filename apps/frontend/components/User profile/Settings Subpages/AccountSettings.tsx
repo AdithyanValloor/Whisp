@@ -349,7 +349,7 @@ function ChangeEmailSection() {
       setTimeout(() => otpRefs.current[0]?.focus(), 150);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        setSendError(err.response?.data?.error || "Failed to send OTP");
+        setSendError(err.response?.data?.message || "Failed to send OTP");
       } else {
         setSendError("Failed to send OTP");
       }

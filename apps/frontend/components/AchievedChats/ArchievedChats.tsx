@@ -45,8 +45,8 @@ function ChatItem({
     ? chat.members.find((m) => m._id !== userId)
     : null;
 
-  const key = otherUser?.profilePicture?.key;
-  const url = useSignedUrl(key);
+  // const key = otherUser?.profilePicture?.key;
+  // const url = useSignedUrl(key);
 
   return (
     <FriendCard
@@ -61,13 +61,13 @@ function ChatItem({
         isGroup
           ? {
               name: chat.chatName,
-              profilePic: "", //GROUP PROFILE PIC NOT IMPLEMENTED
+              profilePicture: chat.avatar,
             }
           : {
               _id: otherUser?._id,
               name: otherUser?.username || chat.chatName,
               displayName: otherUser?.displayName,
-              profilePic: url || "",
+              profilePicture: otherUser?.profilePicture,
             }
       }
       activeContextMenuChatId={contextMenu?.chatId ?? null}

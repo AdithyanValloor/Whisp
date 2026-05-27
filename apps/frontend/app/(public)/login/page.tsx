@@ -13,8 +13,8 @@ type Errors = {
 };
 
 export default function LoginPage() {
-  const [email, setEmail] = useState<string>("user1@gmail.com");
-  const [password, setPassword] = useState<string>("12345678");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [error, setError] = useState<string>("");
   const [showPass, setShowPass] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({

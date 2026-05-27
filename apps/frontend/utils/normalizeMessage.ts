@@ -1,12 +1,9 @@
 import { ChatMessage } from "@/types/message.types";
 import { MessageType } from "@/redux/features/messageSlice";
-import { ChatMessage as ChatLastMessage } from "@/redux/features/chatSlice";
+import { ChatMessage as ChatLastMessage } from "@/types/chat.types";
+import { NewMessagePayload } from "@/types/socket.types";
 
-export function normalizeSocketMessage(msg: ChatMessage): MessageType {
-
-  console.log("MSG +++++++++++++++++++ :", msg);
-  
-
+export function normalizeSocketMessage(msg: NewMessagePayload): MessageType {
   return {
     _id: msg._id,
     chat: msg.chat,
@@ -14,7 +11,7 @@ export function normalizeSocketMessage(msg: ChatMessage): MessageType {
       _id: msg.sender._id,
       username: msg.sender.username,
       displayName: msg.sender.displayName,
-      profilePicture: msg.sender.profilePicture,
+      profilePicture: {key: msg.sender.profilePicture?.key ?? null} ,
     },
     content: msg.content,
     createdAt: msg.createdAt,

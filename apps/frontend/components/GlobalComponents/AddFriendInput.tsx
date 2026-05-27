@@ -54,23 +54,23 @@ export default function AddFriendInput() {
   return (
     <div className="flex flex-col gap-2">
       <div className="relative">
-<input
-  value={username}
-  onChange={(e) => {
-    setUsername(e.target.value);
-    if (statusMsg) setStatusMsg("");
-  }}
-  placeholder="Enter friend's Whisp username"
-className={`w-full h-12 pl-5 text-sm rounded-full bg-base-300 transition-colors
-${
-  statusMsg
-    ? statusType === "error"
-      ? "outline outline-red-500"
-      : "outline outline-green-500"
-    : "outline outline-transparent hover:outline-base-content/10"
-}
-focus:outline`}
- />
+        <input
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            if (statusMsg) setStatusMsg("");
+          }}
+          placeholder="Enter friend's Whisp username"
+          className={`w-full h-12 pl-5 text-sm rounded-full bg-base-300 transition-colors
+          ${
+            statusMsg
+              ? statusType === "error"
+                ? "outline outline-red-500"
+                : "outline outline-green-500"
+              : "outline outline-transparent hover:outline-base-content/10"
+          }
+          focus:outline`}
+                  />
 
         <div className="absolute right-0 top-1/2 -translate-y-1/2 px-2 flex items-center">
           <button

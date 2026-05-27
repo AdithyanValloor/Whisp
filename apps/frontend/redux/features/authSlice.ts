@@ -13,8 +13,11 @@ export interface AuthUser {
   _id: string;
   displayName: string;
   username: string;
-  profilePicture: { url: string | null; public_id: string | null } | null;
-  coverPicture?: { url: string | null; public_id: string | null } | null;
+  
+  profilePicture?: {
+    key: string | null;
+  };
+
   bio?: string;
   pronouns?: string;
   createdAt?: string;
@@ -420,8 +423,7 @@ const authSlice = createSlice({
           state.user.username = action.payload.username;
           if (action.payload.profilePicture) {
             state.user.profilePicture = {
-              url: action.payload.profilePicture.url,
-              public_id: null,
+              key: action.payload.profilePicture.key,
             };
           }
         }

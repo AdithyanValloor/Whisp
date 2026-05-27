@@ -91,7 +91,7 @@ export default function RegisterPage() {
       setTimeout(() => otpRefs.current[0]?.focus(), 150);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.error || "Failed to send OTP");
+        setError(err.response?.data?.message || "Failed to send OTP");
       } else {
         setError("Failed to send OTP");
       }
@@ -164,7 +164,7 @@ export default function RegisterPage() {
       }
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        const msg = err.response?.data?.error || "";
+        const msg = err.response?.data?.message || "";
         if (
           msg.toLowerCase().includes("otp") ||
           msg.toLowerCase().includes("code")

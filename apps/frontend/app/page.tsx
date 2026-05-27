@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { fetchCurrentUser } from '@/redux/features/authSlice';
+import { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useAppDispatch, useAppSelector } from "@/redux/hooks";
+import { fetchCurrentUser } from "@/redux/features/authSlice";
 
 export default function RootPage() {
   const dispatch = useAppDispatch();
@@ -18,7 +18,7 @@ export default function RootPage() {
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
-    
+
     dispatch(fetchCurrentUser())
       .unwrap()
       .catch((err) => {
@@ -34,20 +34,20 @@ export default function RootPage() {
 
     if (user) {
       console.log("✅ User authenticated, redirecting to chat");
-      window.location.replace('/chat');
-      
+      window.location.replace("/chat");
+
       // router.replace('/chat');
     } else {
       console.log("❌ No user session, redirecting to login");
-      window.location.replace('/login');
+      window.location.replace("/login");
     }
   }, [sessionLoading, user, router]);
 
   useEffect(() => {
-  const suppress = (e: MouseEvent) => e.preventDefault();
-  document.addEventListener("contextmenu", suppress);
-  return () => document.removeEventListener("contextmenu", suppress);
-}, []);
+    const suppress = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", suppress);
+    return () => document.removeEventListener("contextmenu", suppress);
+  }, []);
 
   return (
     <div className="flex h-screen items-center justify-center bg-base-200">

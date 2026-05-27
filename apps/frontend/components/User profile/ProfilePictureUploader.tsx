@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAppDispatch } from "@/redux/hooks";
 import { updateProfilePicture } from "@/redux/features/profileSlice";
 import { uploadProfilePictureToS3 } from "@/utils/uploadToS3";
-import avatar from "@/public/default-pfp.png";
+import defaultPFP from "@/public/default-pfp.png";
 import Image from "next/image";
 import { Edit, Upload, Trash2 } from "lucide-react";
 import ImageCropModal from "./ProfilePictureCropModal";
@@ -15,8 +15,6 @@ export default function ProfilePictureUploader({
   currentUrl?: string | null;
 }) {
   const dispatch = useAppDispatch();
-
-  const [preview, setPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [open, setOpen] = useState(false);
   const [cropImage, setCropImage] = useState<string | null>(null);
@@ -91,7 +89,7 @@ export default function ProfilePictureUploader({
           }}
         >
           <Image
-            src={preview || currentUrl || avatar}
+            src={currentUrl || defaultPFP}
             alt="Profile"
             fill
             className="object-cover"

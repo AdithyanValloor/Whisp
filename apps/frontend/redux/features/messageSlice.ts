@@ -40,7 +40,7 @@ export interface MessageType {
       _id: string;
       username: string;
       displayName?: string;
-      profilePicture?: { url: string | null };
+      profilePicture?: { key: string | null };
     };
   } | null;
   reactions?: {

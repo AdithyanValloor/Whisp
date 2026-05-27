@@ -164,10 +164,10 @@ export default function ForwardModal({
                               username: getChatDisplayName(chat),
                               displayName: getChatDisplayName(chat),
                               profilePicture: chat.isGroup
-                                ? { url: null }
-                                : chat.members.find(
+                                ? { key: chat.avatar?.key ?? null }
+                                :{ key: chat.members.find(
                                     (m) => m._id !== currentUser?._id,
-                                  )?.profilePicture,
+                                  )?.profilePicture?.key ?? null },
                             }}
                             msgId={chat._id}
                             hideLastMessage
