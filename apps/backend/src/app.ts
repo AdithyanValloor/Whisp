@@ -14,21 +14,20 @@ import { registerRoutes } from "./routes.js";
 export const createApp = (): Application => {
   const app = express();
 
-  // Keep explicit local origins during development while allowing cookies.
-  // app.use(
-  //   cors({
-  //     origin: true, // Restrict in production via env (e.g., CLIENT_URL)
-  //     credentials: true,
-  //   })
-  // );
+  const clientOrigins =
+    process.env.CLIENT_URLS?.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean) || [];
+
+  if (clientOrigins.length === 0) {
+    console.warn(
+      "CLIENT_URLS not set in environment variables. CORS may be misconfigured.",
+    );
+  }
 
   app.use(
     cors({
-      origin: [
-        "http://localhost:3000",
-        "http://192.168.20.50:3000",
-        "http://192.168.20.50:3001",
-      ],
+      origin: clientOrigins,
       credentials: true,
     }),
   );

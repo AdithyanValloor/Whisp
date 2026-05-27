@@ -24,6 +24,13 @@ export const startServer = async (): Promise<void> => {
 
     initSocket(server);
 
+    app.get("/", (_, res) => {
+      res.status(200).json({
+        success: true,
+        message: "Convy backend is running",
+      });
+    });
+
     server.listen(PORT, () => {
       console.log(`[Server] Running on port ${PORT}`);
     });
